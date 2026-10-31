@@ -41,7 +41,9 @@ function processImageFile(file: File | Blob): Promise<string> {
       const img = new Image()
       img.onerror = () => reject(new Error('Não foi possível decodificar a imagem.'))
       img.onload = () => {
-        const MAX_SIZE = 1200
+        // Redimensiona para foto de perfil / capa (no máximo 800px no maior lado)
+        // proporcionando alta nitidez e tamanho em base64 muito bem controlado
+        const MAX_SIZE = 800
         let { width, height } = img
 
         if (width > MAX_SIZE || height > MAX_SIZE) {
@@ -64,9 +66,8 @@ function processImageFile(file: File | Blob): Promise<string> {
         }
 
         ctx.drawImage(img, 0, 0, width, height)
-        // Se já for PNG pequeno, pode preservar, senão JPEG com qualidade 0.85
-        const mime = file.type === 'image/png' && file.size < 300000 ? 'image/png' : 'image/jpeg'
-        const compressed = canvas.toDataURL(mime, 0.85)
+        // Sempre codifica em JPEG 0.80 para fotos com excelente fidelidade visual e payload enxuto
+        const compressed = canvas.toDataURL('image/jpeg', 0.8)
         resolve(compressed)
       }
       img.src = dataUrl
@@ -313,13 +314,25 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
     if (!videoRef.current) return
     const video = videoRef.current
     const canvas = document.createElement('canvas')
-    canvas.width = video.videoWidth || 640
-    canvas.height = video.videoHeight || 480
+    let w = video.videoWidth || 640
+    let h = video.videoHeight || 480
+    const MAX_DIM = 800
+    if (w > MAX_DIM || h > MAX_DIM) {
+      if (w > h) {
+        h = Math.round((h * MAX_DIM) / w)
+        w = MAX_DIM
+      } else {
+        w = Math.round((w * MAX_DIM) / h)
+        h = MAX_DIM
+      }
+    }
+    canvas.width = w
+    canvas.height = h
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    const base64 = canvas.toDataURL('image/jpeg', 0.85)
+    ctx.drawImage(video, 0, 0, w, h)
+    const base64 = canvas.toDataURL('image/jpeg', 0.8)
     onChange(base64)
 
     // Fecha webcam

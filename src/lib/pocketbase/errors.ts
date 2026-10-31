@@ -20,44 +20,35 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
-export function isAuthExpiredError(error: unknown): boolean {
-  if (error instanceof ClientResponseError) {
-    return error.status === 401 || error.status === 403
-  }
-  if (error && typeof error === 'object' && 'status' in error) {
-    const status = (error as { status: unknown }).status
-    if (status === 401 || status === 403) return true
-  }
-  const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
-  return (
-    msg.includes('token') ||
-    msg.includes('sessão expirada') ||
-    msg.includes('unauthorized') ||
-    msg.includes('forbidden') ||
-    msg.includes('authenticated')
-  )
-}
-
 export function getErrorMessage(error: unknown): string {
   if (!(error instanceof ClientResponseError)) {
-    return error instanceof Error
-      ? error.message
-      : 'Ocorreu um erro inesperado no Sistema Infanto-CEP.'
+    return error instanceof Error ? error.message : 'An unexpected error occurred.'
   }
-  if (error.status === 401 || error.status === 403) {
-    return 'Sua sessão expirou ou você não tem permissão para esta operação no Sistema Infanto-CEP.'
+  const msgs = Object.values(extractFieldErrors(error))
+  return msgs.length > 0 ? msgs.join(' ') : error.message || 'An unexpected error occurred.'
+}
+
+export function isAuthExpiredError(error: unknown): boolean {
+  if (error instanceof ClientResponseError) {
+    if (error.status === 401) return true
+    if (
+      error.status === 403 &&
+      typeof error.message === 'string' &&
+      error.message.toLowerCase().includes('token')
+    ) {
+      return true
+    }
   }
-  const fieldErrors = extractFieldErrors(error)
-  const msgs = Object.values(fieldErrors)
-  if (msgs.length > 0) {
-    return msgs.join(' ')
+  if (error && typeof error === 'object' && 'message' in error) {
+    const msg = String((error as { message: unknown }).message).toLowerCase()
+    if (
+      msg.includes('token expired') ||
+      msg.includes('jwt expired') ||
+      msg.includes('unauthorized') ||
+      msg.includes('sessão expirada')
+    ) {
+      return true
+    }
   }
-  if (
-    error.message &&
-    error.message !== 'Failed to update record.' &&
-    error.message !== 'Failed to create record.'
-  ) {
-    return error.message
-  }
-  return 'Não foi possível salvar os dados. Verifique os campos informados e tente novamente.'
+  return false
 }

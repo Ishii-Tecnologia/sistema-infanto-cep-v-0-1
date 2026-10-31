@@ -807,7 +807,11 @@ export default function LibraryPage() {
           }
         }}
       >
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-lg max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>
               {editingBook ? 'Editar Ficha do Livro' : 'Cadastrar Livro no Acervo'}
@@ -991,7 +995,10 @@ export default function LibraryPage() {
 
       {/* Modal: Editar Exemplar (Código, Estado, Status, Notas) */}
       <Dialog open={copyEditOpen} onOpenChange={setCopyEditOpen}>
-        <DialogContent>
+        <DialogContent
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Editar Exemplar</DialogTitle>
             <DialogDescription className="text-xs">
@@ -1086,7 +1093,10 @@ export default function LibraryPage() {
 
       {/* Modal: Novo Exemplar para Livro Existente */}
       <Dialog open={addCopyOpen} onOpenChange={setAddCopyOpen}>
-        <DialogContent>
+        <DialogContent
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Adicionar Novo Exemplar</DialogTitle>
             <DialogDescription className="text-xs">
@@ -1126,7 +1136,10 @@ export default function LibraryPage() {
 
       {/* Modal: Novo Empréstimo */}
       <Dialog open={loanOpen} onOpenChange={setLoanOpen}>
-        <DialogContent>
+        <DialogContent
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Registrar Empréstimo de Livro</DialogTitle>
             <DialogDescription className="text-xs">

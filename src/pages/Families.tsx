@@ -549,7 +549,11 @@ export default function FamiliesPage() {
 
       {/* Modal: Detalhes da Família Selecionada */}
       <Dialog open={!!selectedFamily} onOpenChange={(open) => !open && setSelectedFamily(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           {selectedFamily && (
             <div>
               <DialogHeader className="border-b pb-3">
@@ -723,7 +727,11 @@ export default function FamiliesPage() {
 
       {/* WIZARD DE CADASTRO EM 4 ETAPAS */}
       <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-2xl max-h-[92vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader className="border-b pb-3">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-lg font-bold">
