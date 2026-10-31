@@ -40,6 +40,7 @@ import { useAcademic, SchoolYearConfig, RecessSaturday } from '@/contexts/Academ
 import { formatDate } from '@/lib/academic'
 import { syncOrRegenerateCalendar } from '@/services/calendarGenerator'
 import { DatePickerBR } from '@/components/DatePickerBR'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { Plus, X, Sliders, RefreshCw } from 'lucide-react'
 
 export default function SettingsPage() {
@@ -170,12 +171,19 @@ export default function SettingsPage() {
 
     try {
       await settingsService.createUser(userForm)
-      toast({ title: 'Operador criado com sucesso!' })
+      toast({
+        title: 'Operador criado com sucesso!',
+        description: 'Novo acesso registrado no Sistema Infanto-CEP.',
+      })
       setUserModalOpen(false)
       setUserForm({ name: '', email: '', role: 'professor', password: 'Skip@Pass' })
       loadData()
     } catch (err: any) {
-      toast({ title: 'Erro ao criar', description: err?.message, variant: 'destructive' })
+      toast({
+        title: 'Erro ao criar operador',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
     }
   }
 
@@ -184,10 +192,15 @@ export default function SettingsPage() {
       await settingsService.updateUser(user.id, { active: !user.active })
       toast({
         title: user.active ? 'Operador desativado' : 'Operador reativado',
+        description: `O status de ${user.name} foi atualizado no Sistema Infanto-CEP.`,
       })
       loadData()
     } catch (err: any) {
-      toast({ title: 'Erro', description: err?.message, variant: 'destructive' })
+      toast({
+        title: 'Erro ao alterar status',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
     }
   }
 

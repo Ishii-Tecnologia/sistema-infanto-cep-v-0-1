@@ -224,7 +224,14 @@ export const libraryService = {
   },
 
   async updateCopy(id: string, data: Partial<BookCopy>): Promise<BookCopy> {
-    return pb.collection('book_copies').update<BookCopy>(id, data)
+    const sanitized: Record<string, any> = {}
+    if (data.book_id !== undefined && data.book_id) sanitized.book_id = data.book_id
+    if (data.copy_number !== undefined) sanitized.copy_number = data.copy_number.trim()
+    if (data.condition !== undefined) sanitized.condition = data.condition
+    if (data.status !== undefined) sanitized.status = data.status
+    if (data.notes !== undefined) sanitized.notes = (data.notes || '').trim()
+
+    return pb.collection('book_copies').update<BookCopy>(id, sanitized)
   },
 
   async deleteCopy(id: string): Promise<boolean> {

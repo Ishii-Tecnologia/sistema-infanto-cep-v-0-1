@@ -45,17 +45,18 @@ export const dimdimService = {
     }
 
     // Salvar transação
-    const tx = await pb.collection('dimdim_transactions').create<DimDimTransaction>({
+    const txPayload: Record<string, any> = {
       child_id: childId,
       type,
       amount,
-      reason,
+      reason: (reason || '').trim(),
       category,
-      reversal_of_id: reversalOfId || '',
-      notes: notes || '',
-    })
+      reversal_of_id: (reversalOfId || '').trim(),
+      notes: (notes || '').trim(),
+    }
+    const tx = await pb.collection('dimdim_transactions').create<DimDimTransaction>(txPayload)
 
-    // Atualizar saldo na ficha da criança
+    // Atualizar saldo na ficha da criança enviando somente dimdim_balance
     await pb.collection('children').update(childId, {
       dimdim_balance: newBalance,
     })
@@ -98,9 +99,10 @@ export const dimdimService = {
       child_id: originalTx.child_id,
       type: 'reversal',
       amount: originalTx.amount,
-      reason: `${reason} (Ref: ${originalTx.reason})`,
+      reason: `${reason} (Ref: ${originalTx.reason})`.trim(),
       category: originalTx.category,
       reversal_of_id: txId,
+      notes: '',
     })
 
     await pb.collection('children').update(originalTx.child_id, {

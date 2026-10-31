@@ -48,8 +48,14 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ImageCaptureInput } from '@/components/ImageCaptureInput'
+import { getErrorMessage, isAuthExpiredError } from '@/lib/pocketbase/errors'
+import pb from '@/lib/pocketbase/client'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function FamiliesPage() {
+  const navigate = useNavigate()
+  const { logout } = useAuth()
   const { toast } = useToast()
   const {
     classrooms,
@@ -133,6 +139,21 @@ export default function FamiliesPage() {
     loadFamilies()
   }, [])
 
+  const checkAuthAndHandleExpired = (err: unknown): boolean => {
+    if (!pb.authStore.isValid || isAuthExpiredError(err)) {
+      toast({
+        title: 'Sessão Expirada',
+        description:
+          'Sua sessão no Sistema Infanto-CEP expirou. Você está sendo redirecionado para a tela de login.',
+        variant: 'destructive',
+      })
+      logout()
+      navigate('/login')
+      return true
+    }
+    return false
+  }
+
   const loadFamilies = async () => {
     try {
       setLoading(true)
@@ -140,9 +161,10 @@ export default function FamiliesPage() {
       setFamilies(data)
     } catch (err) {
       console.error('Erro ao carregar famílias:', err)
+      if (checkAuthAndHandleExpired(err)) return
       toast({
         title: 'Erro ao carregar famílias',
-        description: 'Não foi possível buscar as famílias no servidor.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       })
     } finally {
@@ -248,6 +270,11 @@ export default function FamiliesPage() {
       return
     }
 
+    if (!pb.authStore.isValid) {
+      checkAuthAndHandleExpired(new Error('Sessão expirada'))
+      return
+    }
+
     try {
       setSaving(true)
       if (editingFamily) {
@@ -259,22 +286,25 @@ export default function FamiliesPage() {
         )
         toast({
           title: 'Ficha atualizada com sucesso!',
-          description: 'As informações da família, responsáveis e crianças foram salvas.',
+          description:
+            'As informações da família, responsáveis e crianças foram salvas no Sistema Infanto-CEP.',
         })
       } else {
         await familyService.create(wizardFamily, wizardGuardians, wizardChildren)
         toast({
           title: 'Família cadastrada com sucesso!',
-          description: 'Os responsáveis e crianças foram vinculados e classificados.',
+          description:
+            'Os responsáveis e crianças foram vinculados e classificados no Sistema Infanto-CEP.',
         })
       }
       setWizardOpen(false)
       setSelectedFamily(null)
       loadFamilies()
     } catch (err: any) {
+      if (checkAuthAndHandleExpired(err)) return
       toast({
         title: editingFamily ? 'Erro ao salvar alterações' : 'Erro ao cadastrar',
-        description: err?.message || 'Ocorreu um erro ao salvar os dados.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       })
     } finally {

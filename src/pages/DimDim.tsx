@@ -38,6 +38,7 @@ import {
   Pencil,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 
 export default function DimDimPage() {
   const { toast } = useToast()
@@ -127,7 +128,11 @@ export default function DimDimPage() {
       setTxOpen(false)
       loadDimDimData()
     } catch (err: any) {
-      toast({ title: 'Erro ao lançar', description: err?.message, variant: 'destructive' })
+      toast({
+        title: 'Erro ao lançar transação',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
     }
   }
 
@@ -153,7 +158,11 @@ export default function DimDimPage() {
       setQuickOpen(false)
       loadDimDimData()
     } catch (err: any) {
-      toast({ title: 'Erro', description: err?.message, variant: 'destructive' })
+      toast({
+        title: 'Erro no crédito coletivo',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
     }
   }
 
@@ -180,7 +189,7 @@ export default function DimDimPage() {
     } catch (err: any) {
       toast({
         title: 'Erro ao atualizar saldo',
-        description: err?.message,
+        description: getErrorMessage(err),
         variant: 'destructive',
       })
     } finally {
@@ -197,7 +206,11 @@ export default function DimDimPage() {
       })
       loadDimDimData()
     } catch (err: any) {
-      toast({ title: 'Erro ao estornar', description: err?.message, variant: 'destructive' })
+      toast({
+        title: 'Erro ao estornar transação',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
     }
   }
 

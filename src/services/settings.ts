@@ -52,18 +52,27 @@ export const settingsService = {
   },
 
   async createUser(data: Partial<User> & { password?: string }): Promise<User> {
-    return pb.collection('users').create<User>({
-      email: data.email,
+    const payload: Record<string, any> = {
+      email: (data.email || '').trim().toLowerCase(),
       password: data.password || 'Skip@Pass',
       passwordConfirm: data.password || 'Skip@Pass',
-      name: data.name,
+      name: (data.name || '').trim(),
       role: data.role || 'auxiliar',
       active: data.active !== false,
-    })
+    }
+    return pb.collection('users').create<User>(payload)
   },
 
   async updateUser(id: string, data: Partial<User>): Promise<User> {
-    return pb.collection('users').update<User>(id, data)
+    const payload: Record<string, any> = {}
+    if (data.name !== undefined) payload.name = (data.name || '').trim()
+    if (data.role !== undefined) payload.role = data.role
+    if (data.active !== undefined) payload.active = Boolean(data.active)
+    if (data.email !== undefined && data.email.trim()) {
+      payload.email = data.email.trim().toLowerCase()
+    }
+
+    return pb.collection('users').update<User>(id, payload)
   },
 
   async deleteUser(id: string): Promise<boolean> {
