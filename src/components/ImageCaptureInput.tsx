@@ -116,10 +116,6 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
             try {
               const base64 = await processImageFile(file)
               onChange(base64)
-              toast({
-                title: 'Imagem colada!',
-                description: 'A imagem foi importada da área de transferência.',
-              })
             } catch (err: any) {
               toast({
                 title: 'Erro ao colar imagem',
@@ -182,10 +178,6 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
             const base64 = await processImageFile(blob)
             onChange(base64)
             found = true
-            toast({
-              title: 'Imagem colada!',
-              description: 'A imagem da área de transferência foi importada.',
-            })
             break
           }
         }
@@ -199,10 +191,6 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
               text.startsWith('data:image/'))
           ) {
             onChange(text.trim())
-            toast({
-              title: 'Link colado!',
-              description: 'URL de imagem colada da área de transferência.',
-            })
             found = true
           }
         }
@@ -222,10 +210,6 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
             text.startsWith('data:image/'))
         ) {
           onChange(text.trim())
-          toast({
-            title: 'Link colado!',
-            description: 'URL de imagem colada da área de transferência.',
-          })
         } else {
           toast({
             title: 'Dica para colar',

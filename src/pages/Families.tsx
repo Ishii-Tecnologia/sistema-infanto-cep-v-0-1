@@ -193,7 +193,7 @@ export default function FamiliesPage() {
         phone: '',
         email: '',
         is_emergency_contact: true,
-        photo_url: 'https://img.usecurling.com/ppl/medium?gender=female&seed=10',
+        photo_url: '',
       },
     ])
     const initialBirthDate = '2020-05-15'
@@ -205,7 +205,7 @@ export default function FamiliesPage() {
         allergies: '',
         medical_notes: '',
         image_authorized: true,
-        photo_url: 'https://img.usecurling.com/ppl/medium?gender=male&seed=11',
+        photo_url: '',
       },
     ])
     setWizardOpen(true)
