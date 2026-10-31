@@ -51,6 +51,14 @@ function sanitizeGuardianPayload(data: Partial<Guardian>): Record<string, any> {
     const trimmed = (data.email || '').trim()
     payload.email = trimmed === '' ? '' : trimmed
   }
+  if (data.birth_date !== undefined) {
+    if (data.birth_date && data.birth_date.trim()) {
+      const raw = data.birth_date.trim()
+      payload.birth_date = raw.includes('T') || raw.includes(' ') ? raw : `${raw} 00:00:00.000Z`
+    } else {
+      payload.birth_date = ''
+    }
+  }
   if (data.is_emergency_contact !== undefined) {
     payload.is_emergency_contact = Boolean(data.is_emergency_contact)
   }
@@ -77,8 +85,8 @@ function sanitizeChildPayload(data: Partial<Child>): Record<string, any> {
     const raw = data.birth_date
     payload.birth_date = raw.includes('T') || raw.includes(' ') ? raw : `${raw} 00:00:00.000Z`
   }
-  if (data.classroom !== undefined) {
-    payload.classroom = data.classroom || 'A'
+  if (data.classroom !== undefined && data.classroom) {
+    payload.classroom = data.classroom
   }
   if (data.photo_url !== undefined) {
     payload.photo_url = (data.photo_url || '').trim()
@@ -224,6 +232,7 @@ export const familyService = {
       const payload = sanitizeGuardianPayload({
         name: g.name,
         relationship: g.relationship,
+        birth_date: g.birth_date,
         phone: g.phone,
         email: g.email,
         is_emergency_contact: g.is_emergency_contact,

@@ -11,15 +11,30 @@ export function calculateAgeOnCutoffDate(
   cutoffDay = 1,
 ): number {
   if (!birthDateStr) return 0
-  const birth = new Date(birthDateStr)
-  if (isNaN(birth.getTime())) return 0
+
+  // Trata formato YYYY-MM-DD diretamente sem depender de fuso horário
+  let birthYear = 0
+  let birthMonth = 0 // 0-indexed
+  let birthDay = 0
+
+  const clean = birthDateStr.trim().split('T')[0].split(' ')[0]
+  const match = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (match) {
+    birthYear = parseInt(match[1], 10)
+    birthMonth = parseInt(match[2], 10) - 1
+    birthDay = parseInt(match[3], 10)
+  } else {
+    const birth = new Date(birthDateStr)
+    if (isNaN(birth.getTime())) return 0
+    birthYear = birth.getFullYear()
+    birthMonth = birth.getMonth()
+    birthDay = birth.getDate()
+  }
 
   const yearToUse = cutoffYear ?? new Date().getFullYear()
-  let age = yearToUse - birth.getFullYear()
-  const birthMonth = birth.getMonth() // 0-indexed (2 = março)
-  const birthDay = birth.getDate()
+  let age = yearToUse - birthYear
 
-  // Se o aniversário ainda não ocorreu antes ou no dia de corte
+  // Se o aniversário ainda não ocorreu até a data de corte (1º de março inclusive)
   if (birthMonth > cutoffMonth || (birthMonth === cutoffMonth && birthDay > cutoffDay)) {
     age -= 1
   }

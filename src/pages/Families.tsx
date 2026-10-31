@@ -48,6 +48,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ImageCaptureInput } from '@/components/ImageCaptureInput'
+import { DatePickerBR } from '@/components/DatePickerBR'
 import { getErrorMessage, isAuthExpiredError } from '@/lib/pocketbase/errors'
 import pb from '@/lib/pocketbase/client'
 import { useNavigate } from 'react-router-dom'
@@ -96,6 +97,7 @@ export default function FamiliesPage() {
       id?: string
       name: string
       relationship: string
+      birth_date?: string
       phone: string
       email: string
       is_emergency_contact: boolean
@@ -105,6 +107,7 @@ export default function FamiliesPage() {
     {
       name: '',
       relationship: 'Mãe',
+      birth_date: '',
       phone: '',
       email: '',
       is_emergency_contact: true,
@@ -186,17 +189,19 @@ export default function FamiliesPage() {
       {
         name: '',
         relationship: 'Mãe',
+        birth_date: '',
         phone: '',
         email: '',
         is_emergency_contact: true,
         photo_url: 'https://img.usecurling.com/ppl/medium?gender=female&seed=10',
       },
     ])
+    const initialBirthDate = '2020-05-15'
     setWizardChildren([
       {
         name: '',
-        birth_date: '2020-05-15',
-        classroom: 'B',
+        birth_date: initialBirthDate,
+        classroom: classifyChild(initialBirthDate) || 'A',
         allergies: '',
         medical_notes: '',
         image_authorized: true,
@@ -223,6 +228,7 @@ export default function FamiliesPage() {
       {
         name: '',
         relationship: 'Pai',
+        birth_date: '',
         phone: '',
         email: '',
         is_emergency_contact: false,
@@ -239,12 +245,13 @@ export default function FamiliesPage() {
   }
 
   const handleAddChild = () => {
+    const newBirthDate = '2021-03-10'
     setWizardChildren([
       ...wizardChildren,
       {
         name: '',
-        birth_date: '2021-03-10',
-        classroom: 'A',
+        birth_date: newBirthDate,
+        classroom: classifyChild(newBirthDate) || 'A',
         allergies: '',
         medical_notes: '',
         image_authorized: true,
@@ -329,6 +336,7 @@ export default function FamiliesPage() {
             id: g.id,
             name: g.name || '',
             relationship: g.relationship || '',
+            birth_date: (g.birth_date || '').slice(0, 10),
             phone: g.phone || '',
             email: g.email || '',
             is_emergency_contact: !!g.is_emergency_contact,
@@ -339,6 +347,7 @@ export default function FamiliesPage() {
               id: undefined,
               name: '',
               relationship: 'Mãe',
+              birth_date: '',
               phone: '',
               email: '',
               is_emergency_contact: true,
@@ -348,22 +357,26 @@ export default function FamiliesPage() {
     )
     setWizardChildren(
       (fam.children || []).length > 0
-        ? fam.children!.map((c) => ({
-            id: c.id,
-            name: c.name || '',
-            birth_date: (c.birth_date || '').slice(0, 10),
-            classroom: (c.classroom || 'A') as ClassroomId,
-            allergies: c.allergies || '',
-            medical_notes: c.medical_notes || '',
-            image_authorized: c.image_authorized !== false,
-            photo_url: c.photo_url || '',
-          }))
+        ? fam.children!.map((c) => {
+            const rawBirth = (c.birth_date || '').slice(0, 10)
+            const autoClass = rawBirth ? classifyChild(rawBirth) : undefined
+            return {
+              id: c.id,
+              name: c.name || '',
+              birth_date: rawBirth,
+              classroom: (autoClass || c.classroom || 'A') as ClassroomId,
+              allergies: c.allergies || '',
+              medical_notes: c.medical_notes || '',
+              image_authorized: c.image_authorized !== false,
+              photo_url: c.photo_url || '',
+            }
+          })
         : [
             {
               id: undefined,
               name: '',
               birth_date: '2020-05-15',
-              classroom: 'A',
+              classroom: classifyChild('2020-05-15') || 'A',
               allergies: '',
               medical_notes: '',
               image_authorized: true,
@@ -618,6 +631,7 @@ export default function FamiliesPage() {
                           </p>
                           <p className="text-muted-foreground">
                             {g.relationship} • {g.phone || 'Sem tel'}
+                            {g.birth_date ? ` • Nasc: ${formatDate(g.birth_date)}` : ''}
                           </p>
                           {g.is_emergency_contact && (
                             <Badge
@@ -898,6 +912,19 @@ export default function FamiliesPage() {
                       </div>
 
                       <div className="space-y-1">
+                        <Label className="text-xs">Data de Nascimento</Label>
+                        <DatePickerBR
+                          value={guardian.birth_date}
+                          onChange={(isoDate) => {
+                            const updated = [...wizardGuardians]
+                            updated[index].birth_date = isoDate
+                            setWizardGuardians(updated)
+                          }}
+                          placeholder="dd/mm/aaaa"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
                         <Label className="text-xs">Telefone</Label>
                         <Input
                           placeholder="(11) 99999-9999"
@@ -910,7 +937,7 @@ export default function FamiliesPage() {
                         />
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1 sm:col-span-2">
                         <Label className="text-xs">E-mail</Label>
                         <Input
                           type="email"
@@ -1038,10 +1065,10 @@ export default function FamiliesPage() {
                               </span>
                             )}
                           </div>
-                          <Input
-                            type="date"
+                          <DatePickerBR
                             value={child.birth_date}
-                            onChange={(e) => handleBirthDateChange(index, e.target.value)}
+                            onChange={(isoDate) => handleBirthDateChange(index, isoDate)}
+                            placeholder="dd/mm/aaaa"
                           />
                         </div>
 
@@ -1143,11 +1170,18 @@ export default function FamiliesPage() {
                     {wizardGuardians.map((g, i) => (
                       <div
                         key={i}
-                        className="p-2 border rounded bg-white dark:bg-slate-900 flex justify-between"
+                        className="p-2 border rounded bg-white dark:bg-slate-900 flex justify-between items-center"
                       >
-                        <span>
-                          {g.name || 'Sem nome'} ({g.relationship})
-                        </span>
+                        <div>
+                          <span>
+                            {g.name || 'Sem nome'} ({g.relationship})
+                          </span>
+                          {g.birth_date && (
+                            <span className="text-muted-foreground ml-2">
+                              • Nasc: {formatDate(g.birth_date)}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-muted-foreground">{g.phone}</span>
                       </div>
                     ))}

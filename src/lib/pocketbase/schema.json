@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T17:09:32.351Z",
+  "generatedAt": "2026-10-31T20:29:52.822Z",
   "collections": [
     {
       "name": "users",
@@ -228,6 +228,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "birth_date",
+          "type": "date",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_guardians_family ON guardians (family_id)"]

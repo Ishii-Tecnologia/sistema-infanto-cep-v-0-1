@@ -77,6 +77,7 @@ export interface Guardian {
   family_id: string
   name: string
   relationship?: string
+  birth_date?: string
   phone?: string
   email?: string
   is_emergency_contact?: boolean

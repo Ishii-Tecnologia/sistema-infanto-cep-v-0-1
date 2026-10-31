@@ -158,11 +158,11 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const calculateAge = useCallback(
     (birthDateStr: string): number => {
       if (!birthDateStr) return 0
-      const baseDate = schoolYear.ageBaseDate || `${schoolYear.year || CURRENT_YEAR}-03-01`
+      const baseDate = schoolYear?.ageBaseDate || `${schoolYear?.year || CURRENT_YEAR}-03-01`
       const [y, m, d] = baseDate.split('-').map(Number)
       return calculateAgeOnCutoffDate(
         birthDateStr,
-        y || schoolYear.year || CURRENT_YEAR,
+        y || schoolYear?.year || CURRENT_YEAR,
         (m || 3) - 1,
         d || 1,
       )

@@ -194,12 +194,22 @@ export function DatePickerBR({
               <CalendarIcon className="h-4 w-4" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="end">
+          <PopoverContent
+            className="w-auto p-0"
+            align="end"
+            onInteractOutside={(e) => {
+              // Permite clicar fora do popover para fechar o calendário sem fechar o modal pai
+              e.stopPropagation()
+            }}
+          >
             <Calendar
               mode="single"
               selected={selectedDate}
               onSelect={handleSelectDate}
               defaultMonth={selectedDate || (value ? undefined : new Date())}
+              captionLayout="dropdown"
+              fromYear={1920}
+              toYear={new Date().getFullYear() + 2}
               initialFocus
             />
           </PopoverContent>
