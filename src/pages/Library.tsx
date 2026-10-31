@@ -50,18 +50,20 @@ export default function LibraryPage() {
   const [search, setSearch] = useState('')
 
   // Modal de Novo Livro / Edição de Livro
-  const [newBookOpen, setNewBookOpen] = useState(false)
-  const [editingBook, setEditingBook] = useState<Book | null>(null)
-  const [bookForm, setBookForm] = useState({
+  const initialEmptyBookForm = {
     title: '',
     author: '',
     publisher: '',
-    target_audience: 'Sala A / B',
-    category: 'Evangelho',
+    target_audience: '',
+    category: '',
     description: '',
     cover_url: '',
     initialCopies: 1,
-  })
+  }
+
+  const [newBookOpen, setNewBookOpen] = useState(false)
+  const [editingBook, setEditingBook] = useState<Book | null>(null)
+  const [bookForm, setBookForm] = useState(initialEmptyBookForm)
 
   // Regras da Biblioteca (carregadas das configurações do sistema)
   const [libraryRules, setLibraryRules] = useState({
@@ -116,14 +118,29 @@ export default function LibraryPage() {
     }
   }
 
+  const handleOpenNewBook = () => {
+    setEditingBook(null)
+    setBookForm({
+      title: '',
+      author: '',
+      publisher: '',
+      target_audience: '',
+      category: '',
+      description: '',
+      cover_url: '',
+      initialCopies: 1,
+    })
+    setNewBookOpen(true)
+  }
+
   const handleOpenEditBook = (book: Book) => {
     setEditingBook(book)
     setBookForm({
       title: book.title || '',
       author: book.author || '',
       publisher: book.publisher || '',
-      target_audience: book.target_audience || 'Sala A / B',
-      category: book.category || 'Evangelho',
+      target_audience: book.target_audience || '',
+      category: book.category || '',
       description: book.description || '',
       cover_url: book.cover_url || '',
       initialCopies: 1,
@@ -302,8 +319,8 @@ export default function LibraryPage() {
         title: '',
         author: '',
         publisher: '',
-        target_audience: 'Sala A / B',
-        category: 'Evangelho',
+        target_audience: '',
+        category: '',
         description: '',
         cover_url: '',
         initialCopies: 1,
@@ -402,9 +419,11 @@ export default function LibraryPage() {
             Novo Empréstimo
           </Button>
 
-          <Button onClick={() => setNewBookOpen(true)} variant="outline">
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Livro
+          <Button
+            onClick={handleOpenNewBook}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-400 font-medium shadow-xs"
+          >
+            <Plus className="h-4 w-4 mr-2" />+ Novo Livro
           </Button>
         </div>
       </div>
@@ -698,10 +717,22 @@ export default function LibraryPage() {
         open={newBookOpen}
         onOpenChange={(open) => {
           setNewBookOpen(open)
-          if (!open) setEditingBook(null)
+          if (!open) {
+            setEditingBook(null)
+            setBookForm({
+              title: '',
+              author: '',
+              publisher: '',
+              target_audience: '',
+              category: '',
+              description: '',
+              cover_url: '',
+              initialCopies: 1,
+            })
+          }
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingBook ? 'Editar Ficha do Livro' : 'Cadastrar Livro no Acervo'}
@@ -709,34 +740,96 @@ export default function LibraryPage() {
             <DialogDescription className="text-xs">
               {editingBook
                 ? 'Altere os dados da obra. Os exemplares físicos continuam vinculados.'
-                : 'Informe os dados da obra e a quantidade de exemplares físicos para gerar os códigos automaticamente.'}
+                : 'Nova inclusão no acervo. Preencha os dados da obra e veja o código automático gerado para os exemplares.'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-2 space-y-3 text-xs">
+          {/* Form com autocomplete desligado para neutralizar sugestões indesejadas do navegador */}
+          <form
+            autoComplete="off"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (editingBook) {
+                handleSaveBookEdit()
+              } else {
+                handleCreateBook()
+              }
+            }}
+            className="py-2 space-y-3 text-xs"
+          >
             <div className="space-y-1">
-              <Label>Título da Obra *</Label>
+              <Label htmlFor="book_title">Título da Obra *</Label>
               <Input
-                placeholder="Ex: O Evangelho da Meninada"
+                id="book_title"
+                name="book_title_field_no_ac"
+                autoComplete="off"
+                data-lpignore="true"
+                data-form-type="other"
+                placeholder="Digite o título do livro..."
                 value={bookForm.title}
                 onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })}
+                autoFocus
               />
             </div>
 
+            {/* Exibição em tempo real do código automático após preenchimento do nome do livro */}
+            {!editingBook && bookForm.title.trim().length > 0 && (
+              <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-start gap-2 animate-in fade-in-50 duration-200">
+                <Barcode className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 flex-1 min-w-0">
+                  <div className="flex items-center justify-between flex-wrap gap-1">
+                    <span className="font-semibold text-[11px] text-emerald-800 dark:text-emerald-300">
+                      Código automático do exemplar:
+                    </span>
+                    <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                      {bookForm.initialCopies > 1
+                        ? `${bookForm.initialCopies} códigos previstos`
+                        : '1 código previsto'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {libraryService
+                      .previewNewBookCopyCodes(bookForm.title, bookForm.initialCopies)
+                      .map((code) => (
+                        <Badge
+                          key={code}
+                          variant="outline"
+                          className="bg-white dark:bg-slate-900 border-emerald-300 text-emerald-800 dark:text-emerald-200 font-mono font-bold text-xs px-2 py-0.5"
+                        >
+                          {code}
+                        </Badge>
+                      ))}
+                  </div>
+                  <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80">
+                    Gerado automaticamente a partir das iniciais do título (
+                    {libraryService.generateTitleInitials(bookForm.title)}) + sequencial.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Autor / Psicografia</Label>
+                <Label htmlFor="book_author">Autor / Psicografia</Label>
                 <Input
-                  placeholder="Ex: Eliseu Rigonatti"
+                  id="book_author"
+                  name="book_author_field_no_ac"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  placeholder="Nome do autor..."
                   value={bookForm.author}
                   onChange={(e) => setBookForm({ ...bookForm, author: e.target.value })}
                 />
               </div>
 
               <div className="space-y-1">
-                <Label>Editora</Label>
+                <Label htmlFor="book_publisher">Editora</Label>
                 <Input
-                  placeholder="Ex: FEB, IDE..."
+                  id="book_publisher"
+                  name="book_publisher_field_no_ac"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  placeholder="Nome da editora..."
                   value={bookForm.publisher}
                   onChange={(e) => setBookForm({ ...bookForm, publisher: e.target.value })}
                 />
@@ -745,9 +838,13 @@ export default function LibraryPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Público / Sala</Label>
+                <Label htmlFor="book_audience">Público / Sala</Label>
                 <Input
-                  placeholder="Ex: Sala A / B"
+                  id="book_audience"
+                  name="book_audience_field_no_ac"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  placeholder="Ex: Sala A / B, Infantil..."
                   value={bookForm.target_audience}
                   onChange={(e) => setBookForm({ ...bookForm, target_audience: e.target.value })}
                 />
@@ -755,11 +852,12 @@ export default function LibraryPage() {
 
               {!editingBook && (
                 <div className="space-y-1">
-                  <Label>Exemplares Iniciais</Label>
+                  <Label htmlFor="book_copies">Quantidade de Exemplares</Label>
                   <Input
+                    id="book_copies"
                     type="number"
                     min={1}
-                    max={10}
+                    max={20}
                     value={bookForm.initialCopies}
                     onChange={(e) =>
                       setBookForm({ ...bookForm, initialCopies: parseInt(e.target.value) || 1 })
@@ -770,8 +868,12 @@ export default function LibraryPage() {
             </div>
 
             <div className="space-y-1">
-              <Label>Breve Sinopse</Label>
+              <Label htmlFor="book_description">Breve Sinopse</Label>
               <Input
+                id="book_description"
+                name="book_description_field_no_ac"
+                autoComplete="off"
+                data-lpignore="true"
                 placeholder="Descrição dos temas abordados..."
                 value={bookForm.description}
                 onChange={(e) => setBookForm({ ...bookForm, description: e.target.value })}
@@ -790,20 +892,25 @@ export default function LibraryPage() {
                 onChange={(cover) => setBookForm({ ...bookForm, cover_url: cover })}
               />
             </div>
-          </div>
 
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setNewBookOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              size="sm"
-              onClick={editingBook ? handleSaveBookEdit : handleCreateBook}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              {editingBook ? 'Salvar Alterações' : 'Salvar Obra'}
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setNewBookOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {editingBook ? 'Salvar Alterações' : 'Salvar Livro'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

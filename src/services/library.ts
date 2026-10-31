@@ -29,7 +29,7 @@ export const libraryService = {
   },
 
   /**
-   * Extrai as iniciais significativas do título da obra (ex.: "Pequeno Príncipe" -> "PP")
+   * Extrai as iniciais significativas do título da obra (ex.: "Pequeno Príncipe" -> "PP" ou palavras com 3 letras se palavra única)
    */
   generateTitleInitials(title: string): string {
     if (!title || typeof title !== 'string') return 'EX'
@@ -71,12 +71,33 @@ export const libraryService = {
     const meaningful = words.filter((w) => !stopWords.has(w.toUpperCase()))
     const chosen = meaningful.length > 0 ? meaningful : words
 
+    // Se temos 1 palavra apenas, pegamos até as 3 primeiras letras (ex.: "Evangelho" -> "EVA")
+    if (chosen.length === 1) {
+      const letters = chosen[0].slice(0, 3).toUpperCase()
+      return letters || 'EX'
+    }
+
     const initials = chosen
       .slice(0, 4)
       .map((w) => w[0].toUpperCase())
       .join('')
 
     return initials || 'EX'
+  },
+
+  /**
+   * Gera a lista de códigos previstos para uma nova obra com N exemplares iniciais
+   */
+  previewNewBookCopyCodes(title: string, copiesCount = 1): string[] {
+    const trimmed = (title || '').trim()
+    if (!trimmed) return []
+    const prefix = this.generateTitleInitials(trimmed)
+    const total = Math.max(1, copiesCount)
+    const codes: string[] = []
+    for (let i = 1; i <= total; i++) {
+      codes.push(`${prefix}-${i}`)
+    }
+    return codes
   },
 
   /**
