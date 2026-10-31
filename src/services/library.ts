@@ -153,12 +153,34 @@ export const libraryService = {
     }
   },
 
-  async createBook(bookData: Partial<Book>, initialCopies = 1): Promise<Book> {
-    const book = await pb.collection('books').create<Book>(bookData)
+  async createBook(
+    bookData: Partial<Book> & { initialCopies?: number },
+    initialCopies = 1,
+  ): Promise<Book> {
+    // Sanitizar payload da obra: remover campos não pertencentes à coleção books
+    // (como initialCopies do form) e tratar strings vazias
+    const sanitizedPayload: Record<string, any> = {
+      title: (bookData.title || '').trim(),
+    }
+
+    if (bookData.author !== undefined) sanitizedPayload.author = (bookData.author || '').trim()
+    if (bookData.publisher !== undefined)
+      sanitizedPayload.publisher = (bookData.publisher || '').trim()
+    if (bookData.target_audience !== undefined)
+      sanitizedPayload.target_audience = (bookData.target_audience || '').trim()
+    if (bookData.category !== undefined)
+      sanitizedPayload.category = (bookData.category || '').trim()
+    if (bookData.description !== undefined)
+      sanitizedPayload.description = (bookData.description || '').trim()
+    if (bookData.cover_url !== undefined)
+      sanitizedPayload.cover_url = (bookData.cover_url || '').trim()
+
+    const book = await pb.collection('books').create<Book>(sanitizedPayload)
     const prefix = this.generateTitleInitials(book.title || '')
 
+    const totalCopies = Math.max(1, bookData.initialCopies || initialCopies)
     const copies: BookCopy[] = []
-    for (let i = 1; i <= Math.max(1, initialCopies); i++) {
+    for (let i = 1; i <= totalCopies; i++) {
       const copyCode = `${prefix}-${i}`
       const copy = await pb.collection('book_copies').create<BookCopy>({
         book_id: book.id,
@@ -187,7 +209,18 @@ export const libraryService = {
   },
 
   async updateBook(id: string, data: Partial<Book>): Promise<Book> {
-    return pb.collection('books').update<Book>(id, data)
+    const sanitizedPayload: Record<string, any> = {}
+    if (data.title !== undefined) sanitizedPayload.title = data.title.trim()
+    if (data.author !== undefined) sanitizedPayload.author = (data.author || '').trim()
+    if (data.publisher !== undefined) sanitizedPayload.publisher = (data.publisher || '').trim()
+    if (data.target_audience !== undefined)
+      sanitizedPayload.target_audience = (data.target_audience || '').trim()
+    if (data.category !== undefined) sanitizedPayload.category = (data.category || '').trim()
+    if (data.description !== undefined)
+      sanitizedPayload.description = (data.description || '').trim()
+    if (data.cover_url !== undefined) sanitizedPayload.cover_url = (data.cover_url || '').trim()
+
+    return pb.collection('books').update<Book>(id, sanitizedPayload)
   },
 
   async updateCopy(id: string, data: Partial<BookCopy>): Promise<BookCopy> {

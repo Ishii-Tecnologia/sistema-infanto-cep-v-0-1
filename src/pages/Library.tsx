@@ -3,6 +3,10 @@ import { libraryService } from '@/services/library'
 import { childService } from '@/services/families'
 import { Book, BookCopy, BookLoan, Child } from '@/types'
 import { formatDate } from '@/lib/academic'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
+import pb from '@/lib/pocketbase/client'
+import { getErrorMessage, isAuthExpiredError } from '@/lib/pocketbase/errors'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +47,8 @@ import { ImageCaptureInput } from '@/components/ImageCaptureInput'
 
 export default function LibraryPage() {
   const { toast } = useToast()
+  const navigate = useNavigate()
+  const { logout } = useAuth()
   const [books, setBooks] = useState<Book[]>([])
   const [loans, setLoans] = useState<BookLoan[]>([])
   const [children, setChildren] = useState<Child[]>([])
@@ -97,6 +103,21 @@ export default function LibraryPage() {
     loadLibraryData()
   }, [])
 
+  const checkAuthAndHandleExpired = (err: unknown): boolean => {
+    if (!pb.authStore.isValid || isAuthExpiredError(err)) {
+      toast({
+        title: 'Sessão Expirada',
+        description:
+          'Sua sessão no Sistema Infanto-CEP expirou. Você está sendo redirecionado para a tela de login.',
+        variant: 'destructive',
+      })
+      logout()
+      navigate('/login')
+      return true
+    }
+    return false
+  }
+
   const loadLibraryData = async () => {
     try {
       setLoading(true)
@@ -113,6 +134,7 @@ export default function LibraryPage() {
       setLibraryRules(rules)
     } catch (err) {
       console.error('Erro ao carregar dados da biblioteca:', err)
+      checkAuthAndHandleExpired(err)
     } finally {
       setLoading(false)
     }
@@ -158,6 +180,11 @@ export default function LibraryPage() {
       return
     }
 
+    if (!pb.authStore.isValid) {
+      checkAuthAndHandleExpired(new Error('Sessão expirada'))
+      return
+    }
+
     try {
       await libraryService.updateBook(editingBook.id, {
         title: bookForm.title,
@@ -170,15 +197,16 @@ export default function LibraryPage() {
       })
       toast({
         title: 'Ficha do livro atualizada!',
-        description: 'As informações da obra foram salvas com sucesso.',
+        description: 'As informações da obra foram salvas com sucesso no Sistema Infanto-CEP.',
       })
       setNewBookOpen(false)
       setEditingBook(null)
       loadLibraryData()
     } catch (err: any) {
+      if (checkAuthAndHandleExpired(err)) return
       toast({
         title: 'Erro ao salvar alterações',
-        description: err?.message,
+        description: getErrorMessage(err),
         variant: 'destructive',
       })
     }
@@ -205,6 +233,11 @@ export default function LibraryPage() {
       return
     }
 
+    if (!pb.authStore.isValid) {
+      checkAuthAndHandleExpired(new Error('Sessão expirada'))
+      return
+    }
+
     try {
       setSavingCopy(true)
       await libraryService.updateCopy(editingCopy.id, {
@@ -221,9 +254,10 @@ export default function LibraryPage() {
       setEditingCopy(null)
       loadLibraryData()
     } catch (err: any) {
+      if (checkAuthAndHandleExpired(err)) return
       toast({
         title: 'Erro ao salvar exemplar',
-        description: err?.message,
+        description: getErrorMessage(err),
         variant: 'destructive',
       })
     } finally {
@@ -245,21 +279,28 @@ export default function LibraryPage() {
 
   const handleConfirmAddCopy = async () => {
     if (!bookForNewCopy) return
+
+    if (!pb.authStore.isValid) {
+      checkAuthAndHandleExpired(new Error('Sessão expirada'))
+      return
+    }
+
     try {
       setAddingCopy(true)
       await libraryService.addCopy(bookForNewCopy.id, newCopyCode)
       toast({
         title: 'Exemplar adicionado!',
-        description: `O exemplar ${newCopyCode} foi cadastrado com sucesso.`,
+        description: `O exemplar ${newCopyCode} foi cadastrado com sucesso no Sistema Infanto-CEP.`,
       })
       setAddCopyOpen(false)
       setBookForNewCopy(null)
       setNewCopyCode('')
       loadLibraryData()
     } catch (err: any) {
+      if (checkAuthAndHandleExpired(err)) return
       toast({
         title: 'Erro ao adicionar exemplar',
-        description: err?.message,
+        description: getErrorMessage(err),
         variant: 'destructive',
       })
     } finally {
@@ -286,15 +327,21 @@ export default function LibraryPage() {
       return
     }
 
+    if (!pb.authStore.isValid) {
+      checkAuthAndHandleExpired(new Error('Sessão expirada'))
+      return
+    }
+
     try {
       await libraryService.deleteCopy(copy.id)
       toast({
         title: 'Exemplar excluído',
-        description: `O código ${copy.copy_number} foi removido do acervo.`,
+        description: `O código ${copy.copy_number} foi removido do acervo no Sistema Infanto-CEP.`,
       })
       loadLibraryData()
     } catch (err: any) {
-      toast({ title: 'Erro ao excluir', description: err?.message, variant: 'destructive' })
+      if (checkAuthAndHandleExpired(err)) return
+      toast({ title: 'Erro ao excluir', description: getErrorMessage(err), variant: 'destructive' })
     }
   }
 
@@ -308,11 +355,18 @@ export default function LibraryPage() {
       return
     }
 
+    // Validação preventiva: sessão expirada ou usuário deslogado
+    if (!pb.authStore.isValid) {
+      checkAuthAndHandleExpired(new Error('Sessão expirada'))
+      return
+    }
+
     try {
       await libraryService.createBook(bookForm, bookForm.initialCopies)
       toast({
         title: 'Livro cadastrado!',
-        description: 'O título e seus exemplares foram criados com códigos sequenciais.',
+        description:
+          'O título e seus exemplares foram criados com códigos sequenciais no Sistema Infanto-CEP.',
       })
       setNewBookOpen(false)
       setBookForm({
@@ -327,7 +381,12 @@ export default function LibraryPage() {
       })
       loadLibraryData()
     } catch (err: any) {
-      toast({ title: 'Erro ao cadastrar', description: err?.message, variant: 'destructive' })
+      if (checkAuthAndHandleExpired(err)) return
+      toast({
+        title: 'Erro ao cadastrar',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
     }
   }
 
@@ -341,36 +400,52 @@ export default function LibraryPage() {
       return
     }
 
+    if (!pb.authStore.isValid) {
+      checkAuthAndHandleExpired(new Error('Sessão expirada'))
+      return
+    }
+
     try {
       const days = libraryRules.loanDurationDays || 7
       await libraryService.borrowBook(selectedCopyId, selectedChildId, days)
       toast({
         title: 'Empréstimo realizado!',
-        description: `Prazo de devolução de ${days} dias registrado com sucesso.`,
+        description: `Prazo de devolução de ${days} dias registrado com sucesso no Sistema Infanto-CEP.`,
       })
       setLoanOpen(false)
       setSelectedCopyId('')
       setSelectedChildId('')
       loadLibraryData()
     } catch (err: any) {
+      if (checkAuthAndHandleExpired(err)) return
       toast({
         title: 'Não foi possível emprestar',
-        description: err?.message || 'Verifique as regras de empréstimo.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       })
     }
   }
 
   const handleReturnBook = async (loanId: string) => {
+    if (!pb.authStore.isValid) {
+      checkAuthAndHandleExpired(new Error('Sessão expirada'))
+      return
+    }
+
     try {
       await libraryService.returnBook(loanId, 'bom')
       toast({
         title: 'Livro devolvido com sucesso!',
-        description: 'O exemplar está disponível novamente no acervo.',
+        description: 'O exemplar está disponível novamente no acervo no Sistema Infanto-CEP.',
       })
       loadLibraryData()
     } catch (err: any) {
-      toast({ title: 'Erro ao devolver', description: err?.message, variant: 'destructive' })
+      if (checkAuthAndHandleExpired(err)) return
+      toast({
+        title: 'Erro ao devolver',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
     }
   }
 
