@@ -5,7 +5,6 @@ import { Label } from '@/components/ui/label'
 import {
   Camera,
   Upload,
-  ClipboardPaste,
   Trash2,
   Image as ImageIcon,
   Check,
@@ -95,7 +94,6 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
   const [webcamOpen, setWebcamOpen] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
-  const [isPasting, setIsPasting] = useState(false)
 
   // Escuta evento de paste quando o container está em foco ou com o mouse sobre ele
   useEffect(() => {
@@ -161,75 +159,6 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
       })
     } finally {
       if (e.target) e.target.value = ''
-    }
-  }
-
-  // Tenta colar usando a Clipboard API do navegador (botão "Colar")
-  const handlePasteFromClipboard = async () => {
-    setIsPasting(true)
-    try {
-      if (navigator.clipboard && navigator.clipboard.read) {
-        const items = await navigator.clipboard.read()
-        let found = false
-        for (const item of items) {
-          const imageType = item.types.find((type) => type.startsWith('image/'))
-          if (imageType) {
-            const blob = await item.getType(imageType)
-            const base64 = await processImageFile(blob)
-            onChange(base64)
-            found = true
-            break
-          }
-        }
-        if (!found) {
-          // Tenta ler texto (pode ser uma URL de imagem copiada)
-          const text = await navigator.clipboard.readText()
-          if (
-            text &&
-            (text.startsWith('http://') ||
-              text.startsWith('https://') ||
-              text.startsWith('data:image/'))
-          ) {
-            onChange(text.trim())
-            found = true
-          }
-        }
-        if (!found) {
-          toast({
-            title: 'Nenhuma imagem na área de transferência',
-            description:
-              'Copie uma imagem (Ctrl+C ou botão direito) e tente novamente, ou cole com Ctrl+V.',
-          })
-        }
-      } else if (navigator.clipboard && navigator.clipboard.readText) {
-        const text = await navigator.clipboard.readText()
-        if (
-          text &&
-          (text.startsWith('http://') ||
-            text.startsWith('https://') ||
-            text.startsWith('data:image/'))
-        ) {
-          onChange(text.trim())
-        } else {
-          toast({
-            title: 'Dica para colar',
-            description: 'Você pode colar diretamente pressionando Ctrl+V com este campo focado.',
-          })
-        }
-      } else {
-        toast({
-          title: 'Dica para colar',
-          description: 'Pressione Ctrl+V (ou toque e segure para colar) sobre o campo.',
-        })
-      }
-    } catch (err: any) {
-      // Navegadores que bloqueiam Clipboard.read ou sem permissão
-      toast({
-        title: 'Área de transferência',
-        description: 'Clique no campo e use o atalho Ctrl+V (ou Command+V) para colar.',
-      })
-    } finally {
-      setIsPasting(false)
     }
   }
 
@@ -483,7 +412,7 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
           )}
         </div>
 
-        {/* Três opções de captura + Botões */}
+        {/* Opções de captura + Botões */}
         <div className="flex-1 w-full space-y-2">
           <div className="flex flex-wrap items-center gap-1.5">
             {/* Opção 1: Câmera */}
@@ -498,20 +427,7 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
               Tirar Foto
             </Button>
 
-            {/* Opção 2: Colar imagem da área de transferência */}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isPasting}
-              onClick={handlePasteFromClipboard}
-              className="text-xs h-8 px-2.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800"
-            >
-              <ClipboardPaste className="h-3.5 w-3.5 mr-1 text-slate-600 dark:text-slate-400" />
-              Colar
-            </Button>
-
-            {/* Opção 3: Enviar arquivo (upload do dispositivo) */}
+            {/* Opção 2: Enviar arquivo (upload do dispositivo) */}
             <Button
               type="button"
               variant="outline"

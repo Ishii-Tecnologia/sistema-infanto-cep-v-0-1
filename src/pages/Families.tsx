@@ -129,7 +129,7 @@ export default function FamiliesPage() {
   >([
     {
       name: '',
-      birth_date: '2020-05-15',
+      birth_date: '',
       classroom: 'A',
       allergies: '',
       medical_notes: '',
@@ -196,12 +196,11 @@ export default function FamiliesPage() {
         photo_url: '',
       },
     ])
-    const initialBirthDate = '2020-05-15'
     setWizardChildren([
       {
         name: '',
-        birth_date: initialBirthDate,
-        classroom: classifyChild(initialBirthDate) || 'A',
+        birth_date: '',
+        classroom: 'A',
         allergies: '',
         medical_notes: '',
         image_authorized: true,
@@ -213,11 +212,11 @@ export default function FamiliesPage() {
 
   const handleBirthDateChange = (index: number, dateStr: string) => {
     const updated = [...wizardChildren]
-    const autoClass = classifyChild(dateStr)
+    const autoClass = dateStr ? classifyChild(dateStr) : undefined
     updated[index] = {
       ...updated[index],
       birth_date: dateStr,
-      classroom: autoClass || 'A',
+      classroom: autoClass || updated[index].classroom || 'A',
     }
     setWizardChildren(updated)
   }
@@ -245,13 +244,12 @@ export default function FamiliesPage() {
   }
 
   const handleAddChild = () => {
-    const newBirthDate = '2021-03-10'
     setWizardChildren([
       ...wizardChildren,
       {
         name: '',
-        birth_date: newBirthDate,
-        classroom: classifyChild(newBirthDate) || 'A',
+        birth_date: '',
+        classroom: 'A',
         allergies: '',
         medical_notes: '',
         image_authorized: true,
@@ -375,8 +373,8 @@ export default function FamiliesPage() {
             {
               id: undefined,
               name: '',
-              birth_date: '2020-05-15',
-              classroom: classifyChild('2020-05-15') || 'A',
+              birth_date: '',
+              classroom: 'A',
               allergies: '',
               medical_notes: '',
               image_authorized: true,
@@ -1027,7 +1025,8 @@ export default function FamiliesPage() {
 
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className={`text-xs ${badge.color}`}>
-                            {badge.name} ({calculatedAge} anos)
+                            {badge.name}
+                            {child.birth_date ? ` (${calculatedAge} anos)` : ''}
                           </Badge>
                           {wizardChildren.length > 1 && (
                             <Button
@@ -1203,9 +1202,11 @@ export default function FamiliesPage() {
                         >
                           <div>
                             <span className="font-bold">{c.name || 'Sem nome'}</span>
-                            <span className="text-muted-foreground ml-2">
-                              • Nasc: {formatDate(c.birth_date)} ({age} anos)
-                            </span>
+                            {c.birth_date && (
+                              <span className="text-muted-foreground ml-2">
+                                • Nasc: {formatDate(c.birth_date)} ({age} anos)
+                              </span>
+                            )}
                           </div>
                           <Badge variant="outline" className={badge.color}>
                             {badge.name}
