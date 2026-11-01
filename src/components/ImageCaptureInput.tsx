@@ -11,8 +11,10 @@ import {
   Video,
   X,
   RefreshCw,
+  ZoomIn,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import { ImageLightbox } from '@/components/ImageLightbox'
 
 interface ImageCaptureInputProps {
   value: string
@@ -94,6 +96,7 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
   const [webcamOpen, setWebcamOpen] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   // Escuta evento de paste quando o container está em foco ou com o mouse sobre ele
   useEffect(() => {
@@ -373,7 +376,7 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         {/* Pré-visualização da imagem */}
         <div
-          className={`shrink-0 overflow-hidden border bg-slate-100 dark:bg-slate-800 flex items-center justify-center relative shadow-xs transition-all ${
+          className={`shrink-0 overflow-hidden border bg-slate-100 dark:bg-slate-800 flex items-center justify-center relative shadow-xs transition-all group ${
             previewShape === 'circle' ? 'rounded-full' : 'rounded-lg'
           } ${
             aspectRatio === 'portrait'
@@ -381,29 +384,40 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
               : aspectRatio === 'landscape'
                 ? 'w-24 h-16 sm:w-28 sm:h-20'
                 : 'w-16 h-16 sm:w-20 sm:h-20'
-          }`}
+          } ${value ? 'cursor-pointer hover:ring-2 hover:ring-indigo-500/70' : ''}`}
+          onClick={() => {
+            if (value) setLightboxOpen(true)
+          }}
+          title={value ? 'Clique para ampliar foto' : undefined}
         >
           {value ? (
             <>
               <img
                 src={value}
-                alt="Pré-visualização"
-                className="h-full w-full object-cover"
+                alt={label || 'Pré-visualização'}
+                className="h-full w-full object-cover transition-transform group-hover:scale-105"
                 onError={(e) => {
                   ;(e.target as HTMLElement).style.display = 'none'
                 }}
               />
+              {/* Overlay suave com ícone de lupa no hover */}
+              <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white pointer-events-none">
+                <ZoomIn className="h-4 w-4 drop-shadow" />
+              </div>
               <button
                 type="button"
-                onClick={handleRemoveImage}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleRemoveImage()
+                }}
                 title="Remover foto"
-                className="absolute top-1 right-1 bg-black/60 hover:bg-rose-600 text-white p-1 rounded-full transition-colors"
+                className="absolute top-1 right-1 bg-black/60 hover:bg-rose-600 text-white p-1 rounded-full transition-colors z-10"
               >
                 <X className="h-3 w-3" />
               </button>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+            <div className="flex flex-col items-center justify-center text-slate-400 p-2 text-center pointer-events-none">
               <ImageIcon className="h-5 w-5 mb-0.5 opacity-60" />
               <span className="text-[9px] uppercase tracking-wider font-semibold opacity-70">
                 Sem foto
@@ -411,6 +425,16 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
             </div>
           )}
         </div>
+
+        {/* Lightbox para ampliação do thumbnail */}
+        {lightboxOpen && value && (
+          <ImageLightbox
+            src={value}
+            title={label}
+            alt={label}
+            onClose={() => setLightboxOpen(false)}
+          />
+        )}
 
         {/* Opções de captura + Botões */}
         <div className="flex-1 w-full space-y-2">

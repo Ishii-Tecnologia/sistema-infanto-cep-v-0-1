@@ -49,6 +49,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { ImageCaptureInput } from '@/components/ImageCaptureInput'
 import { DatePickerBR } from '@/components/DatePickerBR'
+import { ImageLightbox } from '@/components/ImageLightbox'
 import { getErrorMessage, isAuthExpiredError } from '@/lib/pocketbase/errors'
 import pb from '@/lib/pocketbase/client'
 import { useNavigate } from 'react-router-dom'
@@ -70,6 +71,11 @@ export default function FamiliesPage() {
   const [search, setSearch] = useState('')
   const [classroomFilter, setClassroomFilter] = useState<string>('all')
   const [selectedFamily, setSelectedFamily] = useState<Family | null>(null)
+  const [lightboxImage, setLightboxImage] = useState<{
+    src: string
+    title?: string
+    description?: string
+  } | null>(null)
 
   // Estado do Wizard de Cadastro em 4 etapas
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -514,7 +520,27 @@ export default function FamiliesPage() {
                         className="flex items-center justify-between p-1.5 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xs"
                       >
                         <div className="flex items-center space-x-2">
-                          <div className="h-6 w-6 rounded-full overflow-hidden bg-slate-200 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              if (c.photo_url) {
+                                e.stopPropagation()
+                                setLightboxImage({
+                                  src: c.photo_url,
+                                  title: c.name,
+                                  description: `Sala ${c.classroom} • ${age} anos`,
+                                })
+                              }
+                            }}
+                            className={`h-6 w-6 rounded-full overflow-hidden bg-slate-200 shrink-0 transition-transform ${
+                              c.photo_url
+                                ? 'cursor-pointer hover:scale-110 hover:ring-2 hover:ring-indigo-500'
+                                : ''
+                            }`}
+                            title={
+                              c.photo_url ? `Clique para ampliar foto de ${c.name}` : undefined
+                            }
+                          >
                             {c.photo_url ? (
                               <img
                                 src={c.photo_url}
@@ -526,7 +552,7 @@ export default function FamiliesPage() {
                                 {c.name.charAt(0)}
                               </span>
                             )}
-                          </div>
+                          </button>
                           <span className="font-medium truncate max-w-[130px]">{c.name}</span>
                         </div>
 
@@ -610,7 +636,25 @@ export default function FamiliesPage() {
                         key={g.id}
                         className="p-3 border rounded-lg flex items-center space-x-3 text-xs"
                       >
-                        <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-200 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            if (g.photo_url) {
+                              e.stopPropagation()
+                              setLightboxImage({
+                                src: g.photo_url,
+                                title: g.name,
+                                description: `${g.relationship}${g.phone ? ` • ${g.phone}` : ''}`,
+                              })
+                            }
+                          }}
+                          className={`h-10 w-10 rounded-full overflow-hidden bg-slate-200 shrink-0 transition-transform ${
+                            g.photo_url
+                              ? 'cursor-pointer hover:scale-105 hover:ring-2 hover:ring-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500'
+                              : ''
+                          }`}
+                          title={g.photo_url ? `Clique para ampliar foto de ${g.name}` : undefined}
+                        >
                           {g.photo_url ? (
                             <img
                               src={g.photo_url}
@@ -622,7 +666,7 @@ export default function FamiliesPage() {
                               {g.name.slice(0, 2).toUpperCase()}
                             </div>
                           )}
-                        </div>
+                        </button>
                         <div className="flex-1 truncate">
                           <p className="font-bold text-slate-900 dark:text-slate-100 truncate">
                             {g.name}
@@ -661,7 +705,27 @@ export default function FamiliesPage() {
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2.5">
-                              <div className="h-9 w-9 rounded-full overflow-hidden bg-slate-200 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  if (c.photo_url) {
+                                    e.stopPropagation()
+                                    setLightboxImage({
+                                      src: c.photo_url,
+                                      title: c.name,
+                                      description: `${badge.name} • ${age} anos • Nasc: ${formatDate(c.birth_date)}`,
+                                    })
+                                  }
+                                }}
+                                className={`h-9 w-9 rounded-full overflow-hidden bg-slate-200 shrink-0 transition-transform ${
+                                  c.photo_url
+                                    ? 'cursor-pointer hover:scale-105 hover:ring-2 hover:ring-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500'
+                                    : ''
+                                }`}
+                                title={
+                                  c.photo_url ? `Clique para ampliar foto de ${c.name}` : undefined
+                                }
+                              >
                                 {c.photo_url ? (
                                   <img
                                     src={c.photo_url}
@@ -673,7 +737,7 @@ export default function FamiliesPage() {
                                     {c.name.charAt(0)}
                                   </span>
                                 )}
-                              </div>
+                              </button>
                               <div>
                                 <p className="font-bold text-sm text-slate-900 dark:text-slate-100">
                                   {c.name}
@@ -1265,6 +1329,16 @@ export default function FamiliesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Lightbox para fotos ampliadas de responsáveis e crianças */}
+      {lightboxImage && (
+        <ImageLightbox
+          src={lightboxImage.src}
+          title={lightboxImage.title}
+          description={lightboxImage.description}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
     </div>
   )
 }
