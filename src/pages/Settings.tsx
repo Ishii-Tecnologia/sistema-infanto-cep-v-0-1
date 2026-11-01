@@ -39,9 +39,11 @@ import { ChangePasswordDialog } from '@/components/ChangePasswordDialog'
 import { useAcademic, SchoolYearConfig, RecessSaturday } from '@/contexts/AcademicContext'
 import { formatDate } from '@/lib/academic'
 import { syncOrRegenerateCalendar } from '@/services/calendarGenerator'
+import { schoolYearService } from '@/services/schoolYear'
+import { AnoLetivo, SabadoLetivo, JanelaFeriado } from '@/types'
 import { DatePickerBR } from '@/components/DatePickerBR'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
-import { Plus, X, Sliders, RefreshCw } from 'lucide-react'
+import { Plus, X, Sliders, RefreshCw, Copy, CheckCircle2, AlertCircle } from 'lucide-react'
 
 export default function SettingsPage() {
   const { toast } = useToast()
@@ -49,8 +51,11 @@ export default function SettingsPage() {
   const {
     classrooms,
     schoolYear,
+    activeAnoLetivo,
+    anosLetivos,
     recessSaturdays: academicRecesses,
     pedagogicalPlans,
+    reloadSettings,
     saveClassrooms,
     savePedagogicalPlans,
     saveSchoolYearAndRecesses,
@@ -100,13 +105,24 @@ export default function SettingsPage() {
     defaultRewardCost: 20,
   })
 
-  // Edição de Ano Letivo e Feriados
+  // Edição de Ano Letivo e Feriados (Fonte Única de Verdade)
+  const [selectedYearNum, setSelectedYearNum] = useState<number>(schoolYear.year || 2026)
+  const [selectedAnoLetivoRecord, setSelectedAnoLetivoRecord] = useState<AnoLetivo | null>(
+    activeAnoLetivo,
+  )
   const [yearForm, setYearForm] = useState<SchoolYearConfig>(schoolYear)
   const [recessList, setRecessList] = useState<RecessSaturday[]>(academicRecesses)
+  const [sabadosDoAno, setSabadosDoAno] = useState<SabadoLetivo[]>([])
+  const [janelasDoAno, setJanelasDoAno] = useState<JanelaFeriado[]>([])
   const [newRecessDate, setNewRecessDate] = useState('')
   const [newRecessName, setNewRecessName] = useState('')
   const [savingYear, setSavingYear] = useState(false)
   const [syncingCalendar, setSyncingCalendar] = useState(false)
+  const [replicating, setReplicating] = useState(false)
+
+  // Modal para criar novo ano letivo
+  const [newYearModalOpen, setNewYearModalOpen] = useState(false)
+  const [newYearInput, setNewYearInput] = useState<number>(new Date().getFullYear() + 1)
 
   // Edição de Salas no Settings
   const [editingRooms, setEditingRooms] = useState(classrooms)
@@ -117,12 +133,81 @@ export default function SettingsPage() {
   const [savingPlans, setSavingPlans] = useState(false)
 
   useEffect(() => {
-    setYearForm(schoolYear)
-  }, [schoolYear])
+    if (activeAnoLetivo) {
+      setSelectedYearNum(activeAnoLetivo.ano)
+      setSelectedAnoLetivoRecord(activeAnoLetivo)
+    } else if (schoolYear.year) {
+      setSelectedYearNum(schoolYear.year)
+    }
+  }, [activeAnoLetivo, schoolYear.year])
 
+  // Quando selectedYearNum muda, busca o registro correspondente da coleção ano_letivo
+  // Se o ano selecionado não tiver registros, campos aparecem VAZIOS com placeholder (nunca herdar silenciosamente)
   useEffect(() => {
-    setRecessList(academicRecesses)
-  }, [academicRecesses])
+    let active = true
+
+    async function fetchYearDetails() {
+      if (!selectedYearNum) return
+      try {
+        const found = await schoolYearService.getByAno(selectedYearNum)
+        if (!active) return
+
+        if (found) {
+          setSelectedAnoLetivoRecord(found)
+          setYearForm({
+            year: found.ano,
+            startDate: found.data_inicio ? found.data_inicio.split('T')[0] : '',
+            endDate: found.data_fim ? found.data_fim.split('T')[0] : '',
+            ageBaseDate: found.age_base_date
+              ? found.age_base_date.split('T')[0]
+              : `${found.ano}-03-01`,
+            winterBreakStart: found.winter_break_start
+              ? found.winter_break_start.split('T')[0]
+              : '',
+            winterBreakEnd: found.winter_break_end ? found.winter_break_end.split('T')[0] : '',
+            christmasDate: found.christmas_date ? found.christmas_date.split('T')[0] : '',
+          })
+
+          const [sabs, jans] = await Promise.all([
+            schoolYearService.getSabados(found.id),
+            schoolYearService.getJanelas(found.id),
+          ])
+          if (!active) return
+          setSabadosDoAno(sabs)
+          setJanelasDoAno(jans)
+          setRecessList(
+            jans.map((j) => ({
+              date: j.data_inicio.split('T')[0],
+              name: j.nome,
+            })),
+          )
+        } else {
+          // Ano não cadastrado no banco: campos totalmente vazios com placeholder
+          setSelectedAnoLetivoRecord(null)
+          setYearForm({
+            year: selectedYearNum,
+            startDate: '',
+            endDate: '',
+            ageBaseDate: `${selectedYearNum}-03-01`,
+            winterBreakStart: '',
+            winterBreakEnd: '',
+            christmasDate: '',
+          })
+          setSabadosDoAno([])
+          setJanelasDoAno([])
+          setRecessList([])
+        }
+      } catch (err) {
+        console.warn('Erro ao buscar ano letivo selecionado:', err)
+      }
+    }
+
+    fetchYearDetails()
+
+    return () => {
+      active = false
+    }
+  }, [selectedYearNum])
 
   useEffect(() => {
     setEditingRooms(classrooms)
@@ -299,33 +384,139 @@ export default function SettingsPage() {
     }
   }
 
+  const handleCreateNewYear = async () => {
+    if (!newYearInput || newYearInput < 2000 || newYearInput > 2100) {
+      toast({
+        title: 'Ano inválido',
+        description: 'Informe um ano de 4 dígitos válido.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      // Verifica se já existe
+      const existing = await schoolYearService.getByAno(newYearInput)
+      if (existing) {
+        toast({
+          title: 'Ano já cadastrado',
+          description: `O ano letivo ${newYearInput} já existe na lista.`,
+        })
+        setSelectedYearNum(newYearInput)
+        setNewYearModalOpen(false)
+        return
+      }
+
+      const created = await schoolYearService.create({
+        ano: newYearInput,
+        data_inicio: `${newYearInput}-03-01 00:00:00.000Z`,
+        status: 'planejado',
+        age_base_date: `${newYearInput}-03-01 00:00:00.000Z`,
+      })
+
+      toast({
+        title: 'Ano criado!',
+        description: `Ano letivo ${newYearInput} criado no Sistema Infanto-CEP.`,
+      })
+      await reloadSettings()
+      setSelectedYearNum(newYearInput)
+      setSelectedAnoLetivoRecord(created)
+      setNewYearModalOpen(false)
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao criar ano',
+        description: err?.message || 'Falha ao cadastrar novo ano letivo.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleReplicateFromPreviousYear = async () => {
+    if (!selectedAnoLetivoRecord) {
+      toast({
+        title: 'Ano não salvo',
+        description: 'Salve o ano letivo antes de replicar dados para ele.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Busca o ano imediatamente anterior cadastrado
+    const previousYears = anosLetivos.filter((a) => a.ano < selectedAnoLetivoRecord.ano)
+    if (previousYears.length === 0) {
+      toast({
+        title: 'Nenhum ano anterior encontrado',
+        description:
+          'Não há um ano letivo anterior cadastrado para ser usado como base de replicação.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const sourceAno = previousYears[0] // o mais recente antes deste
+
+    try {
+      setReplicating(true)
+      const res = await schoolYearService.replicateFromYear(
+        sourceAno.id,
+        selectedAnoLetivoRecord.id,
+        selectedAnoLetivoRecord.ano,
+      )
+
+      toast({
+        title: 'Replicação concluída!',
+        description: `Clonados ${res.sabadosClonados} sábados e ${res.janelasClonadas} janelas de feriado de ${sourceAno.ano}. Domingo(s) ajustados para sábado anterior. Registros marcados para revisão. ${res.conflitosDetectados > 0 ? `(${res.conflitosDetectados} conflitos de feriados móveis sinalizados)` : ''}`,
+      })
+
+      // Refetch
+      const [sabs, jans, updatedAno] = await Promise.all([
+        schoolYearService.getSabados(selectedAnoLetivoRecord.id),
+        schoolYearService.getJanelas(selectedAnoLetivoRecord.id),
+        schoolYearService.getById(selectedAnoLetivoRecord.id),
+      ])
+      setSabadosDoAno(sabs)
+      setJanelasDoAno(jans)
+      setSelectedAnoLetivoRecord(updatedAno)
+      setRecessList(
+        jans.map((j) => ({
+          date: j.data_inicio.split('T')[0],
+          name: j.nome,
+        })),
+      )
+      await reloadSettings()
+    } catch (err: any) {
+      toast({
+        title: 'Erro na replicação',
+        description: err?.message || 'Falha ao replicar do ano anterior.',
+        variant: 'destructive',
+      })
+    } finally {
+      setReplicating(false)
+    }
+  }
+
   const handleSaveYearAndHolidays = async () => {
     try {
       setSavingYear(true)
-      // Normaliza o ano com base na data de início, se fornecida
-      const cleanStartDate = yearForm.startDate ? yearForm.startDate.trim() : ''
-      let derivedYear = yearForm.year || schoolYear.year || new Date().getFullYear()
-      if (cleanStartDate) {
-        const parts = cleanStartDate.split('T')[0].split(' ')[0]
-        if (parts.includes('-')) {
-          const y = parseInt(parts.split('-')[0], 10)
-          if (y && y >= 2000 && y <= 2100) derivedYear = y
-        } else if (parts.includes('/')) {
-          const y = parseInt(parts.split('/')[2], 10)
-          if (y && y >= 2000 && y <= 2100) derivedYear = y
-        }
+      if (!yearForm.startDate) {
+        toast({
+          title: 'Data de início obrigatória',
+          description: 'Preencha a data de início das aulas antes de salvar.',
+          variant: 'destructive',
+        })
+        return
       }
 
+      const targetYear = selectedYearNum || yearForm.year || new Date().getFullYear()
       const normalizedConfig: SchoolYearConfig = {
         ...yearForm,
-        year: derivedYear,
-        ageBaseDate: yearForm.ageBaseDate || `${derivedYear}-03-01`,
+        year: targetYear,
+        ageBaseDate: yearForm.ageBaseDate || `${targetYear}-03-01`,
       }
 
       // Se houver recesso de meio de ano preenchido, assegura que seus sábados estejam na lista
       const updatedRecesses = [...recessList]
       if (normalizedConfig.winterBreakStart && normalizedConfig.winterBreakEnd) {
-        // Valida se os sábados do período já estão ou não adicionados
         const cleanStart = normalizedConfig.winterBreakStart.split('T')[0]
         const cleanEnd = normalizedConfig.winterBreakEnd.split('T')[0]
         const [sy, sm, sd] = cleanStart.split('-').map(Number)
@@ -354,10 +545,74 @@ export default function SettingsPage() {
       }
 
       setYearForm(normalizedConfig)
+
+      // 1. Salva ou atualiza o registro na coleção ano_letivo
+      let anoRec = selectedAnoLetivoRecord
+      if (!anoRec) {
+        anoRec = await schoolYearService.getByAno(targetYear)
+      }
+
+      const anoPayload = {
+        ano: targetYear,
+        data_inicio: `${normalizedConfig.startDate} 00:00:00.000Z`,
+        data_fim: normalizedConfig.endDate
+          ? `${normalizedConfig.endDate} 00:00:00.000Z`
+          : undefined,
+        status: (anoRec ? anoRec.status : 'ativo') as 'ativo' | 'planejado' | 'encerrado',
+        age_base_date: normalizedConfig.ageBaseDate
+          ? `${normalizedConfig.ageBaseDate} 00:00:00.000Z`
+          : `${targetYear}-03-01 00:00:00.000Z`,
+        winter_break_start: normalizedConfig.winterBreakStart
+          ? `${normalizedConfig.winterBreakStart} 00:00:00.000Z`
+          : undefined,
+        winter_break_end: normalizedConfig.winterBreakEnd
+          ? `${normalizedConfig.winterBreakEnd} 00:00:00.000Z`
+          : undefined,
+        christmas_date: normalizedConfig.christmasDate
+          ? `${normalizedConfig.christmasDate} 00:00:00.000Z`
+          : undefined,
+      }
+
+      if (anoRec) {
+        anoRec = await schoolYearService.update(anoRec.id, anoPayload)
+      } else {
+        anoRec = await schoolYearService.create(anoPayload)
+      }
+      setSelectedAnoLetivoRecord(anoRec)
+
+      // 2. Persiste as janelas de feriado na coleção janela_feriado vinculadas a este ano_letivo
+      // (Com validação de sobreposição no backend)
+      for (const rec of updatedRecesses) {
+        const dStr = rec.date.split('T')[0]
+        const existingJan = janelasDoAno.find((j) => j.data_inicio.startsWith(dStr))
+        if (!existingJan) {
+          try {
+            await schoolYearService.createJanela({
+              ano_letivo_id: anoRec.id,
+              data_inicio: `${dStr} 00:00:00.000Z`,
+              data_fim: `${dStr} 23:59:59.000Z`,
+              nome: rec.name.substring(0, 120),
+              revisado: true,
+            })
+          } catch (err: any) {
+            console.warn('Validação de janela ao salvar:', err?.message)
+          }
+        }
+      }
+
       await saveSchoolYearAndRecesses(normalizedConfig, updatedRecesses)
+      await reloadSettings()
+
+      const [updatedSabs, updatedJans] = await Promise.all([
+        schoolYearService.getSabados(anoRec.id),
+        schoolYearService.getJanelas(anoRec.id),
+      ])
+      setSabadosDoAno(updatedSabs)
+      setJanelasDoAno(updatedJans)
+
       toast({
-        title: 'Ano Letivo e Feriados Atualizados!',
-        description: `Configurações para ${normalizedConfig.year} salvas com sucesso no Sistema Infanto-CEP.`,
+        title: 'Ano Letivo e Feriados Salvos!',
+        description: `Configurações para ${normalizedConfig.year} registradas na fonte única de verdade (Sistema Infanto-CEP).`,
       })
     } catch (err: any) {
       toast({
@@ -382,32 +637,43 @@ export default function SettingsPage() {
         return
       }
 
-      // Normaliza o ano com base na data de início
-      const cleanStartDate = yearForm.startDate.trim()
-      let derivedYear = yearForm.year || schoolYear.year || new Date().getFullYear()
-      if (cleanStartDate) {
-        const parts = cleanStartDate.split('T')[0].split(' ')[0]
-        if (parts.includes('-')) {
-          const y = parseInt(parts.split('-')[0], 10)
-          if (y && y >= 2000 && y <= 2100) derivedYear = y
-        } else if (parts.includes('/')) {
-          const y = parseInt(parts.split('/')[2], 10)
-          if (y && y >= 2000 && y <= 2100) derivedYear = y
-        }
-      }
-
+      const targetYear = selectedYearNum || yearForm.year || new Date().getFullYear()
       const normalizedConfig: SchoolYearConfig = {
         ...yearForm,
-        year: derivedYear,
-        ageBaseDate: yearForm.ageBaseDate || `${derivedYear}-03-01`,
+        year: targetYear,
+        ageBaseDate: yearForm.ageBaseDate || `${targetYear}-03-01`,
       }
       setYearForm(normalizedConfig)
 
       // Primeiro salva as configurações no banco
       await saveSchoolYearAndRecesses(normalizedConfig, recessList)
 
-      // Em seguida sincroniza o calendário de sábados de forma segura (preserva temas, planos e presenças)
+      // Garante que o ano letivo esteja salvo
+      let anoRec = selectedAnoLetivoRecord
+      if (!anoRec) {
+        anoRec = await schoolYearService.getByAno(targetYear)
+        if (!anoRec) {
+          anoRec = await schoolYearService.create({
+            ano: targetYear,
+            data_inicio: `${normalizedConfig.startDate} 00:00:00.000Z`,
+            status: 'ativo',
+            age_base_date: `${targetYear}-03-01 00:00:00.000Z`,
+          })
+        }
+        setSelectedAnoLetivoRecord(anoRec)
+      }
+
+      // Sincroniza o calendário de aulas (lessons)
       const res = await syncOrRegenerateCalendar(normalizedConfig, recessList)
+
+      // Sincroniza também a coleção sabado_letivo com os lessons atualizados
+      const currentLessons = await settingsService.getSettings() // trigger reload
+      void currentLessons
+
+      // Refetch sabados
+      const sabs = await schoolYearService.getSabados(anoRec.id)
+      setSabadosDoAno(sabs)
+
       toast({
         title: 'Calendário sincronizado com sucesso!',
         description:
@@ -434,7 +700,7 @@ export default function SettingsPage() {
     }
   }
 
-  const handleAddRecess = () => {
+  const handleAddRecess = async () => {
     if (!newRecessDate || !newRecessName) {
       toast({
         title: 'Dados incompletos',
@@ -443,14 +709,52 @@ export default function SettingsPage() {
       })
       return
     }
+
+    const dStr = newRecessDate.split('T')[0]
+
+    // Se houver ano salvo, tenta gravar direto na coleção janela_feriado para validar sobreposição no backend
+    if (selectedAnoLetivoRecord) {
+      try {
+        const created = await schoolYearService.createJanela({
+          ano_letivo_id: selectedAnoLetivoRecord.id,
+          data_inicio: `${dStr} 00:00:00.000Z`,
+          data_fim: `${dStr} 23:59:59.000Z`,
+          nome: newRecessName.substring(0, 120),
+          revisado: true,
+        })
+        setJanelasDoAno([...janelasDoAno, created])
+      } catch (err: any) {
+        toast({
+          title: 'Sobreposição rejeitada pelo servidor',
+          description: err?.message || 'O período informado colide com uma janela existente.',
+          variant: 'destructive',
+        })
+        return
+      }
+    }
+
     const updated = [...recessList, { date: newRecessDate, name: newRecessName }]
     updated.sort((a, b) => a.date.localeCompare(b.date))
     setRecessList(updated)
     setNewRecessDate('')
     setNewRecessName('')
+    toast({ title: 'Janela de recesso adicionada!' })
   }
 
-  const handleRemoveRecess = (indexToRemove: number) => {
+  const handleRemoveRecess = async (indexToRemove: number) => {
+    const item = recessList[indexToRemove]
+    if (item && selectedAnoLetivoRecord) {
+      const dStr = item.date.split('T')[0]
+      const foundJan = janelasDoAno.find((j) => j.data_inicio.startsWith(dStr))
+      if (foundJan) {
+        try {
+          await schoolYearService.deleteJanela(foundJan.id)
+          setJanelasDoAno(janelasDoAno.filter((j) => j.id !== foundJan.id))
+        } catch {
+          /* intentionally ignored */
+        }
+      }
+    }
     setRecessList(recessList.filter((_, i) => i !== indexToRemove))
   }
 
@@ -993,35 +1297,99 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* Ano Letivo e Janelas de Feriados - EDITÁVEL */}
+            {/* Ano Letivo e Janelas de Feriados - EDITÁVEL E FONTE ÚNICA DE VERDADE */}
             <Card className="md:col-span-2">
               <CardHeader>
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-indigo-600" />
-                  Ano Letivo {yearForm.year || schoolYear.year} e Janelas de Feriados
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Configuração aberta: defina o ano, a data de início, as datas do recesso de meio
-                  de ano (férias), a data da festa de Natal e os sábados com recesso institucional
-                  no <strong>CEP-Coligação Espírita Progressista</strong>.
-                </CardDescription>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-indigo-600" />
+                      Ano Letivo {selectedYearNum} e Janelas de Feriados
+                      {selectedAnoLetivoRecord?.replicado_de && (
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-normal"
+                        >
+                          herdado de{' '}
+                          {anosLetivos.find((a) => a.id === selectedAnoLetivoRecord.replicado_de)
+                            ?.ano || 'ano anterior'}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Fonte única de verdade: selecione o ano letivo, defina as datas
+                      institucionais, adicione janelas de feriados ou replique do ano anterior com
+                      recálculo automático de domingos.
+                    </CardDescription>
+                  </div>
+
+                  {/* Seletor de Ano Letivo + Botão Novo Ano */}
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={String(selectedYearNum)}
+                      onValueChange={(val) => setSelectedYearNum(parseInt(val, 10))}
+                    >
+                      <SelectTrigger className="w-[140px] h-9 text-xs font-semibold">
+                        <SelectValue placeholder="Ano Letivo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {anosLetivos.map((a) => (
+                          <SelectItem key={a.id} value={String(a.ano)}>
+                            {a.ano} {a.status === 'ativo' ? '• Ativo' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewYearModalOpen(true)}
+                      className="h-9 text-xs"
+                      title="Cadastrar novo ano letivo"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Novo Ano
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleReplicateFromPreviousYear}
+                      disabled={replicating || !selectedAnoLetivoRecord}
+                      className="h-9 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                      title="Replicar sábados e feriados do ano letivo anterior recalculando datas (domingos ajustados para sábados)"
+                    >
+                      <Copy className="h-3.5 w-3.5 mr-1" />
+                      {replicating ? 'Replicando...' : 'Replicar do ano anterior'}
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="text-xs space-y-4">
+                {/* Alerta quando o ano selecionado não tiver registros salvos */}
+                {!selectedAnoLetivoRecord && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+                    <span>
+                      O ano letivo <strong>{selectedYearNum}</strong> ainda não possui configuração
+                      gravada. Preencha os campos abaixo com as datas oficiais ou clique em{' '}
+                      <em>Replicar do ano anterior</em>.
+                    </span>
+                  </div>
+                )}
+
                 {/* Linha 1: Parâmetros do Calendário */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-3.5 rounded-lg bg-slate-50 dark:bg-slate-900 border">
                   <div className="space-y-1">
-                    <Label className="text-xs font-semibold">Ano Letivo</Label>
+                    <Label className="text-xs font-semibold">Ano Selecionado</Label>
                     <Input
                       type="number"
-                      value={yearForm.year}
-                      onChange={(e) => {
-                        const parsed = parseInt(e.target.value, 10) || new Date().getFullYear()
-                        setYearForm({
-                          ...yearForm,
-                          year: parsed,
-                          ageBaseDate: `${parsed}-03-01`,
-                        })
-                      }}
+                      readOnly
+                      value={selectedYearNum}
+                      className="bg-slate-100 dark:bg-slate-800 font-bold"
                     />
                   </div>
 
@@ -1398,6 +1766,46 @@ export default function SettingsPage() {
               className="bg-rose-600 hover:bg-rose-700 text-white"
             >
               {deleting ? 'Excluindo...' : 'Sim, Excluir Operador'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Cadastrar Novo Ano Letivo */}
+      <Dialog open={newYearModalOpen} onOpenChange={setNewYearModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Novo Ano Letivo</DialogTitle>
+            <DialogDescription className="text-xs">
+              Informe o ano de 4 dígitos para cadastrar um novo ciclo no{' '}
+              <strong>CEP-Coligação Espírita Progressista</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-2 text-xs">
+            <Label>Ano Letivo (4 dígitos)</Label>
+            <Input
+              type="number"
+              placeholder="Ex: 2028"
+              value={newYearInput}
+              onChange={(e) => setNewYearInput(parseInt(e.target.value, 10) || 0)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              O novo ano será criado com status <em>planejado</em> e campos vazios prontos para
+              configuração ou replicação.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setNewYearModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCreateNewYear}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              Criar Ano Letivo
             </Button>
           </DialogFooter>
         </DialogContent>

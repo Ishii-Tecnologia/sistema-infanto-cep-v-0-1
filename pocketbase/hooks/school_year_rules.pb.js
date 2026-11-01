@@ -1,131 +1,212 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Validação de sobreposição de janelas de feriado no backend
-function checkJanelaOverlap(app, record) {
+// ATENÇÃO: Todo o código deve estar inline em cada callback para evitar scoping error no JSVM do PocketBase.
+
+onRecordCreate((e) => {
+  const record = e.record
   const anoLetivoId = record.getString('ano_letivo_id')
   const dataInicio = record.getString('data_inicio')
   const dataFim = record.getString('data_fim')
   const recordId = record.id || ''
 
-  if (!anoLetivoId || !dataInicio || !dataFim) return
-
-  // ISO string comparisons: se nova janela [A_start, A_end] sobrepõe com [B_start, B_end]:
-  // A_start <= B_end && A_end >= B_start
-  const existing = app.findRecordsByFilter(
-    'janela_feriado',
-    `ano_letivo_id = '${anoLetivoId}' && data_inicio <= '${dataFim}' && data_fim >= '${dataInicio}'`,
-    '',
-    10,
-    0,
-  )
-
-  for (const other of existing) {
-    if (other.id !== recordId) {
-      const otherNome = other.getString('nome') || 'Janela existente'
-      throw new BadRequestError(
-        `Sobreposição detectada: o período informado coincide com a janela de feriado "${otherNome}" já cadastrada neste ano letivo.`,
-      )
+  if (anoLetivoId && dataInicio && dataFim) {
+    const existing = e.app.findRecordsByFilter(
+      'janela_feriado',
+      `ano_letivo_id = '${anoLetivoId}' && data_inicio <= '${dataFim}' && data_fim >= '${dataInicio}'`,
+      '',
+      10,
+      0,
+    )
+    for (const other of existing) {
+      if (other.id !== recordId) {
+        const otherNome = other.getString('nome') || 'Janela existente'
+        throw new BadRequestError(
+          `Sobreposição detectada: o período informado coincide com a janela de feriado "${otherNome}" já cadastrada neste ano letivo.`,
+        )
+      }
     }
   }
-}
 
-onRecordCreate((e) => {
-  checkJanelaOverlap(e.app, e.record)
   e.next()
 }, 'janela_feriado')
 
 onRecordUpdate((e) => {
-  checkJanelaOverlap(e.app, e.record)
+  const record = e.record
+  const anoLetivoId = record.getString('ano_letivo_id')
+  const dataInicio = record.getString('data_inicio')
+  const dataFim = record.getString('data_fim')
+  const recordId = record.id || ''
+
+  if (anoLetivoId && dataInicio && dataFim) {
+    const existing = e.app.findRecordsByFilter(
+      'janela_feriado',
+      `ano_letivo_id = '${anoLetivoId}' && data_inicio <= '${dataFim}' && data_fim >= '${dataInicio}'`,
+      '',
+      10,
+      0,
+    )
+    for (const other of existing) {
+      if (other.id !== recordId) {
+        const otherNome = other.getString('nome') || 'Janela existente'
+        throw new BadRequestError(
+          `Sobreposição detectada: o período informado coincide com a janela de feriado "${otherNome}" já cadastrada neste ano letivo.`,
+        )
+      }
+    }
+  }
+
   e.next()
 }, 'janela_feriado')
 
-// Validação de duplicidade de sábados letivos com mensagem clara no backend
-function checkSabadoDuplicate(app, record) {
+// Validação de duplicidade de sábados letivos
+onRecordCreate((e) => {
+  const record = e.record
   const anoLetivoId = record.getString('ano_letivo_id')
   const rawDate = record.getString('data')
   const recordId = record.id || ''
 
-  if (!anoLetivoId || !rawDate) return
-
-  const datePrefix = rawDate.split('T')[0].split(' ')[0]
-  const existing = app.findRecordsByFilter(
-    'sabado_letivo',
-    `ano_letivo_id = '${anoLetivoId}' && data ~ '${datePrefix}'`,
-    '',
-    5,
-    0,
-  )
-
-  for (const other of existing) {
-    if (other.id !== recordId) {
-      throw new BadRequestError(
-        `Sábado letivo duplicado: já existe um registro cadastrado para a data ${datePrefix} neste ano letivo.`,
-      )
+  if (anoLetivoId && rawDate) {
+    const datePrefix = rawDate.split('T')[0].split(' ')[0]
+    const existing = e.app.findRecordsByFilter(
+      'sabado_letivo',
+      `ano_letivo_id = '${anoLetivoId}' && data ~ '${datePrefix}'`,
+      '',
+      5,
+      0,
+    )
+    for (const other of existing) {
+      if (other.id !== recordId) {
+        throw new BadRequestError(
+          `Sábado letivo duplicado: já existe um registro cadastrado para a data ${datePrefix} neste ano letivo.`,
+        )
+      }
     }
   }
-}
 
-onRecordCreate((e) => {
-  checkSabadoDuplicate(e.app, e.record)
   e.next()
 }, 'sabado_letivo')
 
 onRecordUpdate((e) => {
-  checkSabadoDuplicate(e.app, e.record)
+  const record = e.record
+  const anoLetivoId = record.getString('ano_letivo_id')
+  const rawDate = record.getString('data')
+  const recordId = record.id || ''
+
+  if (anoLetivoId && rawDate) {
+    const datePrefix = rawDate.split('T')[0].split(' ')[0]
+    const existing = e.app.findRecordsByFilter(
+      'sabado_letivo',
+      `ano_letivo_id = '${anoLetivoId}' && data ~ '${datePrefix}'`,
+      '',
+      5,
+      0,
+    )
+    for (const other of existing) {
+      if (other.id !== recordId) {
+        throw new BadRequestError(
+          `Sábado letivo duplicado: já existe um registro cadastrado para a data ${datePrefix} neste ano letivo.`,
+        )
+      }
+    }
+  }
+
   e.next()
 }, 'sabado_letivo')
 
 // Auditoria automática de alterações em sábados letivos
-function auditSabadoChange(app, authRecord, acao, record, anoNum) {
+onRecordAfterCreateSuccess((e) => {
   try {
-    const auditCol = app.findCollectionByNameOrId('auditoria_sabados')
+    let anoNum = 0
+    const anoLetivoId = e.record.getString('ano_letivo_id')
+    if (anoLetivoId) {
+      try {
+        const anoRec = e.app.findRecordById('ano_letivo', anoLetivoId)
+        anoNum = anoRec.getInt('ano')
+      } catch (_) {}
+    }
+
+    const auditCol = e.app.findCollectionByNameOrId('auditoria_sabados')
     const auditRec = new Record(auditCol)
-    if (authRecord) {
-      auditRec.set('user_id', authRecord.id)
-      auditRec.set(
-        'user_name',
-        authRecord.getString('name') || authRecord.getString('email') || 'Operador',
-      )
+    if (e.auth) {
+      auditRec.set('user_id', e.auth.id)
+      auditRec.set('user_name', e.auth.getString('name') || e.auth.getString('email') || 'Operador')
     } else {
       auditRec.set('user_name', 'Sistema Infanto-CEP')
     }
-    auditRec.set('ano', anoNum || 0)
-    auditRec.set('acao', acao)
-    const dataStr = record.getString('data') ? record.getString('data').split('T')[0] : ''
-    const desc = record.getString('descricao') || ''
-    const tipo = record.getString('tipo') || ''
-    auditRec.set('detalhes', `${acao}: Data=${dataStr}, Tipo=${tipo}, Descrição="${desc}"`)
-    app.save(auditRec)
+    auditRec.set('ano', anoNum)
+    auditRec.set('acao', 'Criação de Sábado Letivo')
+    const dataStr = e.record.getString('data') ? e.record.getString('data').split('T')[0] : ''
+    const desc = e.record.getString('descricao') || ''
+    const tipo = e.record.getString('tipo') || ''
+    auditRec.set('detalhes', `Criação: Data=${dataStr}, Tipo=${tipo}, Descrição="${desc}"`)
+    e.app.save(auditRec)
   } catch (err) {
-    console.warn('Falha ao gravar auditoria_sabados:', err)
+    console.warn('Falha ao gravar auditoria_sabados (create):', err)
   }
-}
-
-function getAnoFromRecord(app, record) {
-  try {
-    const anoLetivoId = record.getString('ano_letivo_id')
-    if (anoLetivoId) {
-      const anoRec = app.findRecordById('ano_letivo', anoLetivoId)
-      return anoRec.getInt('ano')
-    }
-  } catch (_) {}
-  return 0
-}
-
-onRecordAfterCreateSuccess((e) => {
-  const ano = getAnoFromRecord(e.app, e.record)
-  auditSabadoChange(e.app, e.auth, 'Criação de Sábado Letivo', e.record, ano)
   e.next()
 }, 'sabado_letivo')
 
 onRecordAfterUpdateSuccess((e) => {
-  const ano = getAnoFromRecord(e.app, e.record)
-  auditSabadoChange(e.app, e.auth, 'Atualização de Sábado Letivo', e.record, ano)
+  try {
+    let anoNum = 0
+    const anoLetivoId = e.record.getString('ano_letivo_id')
+    if (anoLetivoId) {
+      try {
+        const anoRec = e.app.findRecordById('ano_letivo', anoLetivoId)
+        anoNum = anoRec.getInt('ano')
+      } catch (_) {}
+    }
+
+    const auditCol = e.app.findCollectionByNameOrId('auditoria_sabados')
+    const auditRec = new Record(auditCol)
+    if (e.auth) {
+      auditRec.set('user_id', e.auth.id)
+      auditRec.set('user_name', e.auth.getString('name') || e.auth.getString('email') || 'Operador')
+    } else {
+      auditRec.set('user_name', 'Sistema Infanto-CEP')
+    }
+    auditRec.set('ano', anoNum)
+    auditRec.set('acao', 'Atualização de Sábado Letivo')
+    const dataStr = e.record.getString('data') ? e.record.getString('data').split('T')[0] : ''
+    const desc = e.record.getString('descricao') || ''
+    const tipo = e.record.getString('tipo') || ''
+    auditRec.set('detalhes', `Atualização: Data=${dataStr}, Tipo=${tipo}, Descrição="${desc}"`)
+    e.app.save(auditRec)
+  } catch (err) {
+    console.warn('Falha ao gravar auditoria_sabados (update):', err)
+  }
   e.next()
 }, 'sabado_letivo')
 
 onRecordAfterDeleteSuccess((e) => {
-  const ano = getAnoFromRecord(e.app, e.record)
-  auditSabadoChange(e.app, e.auth, 'Exclusão de Sábado Letivo', e.record, ano)
+  try {
+    let anoNum = 0
+    const anoLetivoId = e.record.getString('ano_letivo_id')
+    if (anoLetivoId) {
+      try {
+        const anoRec = e.app.findRecordById('ano_letivo', anoLetivoId)
+        anoNum = anoRec.getInt('ano')
+      } catch (_) {}
+    }
+
+    const auditCol = e.app.findCollectionByNameOrId('auditoria_sabados')
+    const auditRec = new Record(auditCol)
+    if (e.auth) {
+      auditRec.set('user_id', e.auth.id)
+      auditRec.set('user_name', e.auth.getString('name') || e.auth.getString('email') || 'Operador')
+    } else {
+      auditRec.set('user_name', 'Sistema Infanto-CEP')
+    }
+    auditRec.set('ano', anoNum)
+    auditRec.set('acao', 'Exclusão de Sábado Letivo')
+    const dataStr = e.record.getString('data') ? e.record.getString('data').split('T')[0] : ''
+    const desc = e.record.getString('descricao') || ''
+    const tipo = e.record.getString('tipo') || ''
+    auditRec.set('detalhes', `Exclusão: Data=${dataStr}, Tipo=${tipo}, Descrição="${desc}"`)
+    e.app.save(auditRec)
+  } catch (err) {
+    console.warn('Falha ao gravar auditoria_sabados (delete):', err)
+  }
   e.next()
 }, 'sabado_letivo')

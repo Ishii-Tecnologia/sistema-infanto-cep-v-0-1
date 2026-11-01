@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { settingsService } from '@/services/settings'
-import { ClassroomId, ClassroomInfo, CLASSROOMS, PedagogicalPlansMap } from '@/types'
+import { ClassroomId, ClassroomInfo, CLASSROOMS, PedagogicalPlansMap, AnoLetivo } from '@/types'
 import { calculateAgeOnCutoffDate, classifyClassroomByAge } from '@/lib/academic'
+import { schoolYearService } from '@/services/schoolYear'
 
 export const DEFAULT_PEDAGOGICAL_PLANS: PedagogicalPlansMap = {
   A: {
@@ -40,6 +41,8 @@ export interface RecessSaturday {
 interface AcademicContextType {
   classrooms: ClassroomInfo[]
   schoolYear: SchoolYearConfig
+  activeAnoLetivo: AnoLetivo | null
+  anosLetivos: AnoLetivo[]
   recessSaturdays: RecessSaturday[]
   pedagogicalPlans: PedagogicalPlansMap
   loading: boolean
@@ -73,6 +76,8 @@ const DEFAULT_RECESS_SATURDAYS: RecessSaturday[] = []
 const AcademicContext = createContext<AcademicContextType>({
   classrooms: CLASSROOMS,
   schoolYear: DEFAULT_SCHOOL_YEAR,
+  activeAnoLetivo: null,
+  anosLetivos: [],
   recessSaturdays: DEFAULT_RECESS_SATURDAYS,
   pedagogicalPlans: DEFAULT_PEDAGOGICAL_PLANS,
   loading: true,
@@ -89,6 +94,8 @@ const AcademicContext = createContext<AcademicContextType>({
 export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [classrooms, setClassrooms] = useState<ClassroomInfo[]>(CLASSROOMS)
   const [schoolYear, setSchoolYear] = useState<SchoolYearConfig>(DEFAULT_SCHOOL_YEAR)
+  const [activeAnoLetivo, setActiveAnoLetivo] = useState<AnoLetivo | null>(null)
+  const [anosLetivos, setAnosLetivos] = useState<AnoLetivo[]>([])
   const [recessSaturdays, setRecessSaturdays] = useState<RecessSaturday[]>(DEFAULT_RECESS_SATURDAYS)
   const [pedagogicalPlans, setPedagogicalPlans] =
     useState<PedagogicalPlansMap>(DEFAULT_PEDAGOGICAL_PLANS)
@@ -96,7 +103,14 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const reloadSettings = useCallback(async () => {
     try {
-      const data = await settingsService.getSettings()
+      const [data, anosList, activeAno] = await Promise.all([
+        settingsService.getSettings(),
+        schoolYearService.getAll().catch(() => [] as AnoLetivo[]),
+        schoolYearService.getActive().catch(() => null),
+      ])
+
+      setAnosLetivos(anosList)
+      setActiveAnoLetivo(activeAno)
 
       // 1. Salas
       if (Array.isArray(data.classrooms) && data.classrooms.length > 0) {
@@ -133,8 +147,48 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setPedagogicalPlans(DEFAULT_PEDAGOGICAL_PLANS)
       }
 
-      // 2. Ano Letivo
-      if (data.school_year && typeof data.school_year === 'object') {
+      // 2. Ano Letivo: prioridade para a coleção ano_letivo ativa (fonte de verdade)
+      if (activeAno) {
+        const syYear = activeAno.ano
+        setSchoolYear({
+          year: syYear,
+          startDate: activeAno.data_inicio
+            ? activeAno.data_inicio.split('T')[0]
+            : `${syYear}-03-07`,
+          endDate: activeAno.data_fim ? activeAno.data_fim.split('T')[0] : `${syYear}-11-28`,
+          ageBaseDate: activeAno.age_base_date
+            ? activeAno.age_base_date.split('T')[0]
+            : `${syYear}-03-01`,
+          winterBreakStart: activeAno.winter_break_start
+            ? activeAno.winter_break_start.split('T')[0]
+            : `${syYear}-07-04`,
+          winterBreakEnd: activeAno.winter_break_end
+            ? activeAno.winter_break_end.split('T')[0]
+            : `${syYear}-07-18`,
+          christmasDate: activeAno.christmas_date
+            ? activeAno.christmas_date.split('T')[0]
+            : `${syYear}-12-04`,
+        })
+
+        // Carrega janelas de feriado daquele ano
+        try {
+          const janelas = await schoolYearService.getJanelas(activeAno.id)
+          if (janelas.length > 0) {
+            setRecessSaturdays(
+              janelas.map((j) => ({
+                date: j.data_inicio.split('T')[0],
+                name: j.nome,
+              })),
+            )
+          } else {
+            const holidaysKey = `holidays_${syYear}`
+            const holidaysList = data[holidaysKey] || data.recess_saturdays
+            if (Array.isArray(holidaysList)) setRecessSaturdays(holidaysList)
+          }
+        } catch {
+          /* intentionally ignored */
+        }
+      } else if (data.school_year && typeof data.school_year === 'object') {
         const sy = data.school_year
         const syYear = sy.year || DEFAULT_SCHOOL_YEAR.year
         setSchoolYear({
@@ -146,15 +200,13 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           winterBreakEnd: sy.winterBreakEnd || `${syYear}-07-18`,
           christmasDate: sy.christmasDate || `${syYear}-12-04`,
         })
-      }
 
-      // 3. Feriados e Recessos
-      const curYear = data.school_year?.year || DEFAULT_SCHOOL_YEAR.year
-      const holidaysKey = `holidays_${curYear}`
-      const holidaysList =
-        data[holidaysKey] || data.holidays_2026 || data.holidays_2027 || data.recess_saturdays
-      if (Array.isArray(holidaysList)) {
-        setRecessSaturdays(holidaysList)
+        const holidaysKey = `holidays_${syYear}`
+        const holidaysList =
+          data[holidaysKey] || data.holidays_2026 || data.holidays_2027 || data.recess_saturdays
+        if (Array.isArray(holidaysList)) {
+          setRecessSaturdays(holidaysList)
+        }
       }
     } catch (err) {
       console.warn('Erro ao carregar configurações acadêmicas:', err)
@@ -189,6 +241,32 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     newYear: SchoolYearConfig,
     newRecesses: RecessSaturday[],
   ) => {
+    // 1. Atualiza na coleção ano_letivo (fonte de verdade)
+    let anoRecord = await schoolYearService.getByAno(newYear.year)
+    const payload = {
+      ano: newYear.year,
+      data_inicio: `${newYear.startDate} 00:00:00.000Z`,
+      data_fim: newYear.endDate ? `${newYear.endDate} 00:00:00.000Z` : undefined,
+      status: (anoRecord ? anoRecord.status : 'ativo') as 'ativo' | 'planejado' | 'encerrado',
+      age_base_date: newYear.ageBaseDate
+        ? `${newYear.ageBaseDate} 00:00:00.000Z`
+        : `${newYear.year}-03-01 00:00:00.000Z`,
+      winter_break_start: newYear.winterBreakStart
+        ? `${newYear.winterBreakStart} 00:00:00.000Z`
+        : undefined,
+      winter_break_end: newYear.winterBreakEnd
+        ? `${newYear.winterBreakEnd} 00:00:00.000Z`
+        : undefined,
+      christmas_date: newYear.christmasDate ? `${newYear.christmasDate} 00:00:00.000Z` : undefined,
+    }
+
+    if (anoRecord) {
+      anoRecord = await schoolYearService.update(anoRecord.id, payload)
+    } else {
+      anoRecord = await schoolYearService.create(payload)
+    }
+
+    // 2. Mantém compatibilidade com system_settings
     await Promise.all([
       settingsService.updateSetting('school_year', newYear, 'Ano letivo ativo e datas de corte'),
       settingsService.updateSetting(
@@ -197,8 +275,12 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         `Feriados e janelas de recesso para ${newYear.year}`,
       ),
     ])
+
+    setActiveAnoLetivo(anoRecord)
     setSchoolYear(newYear)
     setRecessSaturdays(newRecesses)
+    const updatedList = await schoolYearService.getAll().catch(() => [])
+    setAnosLetivos(updatedList)
   }
 
   const getClassroom = useCallback(
@@ -245,6 +327,8 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       value={{
         classrooms,
         schoolYear,
+        activeAnoLetivo,
+        anosLetivos,
         recessSaturdays,
         pedagogicalPlans,
         loading,

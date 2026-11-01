@@ -230,3 +230,68 @@ export interface DimDimTransaction {
     child_id?: Child
   }
 }
+
+export type SchoolYearStatus = 'planejado' | 'ativo' | 'encerrado'
+
+export interface AnoLetivo {
+  id: string
+  ano: number
+  data_inicio: string
+  data_fim?: string
+  status: SchoolYearStatus
+  age_base_date?: string
+  winter_break_start?: string
+  winter_break_end?: string
+  christmas_date?: string
+  replicado_de?: string
+  created?: string
+  updated?: string
+  expand?: {
+    replicado_de?: AnoLetivo
+  }
+}
+
+export type SabadoLetivoTipo = 'letivo' | 'feriado' | 'recesso' | 'evento'
+
+export interface SabadoLetivo {
+  id: string
+  ano_letivo_id: string
+  data: string
+  tipo: SabadoLetivoTipo
+  descricao?: string
+  revisado?: boolean
+  conflito_motivo?: string
+  lesson_id?: string
+  created?: string
+  updated?: string
+  expand?: {
+    ano_letivo_id?: AnoLetivo
+    lesson_id?: Lesson
+  }
+}
+
+export interface JanelaFeriado {
+  id: string
+  ano_letivo_id: string
+  data_inicio: string
+  data_fim: string
+  nome: string
+  revisado?: boolean
+  conflito_motivo?: string
+  created?: string
+  updated?: string
+  expand?: {
+    ano_letivo_id?: AnoLetivo
+  }
+}
+
+export interface AuditoriaSabado {
+  id: string
+  user_id?: string
+  user_name?: string
+  ano?: number
+  acao: string
+  detalhes?: string
+  created?: string
+  updated?: string
+}
