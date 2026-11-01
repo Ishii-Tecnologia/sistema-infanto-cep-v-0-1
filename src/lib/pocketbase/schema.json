@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T03:18:53.576Z",
+  "generatedAt": "2026-11-01T17:28:08.501Z",
   "collections": [
     {
       "name": "users",
@@ -849,6 +849,290 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_dimdim_child ON dimdim_transactions (child_id)"]
+    },
+    {
+      "name": "ano_letivo",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "ano",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_fim",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["planejado", "ativo", "encerrado"]
+        },
+        {
+          "name": "age_base_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "winter_break_start",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "winter_break_end",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "christmas_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "replicado_de",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "ano_letivo"
+        }
+      ],
+      "indexes": ["CREATE UNIQUE INDEX idx_ano_letivo_ano ON ano_letivo (ano)"]
+    },
+    {
+      "name": "sabado_letivo",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "ano_letivo_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "ano_letivo"
+        },
+        {
+          "name": "data",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["letivo", "feriado", "recesso", "evento"]
+        },
+        {
+          "name": "descricao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revisado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conflito_motivo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "lesson_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "lessons"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_sabado_letivo_ano_data ON sabado_letivo (ano_letivo_id, data)",
+        "CREATE INDEX idx_sabado_letivo_data ON sabado_letivo (data)"
+      ]
+    },
+    {
+      "name": "janela_feriado",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "ano_letivo_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "ano_letivo"
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "data_fim",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "revisado",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "conflito_motivo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_janela_feriado_ano ON janela_feriado (ano_letivo_id)"]
+    },
+    {
+      "name": "auditoria_sabados",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "user_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "ano",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "acao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "detalhes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_auditoria_sabados_ano ON auditoria_sabados (ano, created DESC)"]
     }
   ]
 }
