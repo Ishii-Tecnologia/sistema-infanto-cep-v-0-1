@@ -100,6 +100,8 @@ export interface Child {
   birth_date: string
   classroom: ClassroomId
   photo_url?: string
+  clothing_size?: string
+  shoe_size?: string
   allergies?: string
   medical_notes?: string
   image_authorized?: boolean

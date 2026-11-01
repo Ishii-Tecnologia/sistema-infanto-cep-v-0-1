@@ -91,6 +91,12 @@ function sanitizeChildPayload(data: Partial<Child>): Record<string, any> {
   if (data.photo_url !== undefined) {
     payload.photo_url = (data.photo_url || '').trim()
   }
+  if (data.clothing_size !== undefined) {
+    payload.clothing_size = (data.clothing_size || '').trim()
+  }
+  if (data.shoe_size !== undefined) {
+    payload.shoe_size = (data.shoe_size || '').trim()
+  }
   if (data.allergies !== undefined) {
     payload.allergies = (data.allergies || '').trim()
   }
@@ -277,6 +283,8 @@ export const familyService = {
         birth_date: c.birth_date,
         classroom: c.classroom,
         photo_url: c.photo_url,
+        clothing_size: c.clothing_size,
+        shoe_size: c.shoe_size,
         allergies: c.allergies,
         medical_notes: c.medical_notes,
         image_authorized: c.image_authorized,

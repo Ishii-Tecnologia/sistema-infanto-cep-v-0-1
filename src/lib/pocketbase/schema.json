@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T02:38:13.413Z",
+  "generatedAt": "2026-11-01T02:56:31.459Z",
   "collections": [
     {
       "name": "users",
@@ -324,6 +324,18 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "clothing_size",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "shoe_size",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

@@ -127,6 +127,8 @@ export default function FamiliesPage() {
       name: string
       birth_date: string
       classroom: ClassroomId
+      clothing_size?: string
+      shoe_size?: string
       allergies: string
       medical_notes: string
       image_authorized: boolean
@@ -137,6 +139,8 @@ export default function FamiliesPage() {
       name: '',
       birth_date: '',
       classroom: 'A',
+      clothing_size: '',
+      shoe_size: '',
       allergies: '',
       medical_notes: '',
       image_authorized: true,
@@ -207,6 +211,8 @@ export default function FamiliesPage() {
         name: '',
         birth_date: '',
         classroom: 'A',
+        clothing_size: '',
+        shoe_size: '',
         allergies: '',
         medical_notes: '',
         image_authorized: true,
@@ -256,6 +262,8 @@ export default function FamiliesPage() {
         name: '',
         birth_date: '',
         classroom: 'A',
+        clothing_size: '',
+        shoe_size: '',
         allergies: '',
         medical_notes: '',
         image_authorized: true,
@@ -369,6 +377,8 @@ export default function FamiliesPage() {
               name: c.name || '',
               birth_date: rawBirth,
               classroom: (autoClass || c.classroom || 'A') as ClassroomId,
+              clothing_size: c.clothing_size || '',
+              shoe_size: c.shoe_size || '',
               allergies: c.allergies || '',
               medical_notes: c.medical_notes || '',
               image_authorized: c.image_authorized !== false,
@@ -381,6 +391,8 @@ export default function FamiliesPage() {
               name: '',
               birth_date: '',
               classroom: 'A',
+              clothing_size: '',
+              shoe_size: '',
               allergies: '',
               medical_notes: '',
               image_authorized: true,
@@ -755,6 +767,18 @@ export default function FamiliesPage() {
                           </div>
 
                           <div className="grid grid-cols-2 gap-2 pt-2 border-t text-[11px]">
+                            <div>
+                              <span className="text-muted-foreground">Tamanho de Roupa:</span>
+                              <p className="font-medium text-slate-800 dark:text-slate-200">
+                                {c.clothing_size || 'Não informado'}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Tamanho de Calçado:</span>
+                              <p className="font-medium text-slate-800 dark:text-slate-200">
+                                {c.shoe_size || 'Não informado'}
+                              </p>
+                            </div>
                             <div>
                               <span className="text-muted-foreground">Alergias:</span>
                               <p className="font-medium text-rose-600">
@@ -1136,6 +1160,32 @@ export default function FamiliesPage() {
                         </div>
 
                         <div className="space-y-1">
+                          <Label className="text-xs">Tamanho de Roupa</Label>
+                          <Input
+                            placeholder="Ex: 8, 10, P, M..."
+                            value={child.clothing_size || ''}
+                            onChange={(e) => {
+                              const updated = [...wizardChildren]
+                              updated[index].clothing_size = e.target.value
+                              setWizardChildren(updated)
+                            }}
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-xs">Tamanho de Calçado</Label>
+                          <Input
+                            placeholder="Ex: 28, 32, 35..."
+                            value={child.shoe_size || ''}
+                            onChange={(e) => {
+                              const updated = [...wizardChildren]
+                              updated[index].shoe_size = e.target.value
+                              setWizardChildren(updated)
+                            }}
+                          />
+                        </div>
+
+                        <div className="space-y-1">
                           <Label className="text-xs">Alergias ou Restrições Alimentares</Label>
                           <Input
                             placeholder="Ex: Amendoim, Lactose, Nenhuma..."
@@ -1269,6 +1319,13 @@ export default function FamiliesPage() {
                             {c.birth_date && (
                               <span className="text-muted-foreground ml-2">
                                 • Nasc: {formatDate(c.birth_date)} ({age} anos)
+                              </span>
+                            )}
+                            {(c.clothing_size || c.shoe_size) && (
+                              <span className="text-muted-foreground block text-[11px] mt-0.5">
+                                {c.clothing_size ? `Roupa: ${c.clothing_size}` : ''}
+                                {c.clothing_size && c.shoe_size ? ' • ' : ''}
+                                {c.shoe_size ? `Calçado: ${c.shoe_size}` : ''}
                               </span>
                             )}
                           </div>
