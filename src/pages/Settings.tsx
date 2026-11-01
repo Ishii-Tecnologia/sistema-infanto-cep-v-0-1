@@ -463,9 +463,22 @@ export default function SettingsPage() {
         selectedAnoLetivoRecord.ano,
       )
 
+      const domDesloc = res.domingosDeslocados ?? 0
+      const conflitosQtd = res.conflitosDetectados ?? 0
+      const detalhesMsg = [
+        `Clonados ${res.sabadosClonados} sábados e ${res.janelasClonadas} janelas de ${sourceAno.ano}.`,
+        domDesloc > 0
+          ? `${domDesloc} data(s) caíram em domingo e foram deslocadas para o sábado anterior.`
+          : 'Nenhuma data caiu em domingo.',
+        conflitosQtd > 0
+          ? `${conflitosQtd} conflito(s) com feriados móveis sinalizados para revisão manual.`
+          : 'Sem conflitos de feriados móveis.',
+        'Todos os registros foram marcados com revisão pendente no Sistema Infanto-CEP.',
+      ].join(' ')
+
       toast({
         title: 'Replicação concluída!',
-        description: `Clonados ${res.sabadosClonados} sábados e ${res.janelasClonadas} janelas de feriado de ${sourceAno.ano}. Domingo(s) ajustados para sábado anterior. Registros marcados para revisão. ${res.conflitosDetectados > 0 ? `(${res.conflitosDetectados} conflitos de feriados móveis sinalizados)` : ''}`,
+        description: detalhesMsg,
       })
 
       // Refetch
@@ -712,6 +725,17 @@ export default function SettingsPage() {
 
     const dStr = newRecessDate.split('T')[0]
 
+    // Validação preventiva no frontend de sobreposição
+    const duplicate = recessList.some((r) => r.date.split('T')[0] === dStr)
+    if (duplicate) {
+      toast({
+        title: 'Sobreposição detectada',
+        description: `Já existe um recesso/feriado configurado para a data ${formatDate(dStr)} neste ano letivo.`,
+        variant: 'destructive',
+      })
+      return
+    }
+
     // Se houver ano salvo, tenta gravar direto na coleção janela_feriado para validar sobreposição no backend
     if (selectedAnoLetivoRecord) {
       try {
@@ -725,8 +749,11 @@ export default function SettingsPage() {
         setJanelasDoAno([...janelasDoAno, created])
       } catch (err: any) {
         toast({
-          title: 'Sobreposição rejeitada pelo servidor',
-          description: err?.message || 'O período informado colide com uma janela existente.',
+          title: 'Sobreposição de feriados',
+          description:
+            err?.data?.message ||
+            err?.message ||
+            'O período informado coincide com outra janela de feriado já cadastrada neste ano.',
           variant: 'destructive',
         })
         return

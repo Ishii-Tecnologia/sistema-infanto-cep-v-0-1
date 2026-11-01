@@ -194,17 +194,59 @@ export const schoolYearService = {
   // com tratamento de 29/02 e ajuste de dia da semana: domingos movidos para o sábado anterior).
   // Grava replicado_de no AnoLetivo de destino.
   // Sinaliza conflitos com feriados móveis e marca revisado=false.
+  // Chama a rota de backend /backend/v1/school-year/replicate ou executa fallback com regras equivalentes.
   async replicateFromYear(
     sourceAnoLetivoId: string,
     targetAnoLetivoId: string,
     targetYearNum: number,
-  ): Promise<{ sabadosClonados: number; janelasClonadas: number; conflitosDetectados: number }> {
-    const [sourceSabados, sourceJanelas] = await Promise.all([
+  ): Promise<{
+    sabadosClonados: number
+    janelasClonadas: number
+    domingosDeslocados?: number
+    shiftedSundayDates?: string[]
+    conflitosList?: string[]
+    conflitosDetectados: number
+    sourceYear?: number
+    targetYear?: number
+  }> {
+    // Tenta primeiro a rota customizada no backend
+    try {
+      const res = await pb.send<{
+        success: boolean
+        sourceYear: number
+        targetYear: number
+        sabadosClonados: number
+        janelasClonadas: number
+        domingosDeslocados: number
+        shiftedSundayDates: string[]
+        conflitosList: string[]
+        conflitosDetectados: number
+      }>('/backend/v1/school-year/replicate', {
+        method: 'POST',
+        body: {
+          source_ano_letivo_id: sourceAnoLetivoId,
+          target_ano_letivo_id: targetAnoLetivoId,
+          target_year: targetYearNum,
+        },
+      })
+      if (res && res.success) {
+        return res
+      }
+    } catch (routeErr) {
+      console.warn('Rota customizada de replicação não respondeu, usando fallback local:', routeErr)
+    }
+
+    // Fallback cliente
+    const [sourceSabados, sourceJanelas, sourceAno] = await Promise.all([
       this.getSabados(sourceAnoLetivoId),
       this.getJanelas(sourceAnoLetivoId),
+      this.getById(sourceAnoLetivoId).catch(() => null),
     ])
 
     let conflitosDetectados = 0
+    let domingosDeslocados = 0
+    const shiftedSundayDates: string[] = []
+    const conflitosList: string[] = []
 
     // Atualiza replicado_de no ano de destino
     await this.update(targetAnoLetivoId, {
@@ -217,7 +259,16 @@ export const schoolYearService = {
       const shiftStart = shiftDatePreservingDayMonth(janela.data_inicio, targetYearNum)
       const shiftEnd = shiftDatePreservingDayMonth(janela.data_fim, targetYearNum)
       const conflito = detectMovableHolidayConflict(shiftStart.newDateStr, targetYearNum)
-      if (conflito) conflitosDetectados++
+      if (conflito) {
+        conflitosDetectados++
+        conflitosList.push(`${janela.nome} (${shiftStart.newDateStr})`)
+      }
+      if (shiftStart.shiftedFromSunday) {
+        domingosDeslocados++
+        shiftedSundayDates.push(
+          `${janela.nome}: ${janela.data_inicio.split('T')[0]} -> ${shiftStart.newDateStr}`,
+        )
+      }
 
       try {
         await pb.collection('janela_feriado').create({
@@ -241,7 +292,16 @@ export const schoolYearService = {
     for (const sabado of sourceSabados) {
       const shift = shiftDatePreservingDayMonth(sabado.data, targetYearNum)
       const conflito = detectMovableHolidayConflict(shift.newDateStr, targetYearNum)
-      if (conflito) conflitosDetectados++
+      if (conflito) {
+        conflitosDetectados++
+        conflitosList.push(`${sabado.descricao || 'Sábado'} (${shift.newDateStr})`)
+      }
+      if (shift.shiftedFromSunday) {
+        domingosDeslocados++
+        shiftedSundayDates.push(
+          `${sabado.descricao || 'Sábado'}: ${sabado.data.split('T')[0]} -> ${shift.newDateStr}`,
+        )
+      }
 
       const motivo = [
         conflito,
@@ -267,6 +327,15 @@ export const schoolYearService = {
       }
     }
 
-    return { sabadosClonados, janelasClonadas, conflitosDetectados }
+    return {
+      sabadosClonados,
+      janelasClonadas,
+      domingosDeslocados,
+      shiftedSundayDates,
+      conflitosList,
+      conflitosDetectados,
+      sourceYear: sourceAno?.ano,
+      targetYear: targetYearNum,
+    }
   },
 }

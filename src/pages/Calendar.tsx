@@ -27,19 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Calendar,
-  BookOpen,
-  AlertCircle,
-  CheckCircle2,
-  XCircle,
-  RefreshCw,
-  Plus,
-  Edit3,
-  CalendarCheck,
-  Sliders,
-  Settings2,
-} from 'lucide-react'
+import { Calendar, BookOpen, AlertCircle, Sliders, Settings2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 export default function CalendarPage() {
@@ -59,25 +47,8 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true)
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null)
 
-  // Modal de Cancelamento de Aula
-  const [cancelOpen, setCancelOpen] = useState(false)
-  const [cancelReason, setCancelReason] = useState('Recesso / Feriado')
-
-  // Modal de Edição de Plano Pedagógico
-  const [editingPlan, setEditingPlan] = useState<LessonPlan | null>(null)
-  const [planForm, setPlanForm] = useState({
-    title: '',
-    objective: '',
-    approach: '',
-    materials: '',
-  })
-
-  // Modal de Edição do Tema e Bloco Temático da Aula
-  const [editLessonOpen, setEditLessonOpen] = useState(false)
-  const [lessonForm, setLessonForm] = useState({
-    central_theme: '',
-    thematic_block: '',
-  })
+  // Modal de Visualização/Edição de Plano Pedagógico (visualização com planos por sala)
+  const [viewingPlan, setViewingPlan] = useState<LessonPlan | null>(null)
 
   // Modal de Configuração das Salas (Nome e Faixa Etária)
   const [classroomsModalOpen, setClassroomsModalOpen] = useState(false)
@@ -136,12 +107,6 @@ export default function CalendarPage() {
     }
   }
 
-  const loadLessons = async () => {
-    if (selectedYearNum) {
-      await loadYearData(selectedYearNum)
-    }
-  }
-
   const handleOpenClassroomsModal = () => {
     setEditingClassrooms(JSON.parse(JSON.stringify(classrooms)))
     setClassroomsModalOpen(true)
@@ -165,120 +130,6 @@ export default function CalendarPage() {
       })
     } finally {
       setSavingClassrooms(false)
-    }
-  }
-
-  const handleCancelLesson = async () => {
-    if (!selectedLesson) return
-    try {
-      await lessonService.cancelLesson(selectedLesson.id, cancelReason)
-      toast({
-        title: 'Aula cancelada',
-        description:
-          'A aula foi marcada como cancelada. O plano pedagógico foi mantido como histórico.',
-      })
-      setCancelOpen(false)
-      loadLessons()
-      setSelectedLesson({
-        ...selectedLesson,
-        status: 'canceled',
-        cancel_reason: cancelReason,
-      })
-    } catch (err) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível cancelar a aula.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  const handleReactivateLesson = async () => {
-    if (!selectedLesson) return
-    try {
-      await lessonService.reactivateLesson(selectedLesson.id)
-      toast({
-        title: 'Aula reativada!',
-        description: 'A aula e seus planos pedagógicos voltaram ao status de agendada.',
-      })
-      loadLessons()
-      setSelectedLesson({
-        ...selectedLesson,
-        status: 'scheduled',
-        cancel_reason: '',
-      })
-    } catch (err) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível reativar a aula.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  const handleOpenEditLesson = () => {
-    if (!selectedLesson) return
-    setLessonForm({
-      central_theme: selectedLesson.central_theme || '',
-      thematic_block: selectedLesson.thematic_block || '',
-    })
-    setEditLessonOpen(true)
-  }
-
-  const handleSaveLesson = async () => {
-    if (!selectedLesson) return
-    try {
-      await lessonService.update(selectedLesson.id, {
-        central_theme: lessonForm.central_theme,
-        thematic_block: lessonForm.thematic_block,
-      })
-      toast({
-        title: 'Aula atualizada!',
-        description: 'O tema central e o bloco temático foram salvos.',
-      })
-      setEditLessonOpen(false)
-      setSelectedLesson({
-        ...selectedLesson,
-        central_theme: lessonForm.central_theme,
-        thematic_block: lessonForm.thematic_block,
-      })
-      loadLessons()
-    } catch (err: any) {
-      toast({
-        title: 'Erro ao salvar aula',
-        description: err?.message || 'Não foi possível atualizar a aula.',
-        variant: 'destructive',
-      })
-    }
-  }
-
-  const handleOpenEditPlan = (plan: LessonPlan) => {
-    setEditingPlan(plan)
-    setPlanForm({
-      title: plan.title,
-      objective: plan.objective || '',
-      approach: plan.approach || '',
-      materials: plan.materials || '',
-    })
-  }
-
-  const handleSavePlan = async () => {
-    if (!editingPlan || !selectedLesson) return
-    try {
-      const updated = await lessonService.updatePlan(editingPlan.id, planForm)
-      toast({ title: 'Plano pedagógico atualizado com sucesso!' })
-
-      const updatedPlans = (selectedLesson.plans || []).map((p) =>
-        p.id === updated.id ? updated : p,
-      )
-      setSelectedLesson({ ...selectedLesson, plans: updatedPlans })
-      setEditingPlan(null)
-    } catch (err) {
-      toast({
-        title: 'Erro ao salvar',
-        description: 'Não foi possível salvar o plano.',
-        variant: 'destructive',
-      })
     }
   }
 
@@ -458,40 +309,36 @@ export default function CalendarPage() {
 
                       <div className="flex items-center gap-2">
                         {selectedLesson.status === 'canceled' ? (
-                          <Button
-                            size="sm"
+                          <Badge
                             variant="outline"
-                            onClick={handleReactivateLesson}
-                            className="h-8 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                            className="text-xs bg-rose-50 text-rose-700 border-rose-200"
                           >
-                            <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                            Reativar Aula
-                          </Button>
+                            Aula Cancelada
+                          </Badge>
                         ) : (
-                          <Button
-                            size="sm"
+                          <Badge
                             variant="outline"
-                            onClick={() => setCancelOpen(true)}
-                            className="h-8 text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
+                            className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200"
                           >
-                            <XCircle className="h-3.5 w-3.5 mr-1" />
-                            Cancelar Aula
-                          </Button>
+                            Aula Agendada
+                          </Badge>
                         )}
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                        >
+                          <Link to="/settings">
+                            <Settings2 className="h-3.5 w-3.5 mr-1 text-indigo-600" />
+                            Gerenciar em Configurações
+                          </Link>
+                        </Button>
                       </div>
                     </div>
 
-                    <CardTitle className="text-xl font-bold mt-2 flex items-center justify-between">
-                      <span>{selectedLesson.central_theme}</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleOpenEditLesson}
-                        className="h-8 text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                      >
-                        <Edit3 className="h-3.5 w-3.5 mr-1" />
-                        Editar Aula
-                      </Button>
+                    <CardTitle className="text-xl font-bold mt-2">
+                      {selectedLesson.central_theme}
                     </CardTitle>
                     <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
                       Bloco Temático: <strong>{selectedLesson.thematic_block}</strong>
@@ -548,11 +395,11 @@ export default function CalendarPage() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    onClick={() => handleOpenEditPlan(plan)}
+                                    onClick={() => setViewingPlan(plan)}
                                     className="h-7 text-xs text-indigo-600 hover:text-indigo-800"
                                   >
-                                    <Edit3 className="h-3.5 w-3.5 mr-1" />
-                                    Editar Plano
+                                    <BookOpen className="h-3.5 w-3.5 mr-1" />
+                                    Visualizar Detalhes
                                   </Button>
                                 </div>
 
@@ -613,145 +460,77 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Modal: Cancelar Aula */}
-      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cancelar Aula do Sábado</DialogTitle>
-            <DialogDescription className="text-xs">
-              Informe o motivo do cancelamento (ex: feriado prolongado, recesso, evento da
-              CEP-Coligação Espírita Progressista). O plano pedagógico continuará preservado no
-              histórico.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-2 space-y-2">
-            <Label htmlFor="cancel_reason" className="text-xs">
-              Motivo do Cancelamento
-            </Label>
-            <Input
-              id="cancel_reason"
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="Ex: Feriado prolongado de Páscoa"
-            />
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setCancelOpen(false)}>
-              Voltar
-            </Button>
-            <Button size="sm" variant="destructive" onClick={handleCancelLesson}>
-              Confirmar Cancelamento
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal: Editar Tema e Bloco da Aula (Sábado) */}
-      <Dialog open={editLessonOpen} onOpenChange={setEditLessonOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Editar Aula do Sábado</DialogTitle>
-            <DialogDescription className="text-xs">
-              Atualize o tema central e o bloco temático da aula de{' '}
-              {selectedLesson ? formatDate(selectedLesson.date) : ''}.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-2 space-y-3 text-xs">
-            <div className="space-y-1">
-              <Label>Tema Central da Aula</Label>
-              <Input
-                value={lessonForm.central_theme}
-                onChange={(e) => setLessonForm({ ...lessonForm, central_theme: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Bloco Temático</Label>
-              <Input
-                value={lessonForm.thematic_block}
-                onChange={(e) => setLessonForm({ ...lessonForm, thematic_block: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setEditLessonOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSaveLesson}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              Salvar Aula
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal: Editar Plano Pedagógico */}
-      <Dialog open={!!editingPlan} onOpenChange={(open) => !open && setEditingPlan(null)}>
+      {/* Modal: Visualizar Plano Pedagógico da Aula (Read-Only) */}
+      <Dialog open={!!viewingPlan} onOpenChange={(open) => !open && setViewingPlan(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              Editar Plano de Aula —{' '}
-              {classrooms.find((c) => c.id === editingPlan?.classroom)?.name ||
-                `Sala ${editingPlan?.classroom}`}
+              Plano de Aula —{' '}
+              {classrooms.find((c) => c.id === viewingPlan?.classroom)?.name ||
+                `Sala ${viewingPlan?.classroom}`}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Ajuste o objetivo, a dinâmica e os materiais necessários para a turma.
+              Visualização pedagógica da atividade programada. Para editar temas, blocos ou sábados,
+              acesse a ficha de configuração em Operadores e Configurações.
             </DialogDescription>
           </DialogHeader>
 
           <div className="py-2 space-y-3 text-xs">
             <div className="space-y-1">
-              <Label>Título da Aula</Label>
-              <Input
-                value={planForm.title}
-                onChange={(e) => setPlanForm({ ...planForm, title: e.target.value })}
-              />
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+                Título da Aula
+              </span>
+              <p className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                {viewingPlan?.title || 'Sem título cadastrado'}
+              </p>
             </div>
 
             <div className="space-y-1">
-              <Label>Objetivo Pedagógico</Label>
-              <Textarea
-                rows={2}
-                value={planForm.objective}
-                onChange={(e) => setPlanForm({ ...planForm, objective: e.target.value })}
-              />
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+                Objetivo Pedagógico
+              </span>
+              <p className="text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-900 p-2.5 rounded border">
+                {viewingPlan?.objective || 'Não preenchido'}
+              </p>
             </div>
 
             <div className="space-y-1">
-              <Label>Abordagem / Dinâmica da Sala</Label>
-              <Textarea
-                rows={3}
-                value={planForm.approach}
-                onChange={(e) => setPlanForm({ ...planForm, approach: e.target.value })}
-              />
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+                Abordagem / Dinâmica da Sala
+              </span>
+              <p className="text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-900 p-2.5 rounded border">
+                {viewingPlan?.approach || 'Não preenchido'}
+              </p>
             </div>
 
             <div className="space-y-1">
-              <Label>Recursos e Materiais</Label>
-              <Input
-                value={planForm.materials}
-                onChange={(e) => setPlanForm({ ...planForm, materials: e.target.value })}
-              />
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase">
+                Recursos e Materiais
+              </span>
+              <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 p-2.5 rounded border">
+                {viewingPlan?.materials || 'Não preenchido'}
+              </p>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setEditingPlan(null)}>
-              Cancelar
+          <DialogFooter className="flex justify-between items-center sm:justify-between w-full">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="text-xs border-indigo-200 text-indigo-700"
+            >
+              <Link to="/settings">
+                <Settings2 className="h-3.5 w-3.5 mr-1" />
+                Ir para Configurações
+              </Link>
             </Button>
             <Button
               size="sm"
-              onClick={handleSavePlan}
+              onClick={() => setViewingPlan(null)}
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
-              Salvar Plano
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
