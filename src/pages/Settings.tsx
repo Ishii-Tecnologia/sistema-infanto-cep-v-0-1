@@ -50,7 +50,9 @@ export default function SettingsPage() {
     classrooms,
     schoolYear,
     recessSaturdays: academicRecesses,
+    pedagogicalPlans,
     saveClassrooms,
+    savePedagogicalPlans,
     saveSchoolYearAndRecesses,
   } = useAcademic()
 
@@ -110,6 +112,10 @@ export default function SettingsPage() {
   const [editingRooms, setEditingRooms] = useState(classrooms)
   const [savingRooms, setSavingRooms] = useState(false)
 
+  // Edição de Planos Pedagógicos por Sala
+  const [editingPlans, setEditingPlans] = useState(pedagogicalPlans)
+  const [savingPlans, setSavingPlans] = useState(false)
+
   useEffect(() => {
     setYearForm(schoolYear)
   }, [schoolYear])
@@ -121,6 +127,10 @@ export default function SettingsPage() {
   useEffect(() => {
     setEditingRooms(classrooms)
   }, [classrooms])
+
+  useEffect(() => {
+    setEditingPlans(pedagogicalPlans)
+  }, [pedagogicalPlans])
 
   useEffect(() => {
     loadData()
@@ -450,7 +460,7 @@ export default function SettingsPage() {
       await saveClassrooms(editingRooms)
       toast({
         title: 'Configurações de salas salvas!',
-        description: 'Os nomes e faixas etárias foram atualizados em todo o sistema.',
+        description: 'Os nomes e faixas etárias foram atualizados no Sistema Infanto-CEP.',
       })
     } catch (err: any) {
       toast({
@@ -460,6 +470,25 @@ export default function SettingsPage() {
       })
     } finally {
       setSavingRooms(false)
+    }
+  }
+
+  const handleSavePlans = async () => {
+    try {
+      setSavingPlans(true)
+      await savePedagogicalPlans(editingPlans)
+      toast({
+        title: 'Planos pedagógicos salvos com sucesso!',
+        description: 'Os temas e atividades de cada sala foram atualizados no Sistema Infanto-CEP.',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar planos pedagógicos',
+        description: err?.message || 'Falha ao salvar.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingPlans(false)
     }
   }
 
@@ -868,6 +897,99 @@ export default function SettingsPage() {
                 >
                   {savingRooms ? 'Salvando...' : 'Salvar Configurações de Salas'}
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* Planos Pedagógicos por Sala (Painel de Apresentação) */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-indigo-600" />
+                  Planos Pedagógicos das Salas (Painel Principal)
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Configure as duas linhas de texto exibidas para cada sala no painel de
+                  apresentação do ano letivo: (1) o título/tema do plano e (2) a linha descritiva de
+                  atividades. Os rótulos de cada sala (ex.: &quot;Sala A&quot;) vêm do bloco acima.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {classrooms.map((room) => {
+                    const roomPlan = editingPlans[room.id] || { title: '', activities: '' }
+                    return (
+                      <div
+                        key={room.id}
+                        className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-3"
+                      >
+                        <div className="flex items-center justify-between border-b pb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-indigo-600 text-white font-bold text-xs">
+                              {room.name || `Sala ${room.id}`}
+                            </Badge>
+                            <span className="text-[11px] text-muted-foreground font-medium">
+                              ({room.minAge}-{room.maxAge} anos)
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-indigo-700 dark:text-indigo-300 font-mono">
+                            Linhas 1 e 2
+                          </span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-semibold">
+                            Linha 1: Título / Tema do Plano Pedagógico
+                          </Label>
+                          <Input
+                            value={roomPlan.title}
+                            onChange={(e) => {
+                              setEditingPlans({
+                                ...editingPlans,
+                                [room.id]: {
+                                  ...roomPlan,
+                                  title: e.target.value,
+                                },
+                              })
+                            }}
+                            placeholder="Ex: Linguagem Lúdica: Deus, Pai e Criador de Todas as Coisas"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-semibold">
+                            Linha 2: Descrição das Atividades
+                          </Label>
+                          <Input
+                            value={roomPlan.activities}
+                            onChange={(e) => {
+                              setEditingPlans({
+                                ...editingPlans,
+                                [room.id]: {
+                                  ...roomPlan,
+                                  activities: e.target.value,
+                                },
+                              })
+                            }}
+                            placeholder="Ex: Roda de acolhimento, contação com figuras coloridas e pintura."
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <Button
+                    onClick={handleSavePlans}
+                    disabled={savingPlans}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto"
+                  >
+                    {savingPlans ? 'Salvando...' : 'Salvar Planos Pedagógicos'}
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    Ao salvar, o painel principal exibirá imediatamente os textos configurados.
+                  </p>
+                </div>
               </CardContent>
             </Card>
 

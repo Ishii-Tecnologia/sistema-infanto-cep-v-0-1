@@ -1,7 +1,26 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { settingsService } from '@/services/settings'
-import { ClassroomId, ClassroomInfo, CLASSROOMS } from '@/types'
+import { ClassroomId, ClassroomInfo, CLASSROOMS, PedagogicalPlansMap } from '@/types'
 import { calculateAgeOnCutoffDate, classifyClassroomByAge } from '@/lib/academic'
+
+export const DEFAULT_PEDAGOGICAL_PLANS: PedagogicalPlansMap = {
+  A: {
+    title: 'Linguagem Lúdica: Deus, Pai e Criador de Todas as Coisas',
+    activities: 'Roda de acolhimento, contação com figuras coloridas e pintura.',
+  },
+  B: {
+    title: 'Compreensão Ativa: Deus, Pai e Criador de Todas as Coisas',
+    activities: 'Leitura participativa, perguntas disparadoras e dramatização curta.',
+  },
+  C: {
+    title: 'Reflexão Moral e Evangélica: Deus, Pai e Criador de Todas as Coisas',
+    activities: 'Debate mediado, análise evangélica e dinâmica reflexiva em duplas.',
+  },
+  D: {
+    title: 'Juventude e Vivência: Deus, Pai e Criador de Todas as Coisas',
+    activities: 'Roda de conversa aberta, estudo de caso e debate mediado.',
+  },
+}
 
 export interface SchoolYearConfig {
   year: number
@@ -22,9 +41,11 @@ interface AcademicContextType {
   classrooms: ClassroomInfo[]
   schoolYear: SchoolYearConfig
   recessSaturdays: RecessSaturday[]
+  pedagogicalPlans: PedagogicalPlansMap
   loading: boolean
   reloadSettings: () => Promise<void>
   saveClassrooms: (newClassrooms: ClassroomInfo[]) => Promise<void>
+  savePedagogicalPlans: (newPlans: PedagogicalPlansMap) => Promise<void>
   saveSchoolYearAndRecesses: (
     newYear: SchoolYearConfig,
     newRecesses: RecessSaturday[],
@@ -53,9 +74,11 @@ const AcademicContext = createContext<AcademicContextType>({
   classrooms: CLASSROOMS,
   schoolYear: DEFAULT_SCHOOL_YEAR,
   recessSaturdays: DEFAULT_RECESS_SATURDAYS,
+  pedagogicalPlans: DEFAULT_PEDAGOGICAL_PLANS,
   loading: true,
   reloadSettings: async () => {},
   saveClassrooms: async () => {},
+  savePedagogicalPlans: async () => {},
   saveSchoolYearAndRecesses: async () => {},
   getClassroom: () => undefined,
   getClassroomLabel: (id) => `Sala ${id}`,
@@ -67,6 +90,8 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [classrooms, setClassrooms] = useState<ClassroomInfo[]>(CLASSROOMS)
   const [schoolYear, setSchoolYear] = useState<SchoolYearConfig>(DEFAULT_SCHOOL_YEAR)
   const [recessSaturdays, setRecessSaturdays] = useState<RecessSaturday[]>(DEFAULT_RECESS_SATURDAYS)
+  const [pedagogicalPlans, setPedagogicalPlans] =
+    useState<PedagogicalPlansMap>(DEFAULT_PEDAGOGICAL_PLANS)
   const [loading, setLoading] = useState(true)
 
   const reloadSettings = useCallback(async () => {
@@ -78,6 +103,34 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setClassrooms(data.classrooms)
       } else {
         setClassrooms(CLASSROOMS)
+      }
+
+      // 1.1 Planos Pedagógicos
+      if (data.pedagogical_plans && typeof data.pedagogical_plans === 'object') {
+        setPedagogicalPlans({
+          A: {
+            title: data.pedagogical_plans.A?.title ?? DEFAULT_PEDAGOGICAL_PLANS.A.title,
+            activities:
+              data.pedagogical_plans.A?.activities ?? DEFAULT_PEDAGOGICAL_PLANS.A.activities,
+          },
+          B: {
+            title: data.pedagogical_plans.B?.title ?? DEFAULT_PEDAGOGICAL_PLANS.B.title,
+            activities:
+              data.pedagogical_plans.B?.activities ?? DEFAULT_PEDAGOGICAL_PLANS.B.activities,
+          },
+          C: {
+            title: data.pedagogical_plans.C?.title ?? DEFAULT_PEDAGOGICAL_PLANS.C.title,
+            activities:
+              data.pedagogical_plans.C?.activities ?? DEFAULT_PEDAGOGICAL_PLANS.C.activities,
+          },
+          D: {
+            title: data.pedagogical_plans.D?.title ?? DEFAULT_PEDAGOGICAL_PLANS.D.title,
+            activities:
+              data.pedagogical_plans.D?.activities ?? DEFAULT_PEDAGOGICAL_PLANS.D.activities,
+          },
+        })
+      } else {
+        setPedagogicalPlans(DEFAULT_PEDAGOGICAL_PLANS)
       }
 
       // 2. Ano Letivo
@@ -121,6 +174,15 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       'Configuração das salas por faixa etária',
     )
     setClassrooms(newClassrooms)
+  }
+
+  const savePedagogicalPlans = async (newPlans: PedagogicalPlansMap) => {
+    await settingsService.updateSetting(
+      'pedagogical_plans',
+      newPlans,
+      'Parâmetros dos planos pedagógicos por sala para o painel de apresentação',
+    )
+    setPedagogicalPlans(newPlans)
   }
 
   const saveSchoolYearAndRecesses = async (
@@ -184,9 +246,11 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         classrooms,
         schoolYear,
         recessSaturdays,
+        pedagogicalPlans,
         loading,
         reloadSettings,
         saveClassrooms,
+        savePedagogicalPlans,
         saveSchoolYearAndRecesses,
         getClassroom,
         getClassroomLabel,

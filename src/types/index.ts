@@ -13,6 +13,13 @@ export interface User {
 
 export type ClassroomId = 'A' | 'B' | 'C' | 'D'
 
+export interface PedagogicalPlanSetting {
+  title: string
+  activities: string
+}
+
+export type PedagogicalPlansMap = Record<ClassroomId, PedagogicalPlanSetting>
+
 export interface ClassroomInfo {
   id: ClassroomId
   name: string

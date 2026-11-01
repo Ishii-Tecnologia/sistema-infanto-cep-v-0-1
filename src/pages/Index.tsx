@@ -27,7 +27,7 @@ import {
 export default function Index() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { classrooms, schoolYear, loading: academicLoading } = useAcademic()
+  const { classrooms, schoolYear, pedagogicalPlans, loading: academicLoading } = useAcademic()
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [overdueLoans, setOverdueLoans] = useState<BookLoan[]>([])
   const [families, setFamilies] = useState<Family[]>([])
@@ -229,11 +229,25 @@ export default function Index() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(nextLesson?.plans || []).map((plan) => {
-                  const badge = getClassroomBadge(plan.classroom, classrooms)
+                {classrooms.map((room) => {
+                  const badge = getClassroomBadge(room.id, classrooms)
+                  // Procura se a aula do dia tem plano customizado salvo; caso contrário ou se vazio, usa a parametrização do painel
+                  const lessonPlan = nextLesson?.plans?.find((p) => p.classroom === room.id)
+                  const configuredPlan = pedagogicalPlans[room.id]
+
+                  const displayTitle =
+                    configuredPlan?.title ||
+                    lessonPlan?.title ||
+                    `Linguagem Pedagógica: ${room.name}`
+                  const displayActivities =
+                    configuredPlan?.activities ||
+                    lessonPlan?.approach ||
+                    lessonPlan?.objective ||
+                    'Atividades lúdicas e reflexivas para a faixa etária.'
+
                   return (
                     <div
-                      key={plan.id}
+                      key={room.id}
                       className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs hover:border-indigo-200 transition-colors"
                     >
                       <div className="flex items-center justify-between mb-1.5">
@@ -241,13 +255,17 @@ export default function Index() {
                           {badge.name}
                         </Badge>
                       </div>
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-1">
-                        {plan.title}
+                      <h4
+                        className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-1"
+                        title={displayTitle}
+                      >
+                        {displayTitle}
                       </h4>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        {plan.approach ||
-                          plan.objective ||
-                          'Atividades lúdicas e reflexivas para a faixa etária.'}
+                      <p
+                        className="text-xs text-muted-foreground mt-1 line-clamp-2"
+                        title={displayActivities}
+                      >
+                        {displayActivities}
                       </p>
                     </div>
                   )
