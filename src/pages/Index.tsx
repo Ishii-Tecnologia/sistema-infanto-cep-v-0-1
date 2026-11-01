@@ -426,6 +426,18 @@ export default function Index() {
                   por criança com prazo de {libraryRules.loanDurationDays} dias para devolução.
                 </p>
               </div>
+
+              <div className="pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/manual')}
+                  className="w-full text-xs text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                >
+                  <BookOpen className="h-3.5 w-3.5 mr-1.5" />
+                  Abrir Manual do Sistema
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

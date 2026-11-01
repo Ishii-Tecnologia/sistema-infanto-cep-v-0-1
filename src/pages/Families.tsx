@@ -1342,19 +1342,28 @@ export default function FamiliesPage() {
           </div>
 
           <DialogFooter className="flex items-center justify-between gap-2 border-t pt-3">
-            {currentStep > 1 ? (
+            <div className="flex items-center gap-2">
+              {currentStep > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentStep(currentStep - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Voltar
+                </Button>
+              )}
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                onClick={() => setCurrentStep(currentStep - 1)}
+                onClick={() => setWizardOpen(false)}
+                className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
               >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Voltar
+                Cancelar
               </Button>
-            ) : (
-              <div />
-            )}
+            </div>
 
             <div className="flex items-center gap-2">
               {currentStep < 4 ? (

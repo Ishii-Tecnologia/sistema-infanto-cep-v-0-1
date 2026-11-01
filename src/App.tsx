@@ -16,6 +16,7 @@ import AttendanceReportsPage from './pages/AttendanceReports'
 import LibraryPage from './pages/Library'
 import DimDimPage from './pages/DimDim'
 import SettingsPage from './pages/Settings'
+import ManualPage from './pages/Manual'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -31,6 +32,9 @@ const App = () => (
             <Route element={<Layout />}>
               {/* Painel: todos os papéis autenticados */}
               <Route path="/" element={<Index />} />
+
+              {/* Manual do Sistema: todos os operadores autenticados (conteúdo filtrado pelo papel) */}
+              <Route path="/manual" element={<ManualPage />} />
 
               {/* Famílias & Crianças: Admin, Dirigente, Professor, Auxiliar */}
               <Route

@@ -28,6 +28,8 @@ import {
   ShieldCheck,
   UserCheck,
   KeyRound,
+  HelpCircle,
+  BookOpen,
 } from 'lucide-react'
 import { UserRole } from '@/types'
 
@@ -105,6 +107,13 @@ export default function Layout() {
       path: '/configuracoes',
       icon: Settings,
       roles: ['admin', 'dirigente'] as UserRole[],
+    },
+    {
+      title: 'Manual do Sistema',
+      shortTitle: 'Manual',
+      path: '/manual',
+      icon: HelpCircle,
+      roles: ['admin', 'dirigente', 'professor', 'auxiliar', 'bibliotecario'] as UserRole[],
     },
   ]
 
@@ -330,6 +339,10 @@ export default function Layout() {
                   <DropdownMenuContent align="end" className="w-52">
                     <DropdownMenuLabel className="text-xs">Minha Conta</DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/manual')} className="text-xs">
+                      <BookOpen className="h-3.5 w-3.5 mr-2 text-sky-600" />
+                      Manual do Sistema
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => setOwnPasswordModalOpen(true)}
                       className="text-xs"
@@ -357,6 +370,21 @@ export default function Layout() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+
+              {/* Botão Atalho Rápido para Manual */}
+              <NavLink
+                to="/manual"
+                className={({ isActive }) =>
+                  `hidden sm:inline-flex items-center justify-center h-8 w-8 rounded-md transition-colors ${
+                    isActive
+                      ? 'bg-sky-800 text-white ring-1 ring-sky-400/50'
+                      : 'text-sky-200 hover:text-white hover:bg-sky-600/70'
+                  }`
+                }
+                title="Manual do Sistema (Guia por Papel)"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </NavLink>
 
               {/* Botão de Logout */}
               <Button
