@@ -51,7 +51,11 @@ export default function CalendarPage() {
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null)
 
   // Modal / Edição rápida de Assunto/Tema do Sábado Letivo
-  const [editingSabado, setEditingSabado] = useState<SabadoLetivo | null>(null)
+  const [editingSabado, setEditingSabado] = useState<{
+    sabado: SabadoLetivo
+    index: number
+    lesson?: Lesson
+  } | null>(null)
   const [editTemaInput, setEditTemaInput] = useState('')
   const [savingTema, setSavingTema] = useState(false)
 
@@ -127,10 +131,19 @@ export default function CalendarPage() {
     }
   }
 
-  const handleStartEditTema = (sab: SabadoLetivo, e?: React.MouseEvent) => {
+  const handleStartEditTema = (
+    sab: SabadoLetivo,
+    index: number,
+    matchedLesson?: Lesson,
+    e?: React.MouseEvent,
+  ) => {
     e?.stopPropagation()
-    setEditingSabado(sab)
-    setEditTemaInput(sab.tema_central || '')
+    setEditingSabado({
+      sabado: sab,
+      index: index + 1,
+      lesson: matchedLesson,
+    })
+    setEditTemaInput(sab.descricao || matchedLesson?.central_theme || '')
   }
 
   const handleSaveTema = async () => {
@@ -138,47 +151,49 @@ export default function CalendarPage() {
     try {
       setSavingTema(true)
       const novoTema = editTemaInput.trim()
+      const { sabado, index, lesson } = editingSabado
 
-      // 1. Atualiza na coleção sabado_letivo
-      const updated = await schoolYearService.updateSabado(editingSabado.id, {
-        tema_central: novoTema,
+      // 1. Atualiza na coleção sabado_letivo usando o campo real 'descricao'
+      const updated = await schoolYearService.updateSabado(sabado.id, {
+        descricao: novoTema,
       })
 
       // Atualiza estado local de sabadosLetivos
       setSabadosLetivos((prev) =>
-        prev.map((s) => (s.id === updated.id ? { ...s, tema_central: novoTema } : s)),
+        prev.map((s) => (s.id === updated.id ? { ...s, descricao: novoTema } : s)),
       )
 
-      // 2. Reflete na coleção lessons para a data correspondente
+      // 2. Reflete na coleção lessons para a data correspondente ou pelo lesson_id
       const sabDate = updated.data ? updated.data.split('T')[0] : ''
-      if (sabDate) {
-        const matchingLessons = lessons.filter((l) => l.date && l.date.split('T')[0] === sabDate)
-        for (const l of matchingLessons) {
-          try {
-            await lessonService.update(l.id, { central_theme: novoTema })
-          } catch {
-            // non-fatal
-          }
-        }
+      const targetLessons = lessons.filter(
+        (l) =>
+          (lesson && l.id === lesson.id) ||
+          (updated.lesson_id && l.id === updated.lesson_id) ||
+          (sabDate && l.date && l.date.split('T')[0] === sabDate),
+      )
 
+      for (const l of targetLessons) {
+        try {
+          await lessonService.update(l.id, { central_theme: novoTema })
+        } catch {
+          // non-fatal
+        }
+      }
+
+      if (targetLessons.length > 0) {
+        const targetIds = new Set(targetLessons.map((l) => l.id))
         setLessons((prev) =>
-          prev.map((l) =>
-            l.date && l.date.split('T')[0] === sabDate ? { ...l, central_theme: novoTema } : l,
-          ),
+          prev.map((l) => (targetIds.has(l.id) ? { ...l, central_theme: novoTema } : l)),
         )
 
-        if (
-          selectedLesson &&
-          selectedLesson.date &&
-          selectedLesson.date.split('T')[0] === sabDate
-        ) {
+        if (selectedLesson && targetIds.has(selectedLesson.id)) {
           setSelectedLesson((curr) => (curr ? { ...curr, central_theme: novoTema } : null))
         }
       }
 
       toast({
         title: 'Assunto da aula atualizado!',
-        description: `O tema do encontro #${editingSabado.numero} foi salvo com sucesso.`,
+        description: `O tema do encontro #${index} foi salvo com sucesso no Sistema Infanto-CEP.`,
       })
       setEditingSabado(null)
     } catch (err: any) {
@@ -326,14 +341,20 @@ export default function CalendarPage() {
 
               <CardContent className="p-2 flex-1 overflow-y-auto space-y-1.5">
                 {sabadosLetivos.length > 0
-                  ? sabadosLetivos.map((sab) => {
+                  ? sabadosLetivos.map((sab, idx) => {
                       const sabIsoDate = sab.data ? sab.data.split('T')[0] : ''
-                      const matchedLesson = lessons.find(
-                        (l) => l.date && l.date.split('T')[0] === sabIsoDate,
-                      )
+                      const matchedLesson =
+                        (sab.lesson_id ? lessons.find((l) => l.id === sab.lesson_id) : null) ||
+                        lessons.find((l) => l.date && l.date.split('T')[0] === sabIsoDate)
                       const isSelected =
-                        selectedLesson?.date && selectedLesson.date.split('T')[0] === sabIsoDate
-                      const isRecesso = sab.recesso
+                        (selectedLesson &&
+                          matchedLesson &&
+                          selectedLesson.id === matchedLesson.id) ||
+                        (selectedLesson?.date && selectedLesson.date.split('T')[0] === sabIsoDate)
+                      const isRecesso = sab.tipo === 'recesso' || sab.tipo === 'feriado'
+                      const displayNum = matchedLesson?.session_number || idx + 1
+                      const displayTema =
+                        sab.descricao || matchedLesson?.central_theme || 'Tema não definido'
 
                       return (
                         <div
@@ -351,18 +372,33 @@ export default function CalendarPage() {
                         >
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-900 dark:text-slate-100">
-                                #{sab.numero} • {formatDate(sab.data)}
+                              {/* Quadro com data e número: exemplo "#1 07/03/2026" */}
+                              <span className="font-mono font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                                #{displayNum} {formatDate(sab.data)}
                               </span>
                             </div>
 
                             <div className="flex items-center gap-1.5">
-                              {isRecesso ? (
+                              {sab.tipo === 'recesso' ? (
                                 <Badge
                                   variant="outline"
                                   className="text-[10px] bg-amber-50 text-amber-700 border-amber-200"
                                 >
                                   Recesso
+                                </Badge>
+                              ) : sab.tipo === 'feriado' ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-rose-50 text-rose-700 border-rose-200"
+                                >
+                                  Feriado
+                                </Badge>
+                              ) : sab.tipo === 'evento' ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-sky-50 text-sky-700 border-sky-200"
+                                >
+                                  Evento
                                 </Badge>
                               ) : (
                                 <Badge
@@ -377,8 +413,8 @@ export default function CalendarPage() {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  onClick={(e) => handleStartEditTema(sab, e)}
-                                  className="h-6 px-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                                  onClick={(e) => handleStartEditTema(sab, idx, matchedLesson, e)}
+                                  className="h-6 px-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 font-medium"
                                   title="Editar assunto da aula"
                                 >
                                   <Edit2 className="h-3 w-3 mr-1" />
@@ -388,10 +424,12 @@ export default function CalendarPage() {
                             </div>
                           </div>
 
-                          <p className="font-semibold text-slate-800 dark:text-slate-200 line-clamp-1">
-                            {sab.tema_central ||
-                              matchedLesson?.central_theme ||
-                              'Tema não definido'}
+                          {/* Linha do assunto editável (ex: Deus, Pai e Criador de Todas as Coisas) */}
+                          <p
+                            className="font-semibold text-slate-800 dark:text-slate-200 line-clamp-2 mt-1"
+                            title={displayTema}
+                          >
+                            {displayTema}
                           </p>
                           {matchedLesson?.thematic_block && (
                             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -401,9 +439,10 @@ export default function CalendarPage() {
                         </div>
                       )
                     })
-                  : lessons.map((lesson) => {
+                  : lessons.map((lesson, idx) => {
                       const isSelected = selectedLesson?.id === lesson.id
                       const isCanceled = lesson.status === 'canceled'
+                      const displayTema = lesson.central_theme || 'Tema não definido'
 
                       return (
                         <div
@@ -417,34 +456,72 @@ export default function CalendarPage() {
                         >
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-900 dark:text-slate-100">
-                                #{lesson.session_number} • {formatDate(lesson.date)}
+                              <span className="font-mono font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                                #{lesson.session_number || idx + 1} {formatDate(lesson.date)}
                               </span>
                             </div>
 
-                            {isCanceled ? (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] bg-rose-50 text-rose-700 border-rose-200"
-                              >
-                                Cancelada
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200"
-                              >
-                                Agendada
-                              </Badge>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              {isCanceled ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-rose-50 text-rose-700 border-rose-200"
+                                >
+                                  Cancelada
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200"
+                                >
+                                  Agendada
+                                </Badge>
+                              )}
+
+                              {canEditTheme && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setEditingSabado({
+                                      sabado: {
+                                        id: lesson.id,
+                                        ano_letivo_id: currentAnoLetivo?.id || '',
+                                        data: lesson.date,
+                                        tipo: 'letivo',
+                                        descricao: lesson.central_theme,
+                                        lesson_id: lesson.id,
+                                        revisado: true,
+                                        created: lesson.created,
+                                        updated: lesson.updated,
+                                      },
+                                      index: lesson.session_number || idx + 1,
+                                      lesson,
+                                    })
+                                    setEditTemaInput(lesson.central_theme || '')
+                                  }}
+                                  className="h-6 px-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 font-medium"
+                                  title="Editar assunto da aula"
+                                >
+                                  <Edit2 className="h-3 w-3 mr-1" />
+                                  Editar Assunto
+                                </Button>
+                              )}
+                            </div>
                           </div>
 
-                          <p className="font-semibold text-slate-800 dark:text-slate-200 line-clamp-1">
-                            {lesson.central_theme}
+                          <p
+                            className="font-semibold text-slate-800 dark:text-slate-200 line-clamp-2 mt-1"
+                            title={displayTema}
+                          >
+                            {displayTema}
                           </p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">
-                            Bloco: {lesson.thematic_block}
-                          </p>
+                          {lesson.thematic_block && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              Bloco: {lesson.thematic_block}
+                            </p>
+                          )}
                         </div>
                       )
                     })}
@@ -634,12 +711,12 @@ export default function CalendarPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
               <Edit2 className="h-4 w-4" />
-              Definir Assunto da Aula #{editingSabado?.numero}
+              Definir Assunto da Aula #{editingSabado?.index}
             </DialogTitle>
             <DialogDescription className="text-xs">
               Sábado letivo de{' '}
-              <strong>{editingSabado ? formatDate(editingSabado.data) : ''}</strong>. O assunto
-              definido será refletido no Calendário, nas aulas correspondentes e no diário
+              <strong>{editingSabado?.sabado ? formatDate(editingSabado.sabado.data) : ''}</strong>.
+              O assunto definido será refletido no Calendário, nas aulas correspondentes e no diário
               pedagógico.
             </DialogDescription>
           </DialogHeader>

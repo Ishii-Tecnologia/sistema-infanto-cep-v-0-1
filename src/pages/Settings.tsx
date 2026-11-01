@@ -40,8 +40,9 @@ import { useAcademic, SchoolYearConfig, RecessSaturday } from '@/contexts/Academ
 import { formatDate } from '@/lib/academic'
 import { syncOrRegenerateCalendar } from '@/services/calendarGenerator'
 import { schoolYearService } from '@/services/schoolYear'
-import { AnoLetivo, SabadoLetivo, JanelaFeriado } from '@/types'
+import { AnoLetivo, SabadoLetivo, JanelaFeriado, Lesson } from '@/types'
 import { DatePickerBR } from '@/components/DatePickerBR'
+import { pb } from '@/lib/pocketbase/client'
 import { getErrorMessage, isAuthExpiredError } from '@/lib/pocketbase/errors'
 import { useNavigate } from 'react-router-dom'
 import { Plus, X, Sliders, RefreshCw, Copy, CheckCircle2, AlertCircle } from 'lucide-react'
@@ -681,9 +682,60 @@ export default function SettingsPage() {
       // Sincroniza o calendário de aulas (lessons)
       const res = await syncOrRegenerateCalendar(normalizedConfig, recessList)
 
-      // Sincroniza também a coleção sabado_letivo com os lessons atualizados
-      const currentLessons = await settingsService.getSettings() // trigger reload
-      void currentLessons
+      // Sincroniza também a coleção sabado_letivo com as aulas atualizadas
+      const updatedLessons = await pb.collection('lessons').getFullList<Lesson>({
+        filter: `year=${targetYear}`,
+        sort: 'session_number',
+      })
+
+      const existingSabados = await schoolYearService.getSabados(anoRec.id)
+      const sabadosByLessonId = new Map<string, SabadoLetivo>()
+      const sabadosByDate = new Map<string, SabadoLetivo>()
+      for (const sab of existingSabados) {
+        if (sab.lesson_id) sabadosByLessonId.set(sab.lesson_id, sab)
+        const d = sab.data ? sab.data.split('T')[0] : ''
+        if (d) sabadosByDate.set(d, sab)
+      }
+
+      for (const l of updatedLessons) {
+        const lDate = l.date ? l.date.split('T')[0] : ''
+        const matchedSab =
+          sabadosByLessonId.get(l.id) || (lDate ? sabadosByDate.get(lDate) : undefined)
+        if (matchedSab) {
+          const currentSabDate = matchedSab.data ? matchedSab.data.split('T')[0] : ''
+          const patchPayload: Partial<SabadoLetivo> = {}
+          if (currentSabDate !== lDate) {
+            patchPayload.data = `${lDate} 00:00:00.000Z`
+          }
+          if (matchedSab.lesson_id !== l.id) {
+            patchPayload.lesson_id = l.id
+          }
+          if (!matchedSab.descricao && l.central_theme) {
+            patchPayload.descricao = l.central_theme
+          }
+          if (Object.keys(patchPayload).length > 0) {
+            try {
+              await schoolYearService.updateSabado(matchedSab.id, patchPayload)
+            } catch (sabErr) {
+              console.warn('Atualização de sabado_letivo ignorada:', sabErr)
+            }
+          }
+        } else {
+          // Cria o sábado letivo correspondente
+          try {
+            await schoolYearService.createSabado({
+              ano_letivo_id: anoRec.id,
+              data: `${lDate} 00:00:00.000Z`,
+              tipo: 'letivo',
+              descricao: l.central_theme || `Aula #${l.session_number}`,
+              lesson_id: l.id,
+              revisado: true,
+            })
+          } catch (createErr) {
+            console.warn('Criação de sabado_letivo ignorada:', createErr)
+          }
+        }
+      }
 
       // Refetch sabados
       const sabs = await schoolYearService.getSabados(anoRec.id)
