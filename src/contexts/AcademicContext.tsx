@@ -243,21 +243,28 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   ) => {
     // 1. Atualiza na coleção ano_letivo (fonte de verdade)
     let anoRecord = await schoolYearService.getByAno(newYear.year)
+    const cleanStartDate = newYear.startDate ? newYear.startDate.split('T')[0].split(' ')[0] : ''
+    const cleanEndDate = newYear.endDate ? newYear.endDate.split('T')[0].split(' ')[0] : ''
+    const cleanAgeBase = newYear.ageBaseDate
+      ? newYear.ageBaseDate.split('T')[0].split(' ')[0]
+      : `${newYear.year}-03-01`
+    const cleanWStart = newYear.winterBreakStart
+      ? newYear.winterBreakStart.split('T')[0].split(' ')[0]
+      : ''
+    const cleanWEnd = newYear.winterBreakEnd
+      ? newYear.winterBreakEnd.split('T')[0].split(' ')[0]
+      : ''
+    const cleanXmas = newYear.christmasDate ? newYear.christmasDate.split('T')[0].split(' ')[0] : ''
+
     const payload = {
       ano: newYear.year,
-      data_inicio: `${newYear.startDate} 00:00:00.000Z`,
-      data_fim: newYear.endDate ? `${newYear.endDate} 00:00:00.000Z` : undefined,
+      data_inicio: `${cleanStartDate} 00:00:00.000Z`,
+      data_fim: cleanEndDate ? `${cleanEndDate} 00:00:00.000Z` : undefined,
       status: (anoRecord ? anoRecord.status : 'ativo') as 'ativo' | 'planejado' | 'encerrado',
-      age_base_date: newYear.ageBaseDate
-        ? `${newYear.ageBaseDate} 00:00:00.000Z`
-        : `${newYear.year}-03-01 00:00:00.000Z`,
-      winter_break_start: newYear.winterBreakStart
-        ? `${newYear.winterBreakStart} 00:00:00.000Z`
-        : undefined,
-      winter_break_end: newYear.winterBreakEnd
-        ? `${newYear.winterBreakEnd} 00:00:00.000Z`
-        : undefined,
-      christmas_date: newYear.christmasDate ? `${newYear.christmasDate} 00:00:00.000Z` : undefined,
+      age_base_date: `${cleanAgeBase} 00:00:00.000Z`,
+      winter_break_start: cleanWStart ? `${cleanWStart} 00:00:00.000Z` : undefined,
+      winter_break_end: cleanWEnd ? `${cleanWEnd} 00:00:00.000Z` : undefined,
+      christmas_date: cleanXmas ? `${cleanXmas} 00:00:00.000Z` : undefined,
     }
 
     if (anoRecord) {

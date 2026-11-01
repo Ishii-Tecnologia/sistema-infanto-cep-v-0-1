@@ -67,7 +67,7 @@ export function shiftDatePreservingDayMonth(
   newDateStr: string
   shiftedFromSunday: boolean
 } {
-  const clean = dateStr.split('T')[0].split(' ')[0]
+  const clean = dateStr ? dateStr.split('T')[0].split(' ')[0] : ''
   const [origY, origM, origD] = clean.split('-').map(Number)
   if (!origY || !origM || !origD) {
     return { newDateStr: `${targetYear}-03-01`, shiftedFromSunday: false }
@@ -139,11 +139,61 @@ export const schoolYearService = {
   },
 
   async create(data: Partial<AnoLetivo>): Promise<AnoLetivo> {
-    return pb.collection('ano_letivo').create<AnoLetivo>(data)
+    const sanitized = { ...data }
+    if (sanitized.data_inicio) {
+      const d = sanitized.data_inicio.split('T')[0].split(' ')[0]
+      sanitized.data_inicio = `${d} 00:00:00.000Z`
+    }
+    if (sanitized.data_fim) {
+      const d = sanitized.data_fim.split('T')[0].split(' ')[0]
+      sanitized.data_fim = `${d} 23:59:59.000Z`
+    }
+    if (sanitized.age_base_date) {
+      const d = sanitized.age_base_date.split('T')[0].split(' ')[0]
+      sanitized.age_base_date = `${d} 00:00:00.000Z`
+    }
+    if (sanitized.winter_break_start) {
+      const d = sanitized.winter_break_start.split('T')[0].split(' ')[0]
+      sanitized.winter_break_start = `${d} 00:00:00.000Z`
+    }
+    if (sanitized.winter_break_end) {
+      const d = sanitized.winter_break_end.split('T')[0].split(' ')[0]
+      sanitized.winter_break_end = `${d} 23:59:59.000Z`
+    }
+    if (sanitized.christmas_date) {
+      const d = sanitized.christmas_date.split('T')[0].split(' ')[0]
+      sanitized.christmas_date = `${d} 00:00:00.000Z`
+    }
+    return pb.collection('ano_letivo').create<AnoLetivo>(sanitized)
   },
 
   async update(id: string, data: Partial<AnoLetivo>): Promise<AnoLetivo> {
-    return pb.collection('ano_letivo').update<AnoLetivo>(id, data)
+    const sanitized = { ...data }
+    if (sanitized.data_inicio) {
+      const d = sanitized.data_inicio.split('T')[0].split(' ')[0]
+      sanitized.data_inicio = `${d} 00:00:00.000Z`
+    }
+    if (sanitized.data_fim) {
+      const d = sanitized.data_fim.split('T')[0].split(' ')[0]
+      sanitized.data_fim = `${d} 23:59:59.000Z`
+    }
+    if (sanitized.age_base_date) {
+      const d = sanitized.age_base_date.split('T')[0].split(' ')[0]
+      sanitized.age_base_date = `${d} 00:00:00.000Z`
+    }
+    if (sanitized.winter_break_start) {
+      const d = sanitized.winter_break_start.split('T')[0].split(' ')[0]
+      sanitized.winter_break_start = `${d} 00:00:00.000Z`
+    }
+    if (sanitized.winter_break_end) {
+      const d = sanitized.winter_break_end.split('T')[0].split(' ')[0]
+      sanitized.winter_break_end = `${d} 23:59:59.000Z`
+    }
+    if (sanitized.christmas_date) {
+      const d = sanitized.christmas_date.split('T')[0].split(' ')[0]
+      sanitized.christmas_date = `${d} 00:00:00.000Z`
+    }
+    return pb.collection('ano_letivo').update<AnoLetivo>(id, sanitized)
   },
 
   // Sábados Letivos
@@ -157,11 +207,21 @@ export const schoolYearService = {
   },
 
   async createSabado(data: Partial<SabadoLetivo>): Promise<SabadoLetivo> {
-    return pb.collection('sabado_letivo').create<SabadoLetivo>(data)
+    const sanitized = { ...data }
+    if (sanitized.data) {
+      const d = sanitized.data.split('T')[0].split(' ')[0]
+      sanitized.data = `${d} 00:00:00.000Z`
+    }
+    return pb.collection('sabado_letivo').create<SabadoLetivo>(sanitized)
   },
 
   async updateSabado(id: string, data: Partial<SabadoLetivo>): Promise<SabadoLetivo> {
-    return pb.collection('sabado_letivo').update<SabadoLetivo>(id, data)
+    const sanitized = { ...data }
+    if (sanitized.data) {
+      const d = sanitized.data.split('T')[0].split(' ')[0]
+      sanitized.data = `${d} 00:00:00.000Z`
+    }
+    return pb.collection('sabado_letivo').update<SabadoLetivo>(id, sanitized)
   },
 
   async deleteSabado(id: string): Promise<boolean> {
@@ -178,11 +238,29 @@ export const schoolYearService = {
   },
 
   async createJanela(data: Partial<JanelaFeriado>): Promise<JanelaFeriado> {
-    return pb.collection('janela_feriado').create<JanelaFeriado>(data)
+    const sanitized = { ...data }
+    if (sanitized.data_inicio) {
+      const d = sanitized.data_inicio.split('T')[0].split(' ')[0]
+      sanitized.data_inicio = `${d} 00:00:00.000Z`
+    }
+    if (sanitized.data_fim) {
+      const d = sanitized.data_fim.split('T')[0].split(' ')[0]
+      sanitized.data_fim = `${d} 23:59:59.000Z`
+    }
+    return pb.collection('janela_feriado').create<JanelaFeriado>(sanitized)
   },
 
   async updateJanela(id: string, data: Partial<JanelaFeriado>): Promise<JanelaFeriado> {
-    return pb.collection('janela_feriado').update<JanelaFeriado>(id, data)
+    const sanitized = { ...data }
+    if (sanitized.data_inicio) {
+      const d = sanitized.data_inicio.split('T')[0].split(' ')[0]
+      sanitized.data_inicio = `${d} 00:00:00.000Z`
+    }
+    if (sanitized.data_fim) {
+      const d = sanitized.data_fim.split('T')[0].split(' ')[0]
+      sanitized.data_fim = `${d} 23:59:59.000Z`
+    }
+    return pb.collection('janela_feriado').update<JanelaFeriado>(id, sanitized)
   },
 
   async deleteJanela(id: string): Promise<boolean> {

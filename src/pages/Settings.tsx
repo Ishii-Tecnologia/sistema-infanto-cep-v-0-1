@@ -42,11 +42,13 @@ import { syncOrRegenerateCalendar } from '@/services/calendarGenerator'
 import { schoolYearService } from '@/services/schoolYear'
 import { AnoLetivo, SabadoLetivo, JanelaFeriado } from '@/types'
 import { DatePickerBR } from '@/components/DatePickerBR'
-import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { getErrorMessage, isAuthExpiredError } from '@/lib/pocketbase/errors'
+import { useNavigate } from 'react-router-dom'
 import { Plus, X, Sliders, RefreshCw, Copy, CheckCircle2, AlertCircle } from 'lucide-react'
 
 export default function SettingsPage() {
   const { toast } = useToast()
+  const navigate = useNavigate()
   const { user: currentUser } = useAuth()
   const {
     classrooms,
@@ -697,6 +699,19 @@ export default function SettingsPage() {
               : `Foram gerados ${res.count} sábados letivos para o ano ${normalizedConfig.year}.`,
       })
     } catch (err: any) {
+      if (isAuthExpiredError(err)) {
+        toast({
+          title: 'Sessão Expirada',
+          description:
+            'Sua sessão expirou durante a sincronização. Por favor, faça login novamente.',
+          variant: 'destructive',
+        })
+        setTimeout(() => {
+          navigate('/login')
+        }, 1500)
+        return
+      }
+
       const errMsg =
         err?.data?.message ||
         err?.message ||

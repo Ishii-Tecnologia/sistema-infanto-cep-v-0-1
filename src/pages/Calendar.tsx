@@ -27,11 +27,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Calendar, BookOpen, AlertCircle, Sliders, Settings2 } from 'lucide-react'
+import { Calendar, BookOpen, AlertCircle, Sliders, Settings2, Edit2, Check, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function CalendarPage() {
   const { toast } = useToast()
+  const { user } = useAuth()
+  const canEditTheme = user?.role === 'admin' || user?.role === 'professor'
   const {
     classrooms,
     saveClassrooms,
@@ -46,6 +49,11 @@ export default function CalendarPage() {
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null)
+
+  // Modal / Edição rápida de Assunto/Tema do Sábado Letivo
+  const [editingSabado, setEditingSabado] = useState<SabadoLetivo | null>(null)
+  const [editTemaInput, setEditTemaInput] = useState('')
+  const [savingTema, setSavingTema] = useState(false)
 
   // Modal de Visualização/Edição de Plano Pedagógico (visualização com planos por sala)
   const [viewingPlan, setViewingPlan] = useState<LessonPlan | null>(null)
@@ -90,7 +98,19 @@ export default function CalendarPage() {
       // 2. Busca aulas (lessons) correspondentes
       const data = await lessonService.getAll(anoNum)
       setLessons(data)
-      if (data.length > 0) {
+      if (sabs.length > 0) {
+        // Encontra a lesson do primeiro sábado letivo ou primeira lesson
+        const firstSab = sabs[0]
+        const firstSabDate = firstSab.data ? firstSab.data.split('T')[0] : ''
+        const matchingLesson = data.find((l) => l.date && l.date.split('T')[0] === firstSabDate)
+        if (matchingLesson) {
+          setSelectedLesson(matchingLesson)
+        } else if (data.length > 0) {
+          setSelectedLesson(data[0])
+        } else {
+          setSelectedLesson(null)
+        }
+      } else if (data.length > 0) {
         setSelectedLesson(data[0])
       } else {
         setSelectedLesson(null)
@@ -104,6 +124,71 @@ export default function CalendarPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleStartEditTema = (sab: SabadoLetivo, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    setEditingSabado(sab)
+    setEditTemaInput(sab.tema_central || '')
+  }
+
+  const handleSaveTema = async () => {
+    if (!editingSabado) return
+    try {
+      setSavingTema(true)
+      const novoTema = editTemaInput.trim()
+
+      // 1. Atualiza na coleção sabado_letivo
+      const updated = await schoolYearService.updateSabado(editingSabado.id, {
+        tema_central: novoTema,
+      })
+
+      // Atualiza estado local de sabadosLetivos
+      setSabadosLetivos((prev) =>
+        prev.map((s) => (s.id === updated.id ? { ...s, tema_central: novoTema } : s)),
+      )
+
+      // 2. Reflete na coleção lessons para a data correspondente
+      const sabDate = updated.data ? updated.data.split('T')[0] : ''
+      if (sabDate) {
+        const matchingLessons = lessons.filter((l) => l.date && l.date.split('T')[0] === sabDate)
+        for (const l of matchingLessons) {
+          try {
+            await lessonService.update(l.id, { central_theme: novoTema })
+          } catch {
+            // non-fatal
+          }
+        }
+
+        setLessons((prev) =>
+          prev.map((l) =>
+            l.date && l.date.split('T')[0] === sabDate ? { ...l, central_theme: novoTema } : l,
+          ),
+        )
+
+        if (
+          selectedLesson &&
+          selectedLesson.date &&
+          selectedLesson.date.split('T')[0] === sabDate
+        ) {
+          setSelectedLesson((curr) => (curr ? { ...curr, central_theme: novoTema } : null))
+        }
+      }
+
+      toast({
+        title: 'Assunto da aula atualizado!',
+        description: `O tema do encontro #${editingSabado.numero} foi salvo com sucesso.`,
+      })
+      setEditingSabado(null)
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar assunto',
+        description: err?.message || 'Falha ao salvar o novo assunto do sábado letivo.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingTema(false)
     }
   }
 
@@ -240,53 +325,129 @@ export default function CalendarPage() {
               </CardHeader>
 
               <CardContent className="p-2 flex-1 overflow-y-auto space-y-1.5">
-                {lessons.map((lesson) => {
-                  const isSelected = selectedLesson?.id === lesson.id
-                  const isCanceled = lesson.status === 'canceled'
+                {sabadosLetivos.length > 0
+                  ? sabadosLetivos.map((sab) => {
+                      const sabIsoDate = sab.data ? sab.data.split('T')[0] : ''
+                      const matchedLesson = lessons.find(
+                        (l) => l.date && l.date.split('T')[0] === sabIsoDate,
+                      )
+                      const isSelected =
+                        selectedLesson?.date && selectedLesson.date.split('T')[0] === sabIsoDate
+                      const isRecesso = sab.recesso
 
-                  return (
-                    <div
-                      key={lesson.id}
-                      onClick={() => setSelectedLesson(lesson)}
-                      className={`p-3 rounded-lg border text-xs cursor-pointer transition-all ${
-                        isSelected
-                          ? 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/40 shadow-xs'
-                          : 'border-slate-200 dark:border-slate-800 hover:border-indigo-200'
-                      } ${isCanceled ? 'opacity-60 bg-slate-50 dark:bg-slate-900/30' : ''}`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 dark:text-slate-100">
-                            #{lesson.session_number} • {formatDate(lesson.date)}
-                          </span>
+                      return (
+                        <div
+                          key={sab.id}
+                          onClick={() => {
+                            if (matchedLesson) {
+                              setSelectedLesson(matchedLesson)
+                            }
+                          }}
+                          className={`p-3 rounded-lg border text-xs cursor-pointer transition-all ${
+                            isSelected
+                              ? 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/40 shadow-xs'
+                              : 'border-slate-200 dark:border-slate-800 hover:border-indigo-200'
+                          } ${isRecesso ? 'opacity-60 bg-slate-50 dark:bg-slate-900/30' : ''}`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 dark:text-slate-100">
+                                #{sab.numero} • {formatDate(sab.data)}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              {isRecesso ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-amber-50 text-amber-700 border-amber-200"
+                                >
+                                  Recesso
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200"
+                                >
+                                  Letivo
+                                </Badge>
+                              )}
+
+                              {canEditTheme && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => handleStartEditTema(sab, e)}
+                                  className="h-6 px-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                                  title="Editar assunto da aula"
+                                >
+                                  <Edit2 className="h-3 w-3 mr-1" />
+                                  Editar Assunto
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+
+                          <p className="font-semibold text-slate-800 dark:text-slate-200 line-clamp-1">
+                            {sab.tema_central ||
+                              matchedLesson?.central_theme ||
+                              'Tema não definido'}
+                          </p>
+                          {matchedLesson?.thematic_block && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              Bloco: {matchedLesson.thematic_block}
+                            </p>
+                          )}
                         </div>
+                      )
+                    })
+                  : lessons.map((lesson) => {
+                      const isSelected = selectedLesson?.id === lesson.id
+                      const isCanceled = lesson.status === 'canceled'
 
-                        {isCanceled ? (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] bg-rose-50 text-rose-700 border-rose-200"
-                          >
-                            Cancelada
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200"
-                          >
-                            Agendada
-                          </Badge>
-                        )}
-                      </div>
+                      return (
+                        <div
+                          key={lesson.id}
+                          onClick={() => setSelectedLesson(lesson)}
+                          className={`p-3 rounded-lg border text-xs cursor-pointer transition-all ${
+                            isSelected
+                              ? 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/40 shadow-xs'
+                              : 'border-slate-200 dark:border-slate-800 hover:border-indigo-200'
+                          } ${isCanceled ? 'opacity-60 bg-slate-50 dark:bg-slate-900/30' : ''}`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 dark:text-slate-100">
+                                #{lesson.session_number} • {formatDate(lesson.date)}
+                              </span>
+                            </div>
 
-                      <p className="font-semibold text-slate-800 dark:text-slate-200 line-clamp-1">
-                        {lesson.central_theme}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Bloco: {lesson.thematic_block}
-                      </p>
-                    </div>
-                  )
-                })}
+                            {isCanceled ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-rose-50 text-rose-700 border-rose-200"
+                              >
+                                Cancelada
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200"
+                              >
+                                Agendada
+                              </Badge>
+                            )}
+                          </div>
+
+                          <p className="font-semibold text-slate-800 dark:text-slate-200 line-clamp-1">
+                            {lesson.central_theme}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            Bloco: {lesson.thematic_block}
+                          </p>
+                        </div>
+                      )
+                    })}
               </CardContent>
             </Card>
           </div>
@@ -459,6 +620,66 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
+      {/* Modal: Definir Assunto da Aula (Professor e Administrador) */}
+      <Dialog
+        open={!!editingSabado}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingSabado(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
+              <Edit2 className="h-4 w-4" />
+              Definir Assunto da Aula #{editingSabado?.numero}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Sábado letivo de{' '}
+              <strong>{editingSabado ? formatDate(editingSabado.data) : ''}</strong>. O assunto
+              definido será refletido no Calendário, nas aulas correspondentes e no diário
+              pedagógico.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-3 text-xs">
+            <div className="space-y-1">
+              <Label className="font-semibold">Assunto / Tema Central da Aula</Label>
+              <Textarea
+                rows={3}
+                placeholder="Ex: Deus, Pai e Criador de Todas as Coisas"
+                value={editTemaInput}
+                onChange={(e) => setEditTemaInput(e.target.value)}
+                className="text-xs resize-none"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Exemplo: <em>Deus, Pai e Criador de Todas as Coisas</em>
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditingSabado(null)}
+              disabled={savingTema}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveTema}
+              disabled={savingTema}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {savingTema ? 'Salvando...' : 'Salvar Assunto'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: Visualizar Plano Pedagógico da Aula (Read-Only) */}
       <Dialog open={!!viewingPlan} onOpenChange={(open) => !open && setViewingPlan(null)}>
