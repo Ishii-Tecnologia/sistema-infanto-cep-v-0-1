@@ -223,9 +223,9 @@ export const MANUAL_MODULES: ManualModule[] = [
   },
   {
     id: 'relatorios',
-    title: 'Relatórios e Acompanhamento de Frequência',
+    title: 'Relatórios: Frequência, Aniversários e Tamanhos',
     shortTitle: 'Relatórios',
-    badge: 'Estatísticas',
+    badge: 'Estatísticas & Listagens',
     icon: BarChart3,
     colorClass: {
       bg: 'bg-teal-50 dark:bg-teal-950/40',
@@ -235,22 +235,27 @@ export const MANUAL_MODULES: ManualModule[] = [
     },
     roles: ['admin', 'dirigente', 'professor'],
     summary:
-      'Visão estatística da assiduidade das crianças, identificação precoce de infrequência e ficha individual detalhada.',
+      'Acompanhamento de assiduidade escolar, lista nominal de alunos por sala com data de aniversário e conferência de tamanhos de roupa e calçado com filtro de pendências.',
     steps: [
       {
-        title: 'Filtros por sala e período',
+        title: 'Relatório de Frequência das Chamadas',
         description:
-          'Filtre os dados por Sala A, B, C, D ou Todas, e selecione períodos letivos para analisar tendências de comparecimento.',
+          'Filtre os dados por Sala A, B, C, D ou Todas, e selecione períodos letivos para analisar tendências de comparecimento, faltas consecutivas e sábado crítico.',
       },
       {
-        title: 'Identificação de alertas de infrequência',
+        title: 'Relatório de Alunos por Sala (com Aniversário)',
         description:
-          'O relatório destaca alunos com frequência abaixo de 75% ou com ausências consecutivas, permitindo que a coordenação faça contato acolhedor com a família.',
+          'Lista nominal com agrupamento por sala (Salas A–D), data de nascimento completa no padrão brasileiro (dd/mm/aaaa), dia e mês de aniversário, além de destaque para aniversariantes do mês corrente.',
       },
       {
-        title: 'Ficha individual da criança',
+        title: 'Relatório de Tamanhos de Roupa e Calçado',
         description:
-          'Clique sobre o nome da criança para abrir o modal de detalhes com o histórico de cada sábado letivo (presença, falta ou justificativa com motivo).',
+          'Exibe o tamanho de roupa e calçado de cada aluno por sala, com filtro rápido para ver alunos sem informação preenchida (sem roupa, sem calçado ou sem ambos).',
+      },
+      {
+        title: 'Impressão Institucional Limpa e PDF',
+        description:
+          'Todos os relatórios contam com cabeçalho oficial da CEP-Coligação Espírita Progressista e rodapé padronizado para assinatura da coordenação.',
       },
     ],
   },
