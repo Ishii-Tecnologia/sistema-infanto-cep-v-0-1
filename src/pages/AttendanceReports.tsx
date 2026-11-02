@@ -59,6 +59,7 @@ import {
 import { ChildAttendanceDetailModal } from '@/components/ChildAttendanceDetailModal'
 import { StudentsByClassroomReport } from '@/components/reports/StudentsByClassroomReport'
 import { StudentSizesReport } from '@/components/reports/StudentSizesReport'
+import { SortableTableHead, SortDirection } from '@/components/reports/SortableTableHead'
 import { useToast } from '@/hooks/use-toast'
 
 const MONTH_NAMES = [
@@ -106,6 +107,31 @@ export default function AttendanceReportsPage() {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [onlyLowAttendance, setOnlyLowAttendance] = useState<boolean>(false)
   const [sizeMissingFilter, setSizeMissingFilter] = useState<SizeMissingFilter>('all')
+
+  // Estados de ordenação para as duas tabelas de Frequência (Crianças e Aulas)
+  const [childrenSortKey, setChildrenSortKey] = useState<string>('childName')
+  const [childrenSortDir, setChildrenSortDir] = useState<SortDirection>('asc')
+
+  const handleChildrenSort = (key: string) => {
+    if (childrenSortKey === key) {
+      setChildrenSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setChildrenSortKey(key)
+      setChildrenSortDir('asc')
+    }
+  }
+
+  const [lessonsSortKey, setLessonsSortKey] = useState<string>('date')
+  const [lessonsSortDir, setLessonsSortDir] = useState<SortDirection>('asc')
+
+  const handleLessonsSort = (key: string) => {
+    if (lessonsSortKey === key) {
+      setLessonsSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setLessonsSortKey(key)
+      setLessonsSortDir('asc')
+    }
+  }
 
   // Dados e estado de carregamento
   const [loading, setLoading] = useState(true)
@@ -170,7 +196,7 @@ export default function AttendanceReportsPage() {
   }, [rawData, attendanceFilter])
 
   const filteredChildSummaries = useMemo(() => {
-    return reportData.childSummaries.filter((child) => {
+    const list = reportData.childSummaries.filter((child) => {
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase()
         if (!child.childName.toLowerCase().includes(query)) {
@@ -182,7 +208,104 @@ export default function AttendanceReportsPage() {
       }
       return true
     })
-  }, [reportData.childSummaries, searchQuery, onlyLowAttendance])
+
+    return [...list].sort((a, b) => {
+      let valA: any
+      let valB: any
+
+      switch (childrenSortKey) {
+        case 'childName':
+          valA = a.childName.toLowerCase()
+          valB = b.childName.toLowerCase()
+          break
+        case 'classroom':
+          valA = a.classroom
+          valB = b.classroom
+          break
+        case 'totalLessons':
+          valA = a.totalLessons
+          valB = b.totalLessons
+          break
+        case 'presents':
+          valA = a.presents
+          valB = b.presents
+          break
+        case 'absents':
+          valA = a.absents
+          valB = b.absents
+          break
+        case 'justified':
+          valA = a.justified
+          valB = b.justified
+          break
+        case 'percentage':
+          valA = a.percentage
+          valB = b.percentage
+          break
+        case 'isLowAttendance':
+          valA = a.isLowAttendance ? 1 : 0
+          valB = b.isLowAttendance ? 1 : 0
+          break
+        default:
+          valA = a.childName
+          valB = b.childName
+      }
+
+      if (valA < valB) return childrenSortDir === 'asc' ? -1 : 1
+      if (valA > valB) return childrenSortDir === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [reportData.childSummaries, searchQuery, onlyLowAttendance, childrenSortKey, childrenSortDir])
+
+  const sortedLessonSummaries = useMemo(() => {
+    const list = [...reportData.lessonSummaries]
+    return list.sort((a, b) => {
+      let valA: any
+      let valB: any
+
+      switch (lessonsSortKey) {
+        case 'date':
+          valA = a.date
+          valB = b.date
+          break
+        case 'centralTheme':
+          valA = a.centralTheme.toLowerCase()
+          valB = b.centralTheme.toLowerCase()
+          break
+        case 'isCanceled':
+          valA = a.isCanceled ? 1 : 0
+          valB = b.isCanceled ? 1 : 0
+          break
+        case 'presents':
+          valA = a.isCanceled ? -1 : a.presents
+          valB = b.isCanceled ? -1 : b.presents
+          break
+        case 'absents':
+          valA = a.isCanceled ? -1 : a.absents
+          valB = b.isCanceled ? -1 : b.absents
+          break
+        case 'justified':
+          valA = a.isCanceled ? -1 : a.justified
+          valB = b.isCanceled ? -1 : b.justified
+          break
+        case 'rate':
+          valA = a.isCanceled ? -1 : a.rate
+          valB = b.isCanceled ? -1 : b.rate
+          break
+        case 'isHighestAbsenceRate':
+          valA = a.isHighestAbsenceRate ? 1 : 0
+          valB = b.isHighestAbsenceRate ? 1 : 0
+          break
+        default:
+          valA = a.date
+          valB = b.date
+      }
+
+      if (valA < valB) return lessonsSortDir === 'asc' ? -1 : 1
+      if (valA > valB) return lessonsSortDir === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [reportData.lessonSummaries, lessonsSortKey, lessonsSortDir])
 
   // ========================================================
   // 2. Processamento: Relatório de Alunos por Sala (com Aniversário)
@@ -353,49 +476,49 @@ export default function AttendanceReportsPage() {
       {/* ========================================================
           SELETOR DO TIPO DE RELATÓRIO (Abas principais de topo)
           ======================================================== */}
-      <div className="print:hidden bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-wrap gap-1.5">
+      <div className="print:hidden bg-sky-50/70 dark:bg-slate-800/80 p-1.5 rounded-xl border border-sky-100 dark:border-slate-700 flex flex-wrap gap-1.5">
         <Button
           type="button"
           size="sm"
-          variant={reportCategory === 'attendance' ? 'default' : 'ghost'}
+          variant="ghost"
           onClick={() => setReportCategory('attendance')}
-          className={`text-xs h-9 font-semibold flex items-center gap-2 ${
+          className={`text-xs h-9 font-semibold flex items-center gap-2 border transition-colors ${
             reportCategory === 'attendance'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-900/40'
+              ? 'bg-emerald-100/90 hover:bg-emerald-200/90 text-emerald-950 border-emerald-300 dark:bg-emerald-900/50 dark:hover:bg-emerald-900/70 dark:text-emerald-100 dark:border-emerald-700 shadow-xs ring-1 ring-emerald-400/40'
+              : 'bg-sky-100/90 hover:bg-emerald-100/90 text-sky-950 hover:text-emerald-950 border-sky-200 hover:border-emerald-300 dark:bg-sky-950/40 dark:hover:bg-emerald-950/40 dark:text-sky-100 dark:hover:text-emerald-100 dark:border-sky-800 dark:hover:border-emerald-700'
           }`}
         >
-          <BarChart3 className="h-4 w-4 text-indigo-600" />
+          <BarChart3 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           <span>Frequência das Chamadas</span>
         </Button>
 
         <Button
           type="button"
           size="sm"
-          variant={reportCategory === 'students_birthday' ? 'default' : 'ghost'}
+          variant="ghost"
           onClick={() => setReportCategory('students_birthday')}
-          className={`text-xs h-9 font-semibold flex items-center gap-2 ${
+          className={`text-xs h-9 font-semibold flex items-center gap-2 border transition-colors ${
             reportCategory === 'students_birthday'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-900/40'
+              ? 'bg-emerald-100/90 hover:bg-emerald-200/90 text-emerald-950 border-emerald-300 dark:bg-emerald-900/50 dark:hover:bg-emerald-900/70 dark:text-emerald-100 dark:border-emerald-700 shadow-xs ring-1 ring-emerald-400/40'
+              : 'bg-sky-100/90 hover:bg-emerald-100/90 text-sky-950 hover:text-emerald-950 border-sky-200 hover:border-emerald-300 dark:bg-sky-950/40 dark:hover:bg-emerald-950/40 dark:text-sky-100 dark:hover:text-emerald-100 dark:border-sky-800 dark:hover:border-emerald-700'
           }`}
         >
-          <Cake className="h-4 w-4 text-pink-600" />
+          <Cake className="h-4 w-4 text-pink-600 dark:text-pink-400" />
           <span>Alunos por Sala (com Aniversário)</span>
         </Button>
 
         <Button
           type="button"
           size="sm"
-          variant={reportCategory === 'student_sizes' ? 'default' : 'ghost'}
+          variant="ghost"
           onClick={() => setReportCategory('student_sizes')}
-          className={`text-xs h-9 font-semibold flex items-center gap-2 ${
+          className={`text-xs h-9 font-semibold flex items-center gap-2 border transition-colors ${
             reportCategory === 'student_sizes'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
-              : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-900/40'
+              ? 'bg-emerald-100/90 hover:bg-emerald-200/90 text-emerald-950 border-emerald-300 dark:bg-emerald-900/50 dark:hover:bg-emerald-900/70 dark:text-emerald-100 dark:border-emerald-700 shadow-xs ring-1 ring-emerald-400/40'
+              : 'bg-sky-100/90 hover:bg-emerald-100/90 text-sky-950 hover:text-emerald-950 border-sky-200 hover:border-emerald-300 dark:bg-sky-950/40 dark:hover:bg-emerald-950/40 dark:text-sky-100 dark:hover:text-emerald-100 dark:border-sky-800 dark:hover:border-emerald-700'
           }`}
         >
-          <Shirt className="h-4 w-4 text-sky-600" />
+          <Shirt className="h-4 w-4 text-sky-600 dark:text-sky-400" />
           <span>Tamanhos de Roupa e Calçado</span>
         </Button>
       </div>
@@ -777,30 +900,78 @@ export default function AttendanceReportsPage() {
                   <Table>
                     <TableHeader className="bg-slate-50 dark:bg-slate-900 text-xs">
                       <TableRow>
-                        <TableHead className="font-bold text-slate-800 dark:text-slate-200">
+                        <SortableTableHead
+                          columnKey="childName"
+                          currentSortKey={childrenSortKey}
+                          currentDirection={childrenSortDir}
+                          onSort={handleChildrenSort}
+                        >
                           Criança
-                        </TableHead>
-                        <TableHead className="font-bold text-slate-800 dark:text-slate-200">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="classroom"
+                          currentSortKey={childrenSortKey}
+                          currentDirection={childrenSortDir}
+                          onSort={handleChildrenSort}
+                        >
                           Sala
-                        </TableHead>
-                        <TableHead className="text-center font-bold text-slate-800 dark:text-slate-200">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="totalLessons"
+                          currentSortKey={childrenSortKey}
+                          currentDirection={childrenSortDir}
+                          onSort={handleChildrenSort}
+                          align="center"
+                        >
                           Total Aulas
-                        </TableHead>
-                        <TableHead className="text-center font-bold text-emerald-700">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="presents"
+                          currentSortKey={childrenSortKey}
+                          currentDirection={childrenSortDir}
+                          onSort={handleChildrenSort}
+                          align="center"
+                          className="text-emerald-700 dark:text-emerald-400"
+                        >
                           Presenças
-                        </TableHead>
-                        <TableHead className="text-center font-bold text-rose-700">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="absents"
+                          currentSortKey={childrenSortKey}
+                          currentDirection={childrenSortDir}
+                          onSort={handleChildrenSort}
+                          align="center"
+                          className="text-rose-700 dark:text-rose-400"
+                        >
                           Ausências
-                        </TableHead>
-                        <TableHead className="text-center font-bold text-amber-700">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="justified"
+                          currentSortKey={childrenSortKey}
+                          currentDirection={childrenSortDir}
+                          onSort={handleChildrenSort}
+                          align="center"
+                          className="text-amber-700 dark:text-amber-400"
+                        >
                           Justificadas
-                        </TableHead>
-                        <TableHead className="text-center font-bold text-slate-800 dark:text-slate-200">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="percentage"
+                          currentSortKey={childrenSortKey}
+                          currentDirection={childrenSortDir}
+                          onSort={handleChildrenSort}
+                          align="center"
+                        >
                           Frequência
-                        </TableHead>
-                        <TableHead className="font-bold text-slate-800 dark:text-slate-200">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="isLowAttendance"
+                          currentSortKey={childrenSortKey}
+                          currentDirection={childrenSortDir}
+                          onSort={handleChildrenSort}
+                        >
                           Situação / Alerta
-                        </TableHead>
+                        </SortableTableHead>
                         <TableHead className="text-right font-bold text-slate-800 dark:text-slate-200 print:hidden">
                           Ações
                         </TableHead>
@@ -930,34 +1101,82 @@ export default function AttendanceReportsPage() {
                   <Table>
                     <TableHeader className="bg-slate-50 dark:bg-slate-900 text-xs">
                       <TableRow>
-                        <TableHead className="font-bold text-slate-800 dark:text-slate-200">
+                        <SortableTableHead
+                          columnKey="date"
+                          currentSortKey={lessonsSortKey}
+                          currentDirection={lessonsSortDir}
+                          onSort={handleLessonsSort}
+                        >
                           Sábado / Aula
-                        </TableHead>
-                        <TableHead className="font-bold text-slate-800 dark:text-slate-200">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="centralTheme"
+                          currentSortKey={lessonsSortKey}
+                          currentDirection={lessonsSortDir}
+                          onSort={handleLessonsSort}
+                        >
                           Tema Central
-                        </TableHead>
-                        <TableHead className="text-center font-bold text-slate-800 dark:text-slate-200">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="isCanceled"
+                          currentSortKey={lessonsSortKey}
+                          currentDirection={lessonsSortDir}
+                          onSort={handleLessonsSort}
+                          align="center"
+                        >
                           Status
-                        </TableHead>
-                        <TableHead className="text-center font-bold text-emerald-700">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="presents"
+                          currentSortKey={lessonsSortKey}
+                          currentDirection={lessonsSortDir}
+                          onSort={handleLessonsSort}
+                          align="center"
+                          className="text-emerald-700 dark:text-emerald-400"
+                        >
                           Presenças
-                        </TableHead>
-                        <TableHead className="text-center font-bold text-rose-700">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="absents"
+                          currentSortKey={lessonsSortKey}
+                          currentDirection={lessonsSortDir}
+                          onSort={handleLessonsSort}
+                          align="center"
+                          className="text-rose-700 dark:text-rose-400"
+                        >
                           Ausências
-                        </TableHead>
-                        <TableHead className="text-center font-bold text-amber-700">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="justified"
+                          currentSortKey={lessonsSortKey}
+                          currentDirection={lessonsSortDir}
+                          onSort={handleLessonsSort}
+                          align="center"
+                          className="text-amber-700 dark:text-amber-400"
+                        >
                           Justificadas
-                        </TableHead>
-                        <TableHead className="text-center font-bold text-slate-800 dark:text-slate-200">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="rate"
+                          currentSortKey={lessonsSortKey}
+                          currentDirection={lessonsSortDir}
+                          onSort={handleLessonsSort}
+                          align="center"
+                        >
                           Taxa de Presença
-                        </TableHead>
-                        <TableHead className="font-bold text-slate-800 dark:text-slate-200">
+                        </SortableTableHead>
+                        <SortableTableHead
+                          columnKey="isHighestAbsenceRate"
+                          currentSortKey={lessonsSortKey}
+                          currentDirection={lessonsSortDir}
+                          onSort={handleLessonsSort}
+                        >
                           Observação do Sábado
-                        </TableHead>
+                        </SortableTableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody className="text-xs">
-                      {reportData.lessonSummaries.map((lesson) => {
+                      {sortedLessonSummaries.map((lesson) => {
                         const isCanceled = lesson.isCanceled
                         const isCritical = lesson.isHighestAbsenceRate && !isCanceled
 
@@ -1062,7 +1281,7 @@ export default function AttendanceReportsPage() {
                         )
                       })}
 
-                      {reportData.lessonSummaries.length === 0 && (
+                      {sortedLessonSummaries.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                             Nenhuma aula cadastrada para o período selecionado.

@@ -22,6 +22,7 @@ import {
   Check,
   AlertTriangle,
 } from 'lucide-react'
+import { SortableTableHead, SortDirection } from '@/components/reports/SortableTableHead'
 
 interface StudentSizesReportProps {
   students: StudentSizesReportItem[]
@@ -40,18 +41,82 @@ export function StudentSizesReport({
   missingFilter,
   onMissingFilterChange,
 }: StudentSizesReportProps) {
-  // Filtro de busca local
+  // Estado de ordenação
+  const [sortKey, setSortKey] = React.useState<string>('name')
+  const [sortDir, setSortDir] = React.useState<SortDirection>('asc')
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  // Filtro de busca local e ordenação
   const filteredStudents = useMemo(() => {
-    if (!searchQuery.trim()) return students
-    const q = searchQuery.toLowerCase().trim()
-    return students.filter((s) => {
-      const nameMatch = s.name.toLowerCase().includes(q)
-      const familyMatch = s.familyName ? s.familyName.toLowerCase().includes(q) : false
-      const clothingMatch = s.clothing_size.toLowerCase().includes(q)
-      const shoeMatch = s.shoe_size.toLowerCase().includes(q)
-      return nameMatch || familyMatch || clothingMatch || shoeMatch
+    let list = students
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      list = students.filter((s) => {
+        const nameMatch = s.name.toLowerCase().includes(q)
+        const familyMatch = s.familyName ? s.familyName.toLowerCase().includes(q) : false
+        const clothingMatch = s.clothing_size.toLowerCase().includes(q)
+        const shoeMatch = s.shoe_size.toLowerCase().includes(q)
+        return nameMatch || familyMatch || clothingMatch || shoeMatch
+      })
+    }
+
+    return [...list].sort((a, b) => {
+      let valA: any
+      let valB: any
+
+      switch (sortKey) {
+        case 'name':
+          valA = a.name.toLowerCase()
+          valB = b.name.toLowerCase()
+          break
+        case 'familyName':
+          valA = (a.familyName || '').toLowerCase()
+          valB = (b.familyName || '').toLowerCase()
+          break
+        case 'classroom':
+          valA = a.classroom
+          valB = b.classroom
+          break
+        case 'clothing_size':
+          valA = (a.clothing_size || '').toLowerCase()
+          valB = (b.clothing_size || '').toLowerCase()
+          break
+        case 'shoe_size': {
+          // Tenta ordenar numericamente se for número (ex: "32", "34")
+          const numA = parseInt(a.shoe_size, 10)
+          const numB = parseInt(b.shoe_size, 10)
+          if (!isNaN(numA) && !isNaN(numB)) {
+            valA = numA
+            valB = numB
+          } else {
+            valA = (a.shoe_size || '').toLowerCase()
+            valB = (b.shoe_size || '').toLowerCase()
+          }
+          break
+        }
+        case 'status':
+          // Status: 0=Falta ambos, 1=Falta roupa, 2=Falta calçado, 3=Completo
+          valA = a.missingBoth ? 0 : !a.hasClothing ? 1 : !a.hasShoe ? 2 : 3
+          valB = b.missingBoth ? 0 : !b.hasClothing ? 1 : !b.hasShoe ? 2 : 3
+          break
+        default:
+          valA = a.name.toLowerCase()
+          valB = b.name.toLowerCase()
+      }
+
+      if (valA < valB) return sortDir === 'asc' ? -1 : 1
+      if (valA > valB) return sortDir === 'asc' ? 1 : -1
+      return 0
     })
-  }, [students, searchQuery])
+  }, [students, searchQuery, sortKey, sortDir])
 
   // Agrupamento por sala quando 'ALL' estiver selecionado
   const groupedByClassroom = useMemo(() => {
@@ -270,28 +335,64 @@ export function StudentSizesReport({
                   <TableHeader className="bg-slate-50 dark:bg-slate-900 text-xs">
                     <TableRow>
                       <TableHead className="w-12 text-center font-bold text-slate-700">#</TableHead>
-                      <TableHead className="font-bold text-slate-800 dark:text-slate-200">
+                      <SortableTableHead
+                        columnKey="name"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                      >
                         Nome do Aluno
-                      </TableHead>
-                      <TableHead className="font-bold text-slate-800 dark:text-slate-200">
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="familyName"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                      >
                         Família
-                      </TableHead>
-                      <TableHead className="text-center font-bold text-slate-800 dark:text-slate-200">
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="classroom"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                        align="center"
+                      >
                         Sala
-                      </TableHead>
-                      <TableHead className="text-center font-bold text-indigo-800 dark:text-indigo-300">
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="clothing_size"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                        align="center"
+                        className="text-indigo-800 dark:text-indigo-300"
+                      >
                         <span className="inline-flex items-center gap-1">
                           <Shirt className="h-3.5 w-3.5" /> Tamanho de Roupa
                         </span>
-                      </TableHead>
-                      <TableHead className="text-center font-bold text-sky-800 dark:text-sky-300">
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="shoe_size"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                        align="center"
+                        className="text-sky-800 dark:text-sky-300"
+                      >
                         <span className="inline-flex items-center gap-1">
                           <Footprints className="h-3.5 w-3.5" /> Tamanho de Calçado
                         </span>
-                      </TableHead>
-                      <TableHead className="text-center font-bold text-slate-800 dark:text-slate-200">
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="status"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                        align="center"
+                      >
                         Status do Cadastro
-                      </TableHead>
+                      </SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="text-xs">

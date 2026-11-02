@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Cake, Calendar, Users, Sparkles } from 'lucide-react'
+import { SortableTableHead, SortDirection } from '@/components/reports/SortableTableHead'
 
 interface StudentsByClassroomReportProps {
   students: StudentsByClassroomReportItem[]
@@ -69,18 +70,75 @@ export function StudentsByClassroomReport({
   classrooms,
   searchQuery = '',
 }: StudentsByClassroomReportProps) {
-  // Filtro de busca local
+  // Estado de ordenação
+  const [sortKey, setSortKey] = React.useState<string>('name')
+  const [sortDir, setSortDir] = React.useState<SortDirection>('asc')
+
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  // Filtro de busca local e ordenação
   const filteredStudents = useMemo(() => {
-    if (!searchQuery.trim()) return students
-    const q = searchQuery.toLowerCase().trim()
-    return students.filter((s) => {
-      const nameMatch = s.name.toLowerCase().includes(q)
-      const familyMatch = s.familyName ? s.familyName.toLowerCase().includes(q) : false
-      const bday = getBirthdayParts(s.birth_date)
-      const monthMatch = bday.monthName.toLowerCase().includes(q)
-      return nameMatch || familyMatch || monthMatch
+    let list = students
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      list = students.filter((s) => {
+        const nameMatch = s.name.toLowerCase().includes(q)
+        const familyMatch = s.familyName ? s.familyName.toLowerCase().includes(q) : false
+        const bday = getBirthdayParts(s.birth_date)
+        const monthMatch = bday.monthName.toLowerCase().includes(q)
+        return nameMatch || familyMatch || monthMatch
+      })
+    }
+
+    return [...list].sort((a, b) => {
+      let valA: any
+      let valB: any
+
+      const bdayA = getBirthdayParts(a.birth_date)
+      const bdayB = getBirthdayParts(b.birth_date)
+
+      switch (sortKey) {
+        case 'name':
+          valA = a.name.toLowerCase()
+          valB = b.name.toLowerCase()
+          break
+        case 'familyName':
+          valA = (a.familyName || '').toLowerCase()
+          valB = (b.familyName || '').toLowerCase()
+          break
+        case 'classroom':
+          valA = a.classroom
+          valB = b.classroom
+          break
+        case 'birth_date':
+          valA = a.birth_date || ''
+          valB = b.birth_date || ''
+          break
+        case 'birthday_day':
+          valA = bdayA.day ? parseInt(bdayA.day, 10) : 999
+          valB = bdayB.day ? parseInt(bdayB.day, 10) : 999
+          break
+        case 'birthday_month':
+          valA = bdayA.monthIndex >= 0 ? bdayA.monthIndex : 999
+          valB = bdayB.monthIndex >= 0 ? bdayB.monthIndex : 999
+          break
+        default:
+          valA = a.name.toLowerCase()
+          valB = b.name.toLowerCase()
+      }
+
+      if (valA < valB) return sortDir === 'asc' ? -1 : 1
+      if (valA > valB) return sortDir === 'asc' ? 1 : -1
+      return 0
     })
-  }, [students, searchQuery])
+  }, [students, searchQuery, sortKey, sortDir])
 
   // Agrupamento por sala quando 'ALL' estiver selecionado
   const groupedByClassroom = useMemo(() => {
@@ -224,24 +282,59 @@ export function StudentsByClassroomReport({
                   <TableHeader className="bg-slate-50 dark:bg-slate-900 text-xs">
                     <TableRow>
                       <TableHead className="w-12 text-center font-bold text-slate-700">#</TableHead>
-                      <TableHead className="font-bold text-slate-800 dark:text-slate-200">
+                      <SortableTableHead
+                        columnKey="name"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                      >
                         Nome do Aluno
-                      </TableHead>
-                      <TableHead className="font-bold text-slate-800 dark:text-slate-200">
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="familyName"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                      >
                         Família / Responsável
-                      </TableHead>
-                      <TableHead className="text-center font-bold text-slate-800 dark:text-slate-200">
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="classroom"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                        align="center"
+                      >
                         Sala
-                      </TableHead>
-                      <TableHead className="text-center font-bold text-slate-800 dark:text-slate-200">
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="birth_date"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                        align="center"
+                      >
                         Data de Nascimento (dd/mm/aaaa)
-                      </TableHead>
-                      <TableHead className="text-center font-bold text-pink-700 dark:text-pink-400">
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="birthday_day"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                        align="center"
+                        className="text-pink-700 dark:text-pink-400"
+                      >
                         Dia do Aniversário
-                      </TableHead>
-                      <TableHead className="text-center font-bold text-slate-800 dark:text-slate-200">
+                      </SortableTableHead>
+                      <SortableTableHead
+                        columnKey="birthday_month"
+                        currentSortKey={sortKey}
+                        currentDirection={sortDir}
+                        onSort={handleSort}
+                        align="center"
+                      >
                         Mês
-                      </TableHead>
+                      </SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="text-xs">
