@@ -21,20 +21,31 @@ export function extractFieldErrors(error: unknown): FieldErrors {
 }
 
 export function isAuthExpiredError(error: unknown): boolean {
-  if (error instanceof ClientResponseError) {
-    return error.status === 401 || error.status === 403
-  }
-  if (error && typeof error === 'object') {
-    const err = error as { status?: number; message?: string }
-    if (err.status === 401 || err.status === 403) return true
-    if (
-      typeof err.message === 'string' &&
-      /sessão expirada|unauthorized|forbidden|token/i.test(err.message)
-    ) {
-      return true
+  if (!(error instanceof ClientResponseError)) {
+    if (typeof error === 'object' && error !== null) {
+      const err = error as {
+        status?: number
+        data?: { code?: number; message?: string }
+        message?: string
+      }
+      return (
+        err.status === 401 ||
+        err.data?.code === 401 ||
+        (typeof err.message === 'string' &&
+          (err.message.includes('401') ||
+            err.message.toLowerCase().includes('token') ||
+            err.message.toLowerCase().includes('auth') ||
+            err.message.toLowerCase().includes('sessão')))
+      )
     }
+    return false
   }
-  return false
+  return (
+    error.status === 401 ||
+    error.response?.code === 401 ||
+    error.message.toLowerCase().includes('token') ||
+    error.message.toLowerCase().includes('auth')
+  )
 }
 
 export function getErrorMessage(error: unknown): string {

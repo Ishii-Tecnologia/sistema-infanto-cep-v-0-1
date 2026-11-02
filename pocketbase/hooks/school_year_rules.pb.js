@@ -59,6 +59,49 @@ onRecordUpdate((e) => {
   e.next()
 }, 'janela_feriado')
 
+// Garantir regra de integridade de ano_letivo: apenas um ano com status='ativo'
+onRecordCreate((e) => {
+  const record = e.record
+  const status = record.getString('status')
+  if (status === 'ativo') {
+    const existingActive = e.app.findRecordsByFilter('ano_letivo', "status = 'ativo'", '', 20, 0)
+    for (const other of existingActive) {
+      if (other.id !== record.id) {
+        other.set('status', 'encerrado')
+        e.app.save(other)
+      }
+    }
+  }
+  e.next()
+}, 'ano_letivo')
+
+onRecordUpdate((e) => {
+  const record = e.record
+  const status = record.getString('status')
+  if (status === 'ativo') {
+    const existingActive = e.app.findRecordsByFilter('ano_letivo', "status = 'ativo'", '', 20, 0)
+    for (const other of existingActive) {
+      if (other.id !== record.id) {
+        other.set('status', 'encerrado')
+        e.app.save(other)
+      }
+    }
+  }
+  e.next()
+}, 'ano_letivo')
+
+// Impedir exclusão de ano_letivo ativo no backend
+onRecordDelete((e) => {
+  const record = e.record
+  const status = record.getString('status')
+  if (status === 'ativo') {
+    throw new BadRequestError(
+      'Não é permitido excluir um ano letivo ativo. Desative-o antes de excluir.',
+    )
+  }
+  e.next()
+}, 'ano_letivo')
+
 // Validação de duplicidade de sábados letivos
 onRecordCreate((e) => {
   const record = e.record

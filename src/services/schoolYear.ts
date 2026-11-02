@@ -267,6 +267,140 @@ export const schoolYearService = {
     return pb.collection('janela_feriado').delete(id)
   },
 
+  /**
+   * Atualiza o status do ano letivo (ativo, planejado, encerrado).
+   * Regra de negócio: se o novo status for 'ativo', garante que nenhum outro
+   * ano letivo permaneça como 'ativo' (desativa os outros para 'encerrado' ou 'planejado').
+   */
+  async setStatus(id: string, newStatus: 'ativo' | 'planejado' | 'encerrado'): Promise<AnoLetivo> {
+    if (newStatus === 'ativo') {
+      const allYears = await this.getAll()
+      for (const y of allYears) {
+        if (y.id !== id && y.status === 'ativo') {
+          try {
+            await pb.collection('ano_letivo').update(y.id, { status: 'encerrado' })
+          } catch (err) {
+            console.warn(`Erro ao desativar ano ${y.ano}:`, err)
+          }
+        }
+      }
+    }
+    return pb.collection('ano_letivo').update<AnoLetivo>(id, { status: newStatus })
+  },
+
+  /**
+   * Exclui um ano letivo em cascata, desde que NÃO esteja com status 'ativo'.
+   * Remove em cascata:
+   * 1. Presenças e planos vinculados às aulas daquele ano
+   * 2. Aulas (lessons) do ano
+   * 3. Sábados letivos (sabado_letivo)
+   * 4. Janelas de feriado (janela_feriado)
+   * 5. O registro do ano_letivo
+   */
+  async deleteSchoolYear(
+    id: string,
+  ): Promise<{ deletedYear: number; sabadosRemovidos: number; janelasRemovidas: number }> {
+    const anoRec = await this.getById(id)
+    if (!anoRec) {
+      throw new Error('Ano letivo não encontrado.')
+    }
+    if (anoRec.status === 'ativo') {
+      throw new Error('Não é possível excluir um ano letivo ativo. Desative-o antes de excluir.')
+    }
+
+    const anoNum = anoRec.ano
+
+    // 1. Janelas de feriado vinculadas ao ano
+    let janelasCount = 0
+    try {
+      const janelas = await pb.collection('janela_feriado').getFullList<JanelaFeriado>({
+        filter: `ano_letivo_id='${id}'`,
+      })
+      for (const j of janelas) {
+        await pb.collection('janela_feriado').delete(j.id)
+        janelasCount++
+      }
+    } catch (err) {
+      console.warn('Erro ao remover janelas de feriado na cascata:', err)
+    }
+
+    // 2. Sábados letivos vinculados ao ano
+    let sabadosCount = 0
+    try {
+      const sabados = await pb.collection('sabado_letivo').getFullList<SabadoLetivo>({
+        filter: `ano_letivo_id='${id}'`,
+      })
+      for (const s of sabados) {
+        await pb.collection('sabado_letivo').delete(s.id)
+        sabadosCount++
+      }
+    } catch (err) {
+      console.warn('Erro ao remover sábados letivos na cascata:', err)
+    }
+
+    // 3. Aulas (lessons) do ano correspondente e seus filhos (attendances, lesson_plans)
+    try {
+      const lessons = await pb.collection('lessons').getFullList<{ id: string }>({
+        filter: `year=${anoNum}`,
+      })
+      for (const l of lessons) {
+        // Remover presenças da aula
+        try {
+          const atts = await pb.collection('attendances').getFullList<{ id: string }>({
+            filter: `lesson_id='${l.id}'`,
+          })
+          for (const a of atts) {
+            await pb.collection('attendances').delete(a.id)
+          }
+        } catch (attErr) {
+          console.warn(`Erro ao remover presenças da aula ${l.id}:`, attErr)
+        }
+
+        // Remover planos pedagógicos da aula
+        try {
+          const plans = await pb.collection('lesson_plans').getFullList<{ id: string }>({
+            filter: `lesson_id='${l.id}'`,
+          })
+          for (const p of plans) {
+            await pb.collection('lesson_plans').delete(p.id)
+          }
+        } catch (planErr) {
+          console.warn(`Erro ao remover planos da aula ${l.id}:`, planErr)
+        }
+
+        // Remover a própria lesson
+        try {
+          await pb.collection('lessons').delete(l.id)
+        } catch (lessonErr) {
+          console.warn(`Erro ao remover aula ${l.id}:`, lessonErr)
+        }
+      }
+    } catch (lessonsErr) {
+      console.warn('Erro ao listar/remover aulas na cascata do ano:', lessonsErr)
+    }
+
+    // 4. Se algum outro ano letivo apontava para este em replicado_de, limpa a referência
+    try {
+      const dependentYears = await pb.collection('ano_letivo').getFullList<AnoLetivo>({
+        filter: `replicado_de='${id}'`,
+      })
+      for (const dep of dependentYears) {
+        await pb.collection('ano_letivo').update(dep.id, { replicado_de: '' })
+      }
+    } catch (depErr) {
+      console.warn('Erro ao limpar replicado_de de anos dependentes:', depErr)
+    }
+
+    // 5. Exclui o registro de ano_letivo
+    await pb.collection('ano_letivo').delete(id)
+
+    return {
+      deletedYear: anoNum,
+      sabadosRemovidos: sabadosCount,
+      janelasRemovidas: janelasCount,
+    }
+  },
+
   // Replicar do ano anterior:
   // Clona SabadoLetivo e JanelaFeriado recalculando as datas para o novo ano (mesmo dia/mês,
   // com tratamento de 29/02 e ajuste de dia da semana: domingos movidos para o sábado anterior).

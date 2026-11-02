@@ -27,13 +27,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Calendar, BookOpen, AlertCircle, Sliders, Settings2, Edit2, Check, X } from 'lucide-react'
+import {
+  Calendar,
+  BookOpen,
+  AlertCircle,
+  Sliders,
+  Settings2,
+  Edit2,
+  Check,
+  X,
+  Trash2,
+  ShieldAlert,
+} from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function CalendarPage() {
   const { toast } = useToast()
-  const { user } = useAuth()
+  const { user, hasRole } = useAuth()
+  const canManageYear = hasRole(['admin', 'dirigente'])
   const canEditTheme = user?.role === 'admin' || user?.role === 'professor'
   const {
     classrooms,
@@ -41,6 +53,8 @@ export default function CalendarPage() {
     schoolYear,
     activeAnoLetivo,
     anosLetivos,
+    setAnoLetivoStatus,
+    deleteAnoLetivo,
     loading: academicLoading,
   } = useAcademic()
   const [selectedYearNum, setSelectedYearNum] = useState<number>(schoolYear.year || 2026)
@@ -66,6 +80,13 @@ export default function CalendarPage() {
   const [classroomsModalOpen, setClassroomsModalOpen] = useState(false)
   const [editingClassrooms, setEditingClassrooms] = useState(classrooms)
   const [savingClassrooms, setSavingClassrooms] = useState(false)
+
+  // Estado e controle para alteração manual de Status do Ano Letivo
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+
+  // Estado e controle para Exclusão do Ano Letivo não-ativo
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deletingYear, setDeletingYear] = useState(false)
 
   useEffect(() => {
     setEditingClassrooms(classrooms)
@@ -233,6 +254,85 @@ export default function CalendarPage() {
     }
   }
 
+  const handleUpdateYearStatus = async (newStatus: 'ativo' | 'planejado' | 'encerrado') => {
+    if (!currentAnoLetivo) return
+    if (currentAnoLetivo.status === newStatus) return
+
+    try {
+      setUpdatingStatus(true)
+      await setAnoLetivoStatus(currentAnoLetivo.id, newStatus)
+      // Atualiza ano atual na tela
+      setCurrentAnoLetivo((prev) => (prev ? { ...prev, status: newStatus } : null))
+      const statusLabel =
+        newStatus === 'ativo' ? 'Ativo' : newStatus === 'planejado' ? 'Planejado' : 'Encerrado'
+      toast({
+        title: 'Status do Ano Atualizado!',
+        description: `O ano letivo ${currentAnoLetivo.ano} agora está marcado como ${statusLabel} no Sistema Infanto-CEP.${
+          newStatus === 'ativo' ? ' Os demais anos foram desativados.' : ''
+        }`,
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao alterar status do ano',
+        description:
+          err?.data?.message || err?.message || 'Falha ao atualizar status no Sistema Infanto-CEP.',
+        variant: 'destructive',
+      })
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
+
+  const handleDeleteYear = async () => {
+    if (!currentAnoLetivo) return
+    if (currentAnoLetivo.status === 'ativo') {
+      toast({
+        title: 'Ação não permitida',
+        description:
+          'Não é possível excluir um ano letivo ativo. Altere seu status para Planejado ou Encerrado antes de excluir no Sistema Infanto-CEP.',
+        variant: 'destructive',
+      })
+      setDeleteModalOpen(false)
+      return
+    }
+
+    try {
+      setDeletingYear(true)
+      const res = await deleteAnoLetivo(currentAnoLetivo.id)
+
+      toast({
+        title: 'Ano Letivo excluído com sucesso!',
+        description: `O ano ${res.deletedYear} e seus registros dependentes (${res.sabadosRemovidos} sábados e ${res.janelasRemovidas} feriados) foram removidos no Sistema Infanto-CEP.`,
+      })
+
+      setDeleteModalOpen(false)
+
+      // Seleciona outro ano disponível (preferencialmente o ativo, se houver)
+      const remainingYears = anosLetivos.filter((a) => a.id !== currentAnoLetivo.id)
+      const nextYear = remainingYears.find((a) => a.status === 'ativo') || remainingYears[0] || null
+
+      if (nextYear) {
+        setSelectedYearNum(nextYear.ano)
+        await loadYearData(nextYear.ano)
+      } else {
+        setSelectedYearNum(new Date().getFullYear())
+        setCurrentAnoLetivo(null)
+        setSabadosLetivos([])
+        setLessons([])
+        setSelectedLesson(null)
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao excluir ano letivo',
+        description:
+          err?.data?.message || err?.message || 'Falha ao excluir o ano no Sistema Infanto-CEP.',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeletingYear(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
@@ -282,6 +382,76 @@ export default function CalendarPage() {
             </Select>
           </div>
 
+          {/* Controle Manual do Status do Ano (Restrito a Admin e Dirigente) */}
+          {canManageYear && currentAnoLetivo && (
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border rounded-lg p-1 shadow-xs">
+              <span className="text-xs text-muted-foreground font-medium px-1.5">Status:</span>
+              <Select
+                value={currentAnoLetivo.status || 'planejado'}
+                onValueChange={(val) =>
+                  handleUpdateYearStatus(val as 'ativo' | 'planejado' | 'encerrado')
+                }
+                disabled={updatingStatus}
+              >
+                <SelectTrigger
+                  className={`h-7 border-0 shadow-none text-xs font-semibold px-2 focus:ring-0 ${
+                    currentAnoLetivo.status === 'ativo'
+                      ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300'
+                      : currentAnoLetivo.status === 'planejado'
+                        ? 'text-sky-700 bg-sky-50 dark:bg-sky-950/40 dark:text-sky-300'
+                        : 'text-amber-700 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300'
+                  }`}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ativo" className="text-xs font-medium">
+                    🟢 Ativo
+                  </SelectItem>
+                  <SelectItem value="planejado" className="text-xs font-medium">
+                    🔵 Planejado
+                  </SelectItem>
+                  <SelectItem value="encerrado" className="text-xs font-medium">
+                    ⚪ Encerrado
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Botão de Exclusão do Ano Letivo (visível para Admin/Dirigente) */}
+          {canManageYear && currentAnoLetivo && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (currentAnoLetivo.status === 'ativo') {
+                  toast({
+                    title: 'Ação Bloqueada',
+                    description:
+                      'Não é possível excluir o ano letivo que está Ativo. Altere seu status para Planejado ou Encerrado antes de excluir no Sistema Infanto-CEP.',
+                    variant: 'destructive',
+                  })
+                  return
+                }
+                setDeleteModalOpen(true)
+              }}
+              title={
+                currentAnoLetivo.status === 'ativo'
+                  ? 'Desative o ano antes de excluir'
+                  : `Excluir ano letivo ${currentAnoLetivo.ano}`
+              }
+              className={`h-9 text-xs ${
+                currentAnoLetivo.status === 'ativo'
+                  ? 'border-slate-200 text-slate-400 opacity-60 cursor-not-allowed hover:bg-transparent'
+                  : 'border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30'
+              }`}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1 text-rose-500" />
+              Excluir Ano
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -292,11 +462,20 @@ export default function CalendarPage() {
             Configurar Salas
           </Button>
 
+          {/* Badge com status e quantidade de sábados */}
           <Badge
             variant="outline"
-            className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs py-1.5 px-3"
+            className={`text-xs py-1.5 px-3 ${
+              currentAnoLetivo?.status === 'ativo'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300'
+                : currentAnoLetivo?.status === 'planejado'
+                  ? 'bg-sky-50 text-sky-800 border-sky-200 dark:bg-sky-950/30 dark:text-sky-300'
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+            }`}
           >
-            Ano Letivo {selectedYearNum} • {lessons.length} Sábados
+            Ano Letivo {selectedYearNum} •{' '}
+            {currentAnoLetivo?.status ? currentAnoLetivo.status.toUpperCase() : 'CONFIGURADO'} •{' '}
+            {lessons.length} Sábados
           </Badge>
         </div>
       </div>
@@ -729,12 +908,16 @@ export default function CalendarPage() {
       <Dialog
         open={!!editingSabado}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !savingTema) {
             setEditingSabado(null)
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent
+          className="max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
               <Edit2 className="h-4 w-4" />
@@ -787,7 +970,11 @@ export default function CalendarPage() {
 
       {/* Modal: Visualizar Plano Pedagógico da Aula (Read-Only) */}
       <Dialog open={!!viewingPlan} onOpenChange={(open) => !open && setViewingPlan(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent
+          className="max-w-lg"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>
               Plano de Aula —{' '}
@@ -862,8 +1049,19 @@ export default function CalendarPage() {
       </Dialog>
 
       {/* Modal: Configurações de Salas (Nomes e Faixas Etárias Editáveis) */}
-      <Dialog open={classroomsModalOpen} onOpenChange={setClassroomsModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <Dialog
+        open={classroomsModalOpen}
+        onOpenChange={(open) => {
+          if (!open && !savingClassrooms) {
+            setClassroomsModalOpen(false)
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
               <Sliders className="h-5 w-5" />
@@ -988,6 +1186,80 @@ export default function CalendarPage() {
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {savingClassrooms ? 'Salvando...' : 'Salvar Configurações de Salas'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação Obrigatória para Exclusão de Ano Letivo */}
+      <Dialog
+        open={deleteModalOpen}
+        onOpenChange={(open) => {
+          // Modais não fecham por clique fora/ESC se estiver deletando
+          if (!deletingYear) {
+            setDeleteModalOpen(open)
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+              <ShieldAlert className="h-5 w-5 text-rose-600" />
+              Excluir Ano Letivo {currentAnoLetivo?.ano}?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600 dark:text-slate-400">
+              Atenção: Esta é uma <strong>ação irreversível</strong> no Sistema Infanto-CEP.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-3 text-xs">
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-lg text-rose-900 dark:text-rose-200 space-y-1.5">
+              <p className="font-semibold text-xs">
+                Registros que serão excluídos permanentemente:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-[11px]">
+                <li>
+                  Registro do <strong>Ano Letivo {currentAnoLetivo?.ano}</strong> (Status:{' '}
+                  {currentAnoLetivo?.status})
+                </li>
+                <li>
+                  Todos os <strong>{sabadosLetivos.length} sábados</strong> cadastrados neste ano
+                  letivo (letivos, eventos, feriados e recessos)
+                </li>
+                <li>
+                  Todas as aulas, planos de aula pedagógicos e presenças vinculadas a este ano
+                </li>
+                <li>Janelas de feriados e recessos deste calendário</li>
+              </ul>
+            </div>
+
+            <p className="text-slate-600 dark:text-slate-400 text-xs">
+              Para prosseguir e apagar todos os dados deste ano letivo, clique em{' '}
+              <strong>Excluir Definitivamente</strong>. Caso contrário, clique em Cancelar para
+              manter tudo intacto.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteModalOpen(false)}
+              disabled={deletingYear}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleDeleteYear}
+              disabled={deletingYear}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {deletingYear ? 'Excluindo...' : 'Excluir Definitivamente'}
             </Button>
           </DialogFooter>
         </DialogContent>

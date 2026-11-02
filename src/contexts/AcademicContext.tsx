@@ -49,6 +49,10 @@ interface AcademicContextType {
   reloadSettings: () => Promise<void>
   saveClassrooms: (newClassrooms: ClassroomInfo[]) => Promise<void>
   savePedagogicalPlans: (newPlans: PedagogicalPlansMap) => Promise<void>
+  setAnoLetivoStatus: (id: string, newStatus: 'ativo' | 'planejado' | 'encerrado') => Promise<void>
+  deleteAnoLetivo: (
+    id: string,
+  ) => Promise<{ deletedYear: number; sabadosRemovidos: number; janelasRemovidas: number }>
   saveSchoolYearAndRecesses: (
     newYear: SchoolYearConfig,
     newRecesses: RecessSaturday[],
@@ -82,6 +86,8 @@ const AcademicContext = createContext<AcademicContextType>({
   pedagogicalPlans: DEFAULT_PEDAGOGICAL_PLANS,
   loading: true,
   reloadSettings: async () => {},
+  setAnoLetivoStatus: async () => {},
+  deleteAnoLetivo: async () => ({ deletedYear: 0, sabadosRemovidos: 0, janelasRemovidas: 0 }),
   saveClassrooms: async () => {},
   savePedagogicalPlans: async () => {},
   saveSchoolYearAndRecesses: async () => {},
@@ -219,6 +225,17 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     reloadSettings()
   }, [reloadSettings])
 
+  const setAnoLetivoStatus = async (id: string, newStatus: 'ativo' | 'planejado' | 'encerrado') => {
+    await schoolYearService.setStatus(id, newStatus)
+    await reloadSettings()
+  }
+
+  const deleteAnoLetivo = async (id: string) => {
+    const res = await schoolYearService.deleteSchoolYear(id)
+    await reloadSettings()
+    return res
+  }
+
   const saveClassrooms = async (newClassrooms: ClassroomInfo[]) => {
     await settingsService.updateSetting(
       'classrooms',
@@ -340,6 +357,8 @@ export const AcademicProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         pedagogicalPlans,
         loading,
         reloadSettings,
+        setAnoLetivoStatus,
+        deleteAnoLetivo,
         saveClassrooms,
         savePedagogicalPlans,
         saveSchoolYearAndRecesses,
