@@ -127,22 +127,31 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 5, baseDelay = 40
   }
 }
 
-export function generateSaturdaysList(
-  startDateStr: string,
-  recessSaturdays: RecessSaturday[],
-  count = 30,
-): string[] {
-  const result: string[] = []
-  const recessSet = new Set(
-    (recessSaturdays || []).map((r) => toIsoDateOnly(r.date)).filter(Boolean),
-  )
+export interface SaturdayEntry {
+  date: string
+  tipo: 'letivo' | 'feriado' | 'recesso' | 'evento'
+  nome?: string
+  recess?: RecessSaturday
+}
 
+/**
+ * Percorre TODOS os sábados entre startDate e endDate (inclusive).
+ * Se endDateStr for fornecido, percorre até a data de encerramento configurada.
+ * Se endDateStr não for fornecido, gera até atingir `fallbackCount` sábados letivos (padrão 30).
+ */
+export function generateAllSaturdaysBetween(
+  startDateStr: string,
+  endDateStr?: string,
+  recessSaturdays: RecessSaturday[] = [],
+  fallbackCount = 30,
+): SaturdayEntry[] {
   const cleanStart = toIsoDateOnly(startDateStr)
   if (!cleanStart) {
     throw new Error('Data de início do ano letivo não informada ou inválida.')
   }
 
-  // Iniciar na data indicada
+  const cleanEnd = toIsoDateOnly(endDateStr)
+
   const [startYear, startMonth, startDay] = cleanStart.split('-').map(Number)
   if (!startYear || !startMonth || !startDay) {
     throw new Error(
@@ -150,31 +159,107 @@ export function generateSaturdaysList(
     )
   }
 
-  const current = new Date(Date.UTC(startYear, startMonth - 1, startDay, 12, 0, 0))
+  // Mapa de recessos / feriados / eventos por data YYYY-MM-DD
+  const recessMap = new Map<string, RecessSaturday>()
+  for (const r of recessSaturdays || []) {
+    const d = toIsoDateOnly(r.date)
+    if (d) recessMap.set(d, r)
+  }
 
+  const current = new Date(Date.UTC(startYear, startMonth - 1, startDay, 12, 0, 0))
   // Se o dia não for sábado (dia da semana 6), avança até o próximo sábado
   while (current.getUTCDay() !== 6) {
     current.setUTCDate(current.getUTCDate() + 1)
   }
 
+  let endDate: Date | null = null
+  if (cleanEnd) {
+    const [endYear, endMonth, endDay] = cleanEnd.split('-').map(Number)
+    if (endYear && endMonth && endDay) {
+      endDate = new Date(Date.UTC(endYear, endMonth - 1, endDay, 23, 59, 59))
+    }
+  }
+
+  const entries: SaturdayEntry[] = []
   let safetyCounter = 0
-  while (result.length < count && safetyCounter < 100) {
+  let letivoCount = 0
+
+  while (safetyCounter < 150) {
     safetyCounter++
+    if (endDate && current > endDate) {
+      break
+    }
+    if (!endDate && letivoCount >= fallbackCount) {
+      break
+    }
+
     const y = current.getUTCFullYear()
     const m = String(current.getUTCMonth() + 1).padStart(2, '0')
     const d = String(current.getUTCDate()).padStart(2, '0')
     const dateStr = `${y}-${m}-${d}`
 
-    // Pula se estiver na lista de recessos / feriados
-    if (!recessSet.has(dateStr)) {
-      result.push(dateStr)
+    const rec = recessMap.get(dateStr)
+    if (rec) {
+      // Determina o tipo adequado a partir do nome
+      const nameLower = (rec.name || '').toLowerCase()
+      let tipo: 'feriado' | 'recesso' | 'evento' = 'recesso'
+      if (
+        nameLower.includes('bingo') ||
+        nameLower.includes('festa') ||
+        nameLower.includes('evento') ||
+        nameLower.includes('confraterniza') ||
+        nameLower.includes('feira') ||
+        nameLower.includes('mostra') ||
+        nameLower.includes('noite')
+      ) {
+        tipo = 'evento'
+      } else if (
+        nameLower.includes('feriado') ||
+        nameLower.includes('páscoa') ||
+        nameLower.includes('tiradentes') ||
+        nameLower.includes('independência') ||
+        nameLower.includes('aparecida') ||
+        nameLower.includes('finados') ||
+        nameLower.includes('república') ||
+        nameLower.includes('trabalho') ||
+        nameLower.includes('carnaval') ||
+        nameLower.includes('corpus')
+      ) {
+        tipo = 'feriado'
+      } else {
+        tipo = 'recesso'
+      }
+
+      entries.push({
+        date: dateStr,
+        tipo,
+        nome: rec.name,
+        recess: rec,
+      })
+    } else {
+      letivoCount++
+      entries.push({
+        date: dateStr,
+        tipo: 'letivo',
+      })
     }
 
-    // Avança 7 dias para o próximo sábado
     current.setUTCDate(current.getUTCDate() + 7)
   }
 
-  return result
+  return entries
+}
+
+export function generateSaturdaysList(
+  startDateStr: string,
+  recessSaturdays: RecessSaturday[],
+  count = 30,
+): string[] {
+  const entries = generateAllSaturdaysBetween(startDateStr, undefined, recessSaturdays, count)
+  return entries
+    .filter((e) => e.tipo === 'letivo')
+    .map((e) => e.date)
+    .slice(0, count)
 }
 
 export async function syncOrRegenerateCalendar(
@@ -219,7 +304,9 @@ export async function syncOrRegenerateCalendar(
     }
   }
 
-  const saturdays = generateSaturdaysList(startDate, normalizedRecesses, 30)
+  const endDate = toIsoDateOnly(config.endDate)
+  const allSaturdayEntries = generateAllSaturdaysBetween(startDate, endDate, normalizedRecesses, 30)
+  const saturdays = allSaturdayEntries.filter((e) => e.tipo === 'letivo').map((e) => e.date)
 
   // 1. Busca todas as aulas já cadastradas para o ano
   let existingLessons = await withRetry(() =>
@@ -371,11 +458,12 @@ export async function syncOrRegenerateCalendar(
     return {
       count: totalCount,
       action: createdMissingCount > 0 ? 'completed_matrix' : 'updated_dates',
+      allEntries: allSaturdayEntries,
     }
   }
 
-  // Caso B: Se não houver nenhuma aula para este ano, cria as 30 aulas com planos pedagógicos
-  onProgress?.(`Criando matriz de 30 sábados para o ano ${year}...`)
+  // Caso B: Se não houver nenhuma aula para este ano, cria as aulas necessárias com planos pedagógicos
+  onProgress?.(`Criando matriz de ${saturdays.length} sábados letivos para o ano ${year}...`)
   for (let i = 0; i < saturdays.length; i++) {
     const sessionNum = i + 1
     const sDate = saturdays[i]
@@ -414,7 +502,7 @@ export async function syncOrRegenerateCalendar(
     }
   }
 
-  return { count: saturdays.length, action: 'created_new' }
+  return { count: saturdays.length, action: 'created_new', allEntries: allSaturdayEntries }
 }
 
 function createDefaultPlans(theme: string) {

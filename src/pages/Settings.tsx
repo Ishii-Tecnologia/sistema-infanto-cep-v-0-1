@@ -682,7 +682,7 @@ export default function SettingsPage() {
       // Sincroniza o calendário de aulas (lessons)
       const res = await syncOrRegenerateCalendar(normalizedConfig, recessList)
 
-      // Sincroniza também a coleção sabado_letivo com as aulas atualizadas
+      // Sincroniza também a coleção sabado_letivo com todas as datas (letivas e não letivas)
       const updatedLessons = await pb.collection('lessons').getFullList<Lesson>({
         filter: `year=${targetYear}`,
         sort: 'session_number',
@@ -697,6 +697,7 @@ export default function SettingsPage() {
         if (d) sabadosByDate.set(d, sab)
       }
 
+      // 1. Processa todas as aulas letivas
       for (const l of updatedLessons) {
         const lDate = l.date ? l.date.split('T')[0] : ''
         const matchedSab =
@@ -709,6 +710,9 @@ export default function SettingsPage() {
           }
           if (matchedSab.lesson_id !== l.id) {
             patchPayload.lesson_id = l.id
+          }
+          if (matchedSab.tipo !== 'letivo') {
+            patchPayload.tipo = 'letivo'
           }
           if (!matchedSab.descricao && l.central_theme) {
             patchPayload.descricao = l.central_theme
@@ -723,7 +727,7 @@ export default function SettingsPage() {
         } else {
           // Cria o sábado letivo correspondente
           try {
-            await schoolYearService.createSabado({
+            const created = await schoolYearService.createSabado({
               ano_letivo_id: anoRec.id,
               data: `${lDate} 00:00:00.000Z`,
               tipo: 'letivo',
@@ -731,8 +735,57 @@ export default function SettingsPage() {
               lesson_id: l.id,
               revisado: true,
             })
+            sabadosByDate.set(lDate, created)
+            sabadosByLessonId.set(l.id, created)
           } catch (createErr) {
             console.warn('Criação de sabado_letivo ignorada:', createErr)
+          }
+        }
+      }
+
+      // 2. Processa os sábados não letivos (eventos, feriados, recessos) a partir de allEntries ou janelas
+      if (res.allEntries) {
+        for (const entry of res.allEntries) {
+          if (entry.tipo === 'letivo') continue
+          const matchedSab = sabadosByDate.get(entry.date)
+          const desc =
+            entry.nome ||
+            (entry.tipo === 'evento'
+              ? 'Evento Escolar'
+              : entry.tipo === 'feriado'
+                ? 'Feriado'
+                : 'Recesso Escolar')
+          if (matchedSab) {
+            const patchPayload: Partial<SabadoLetivo> = {}
+            if (matchedSab.tipo !== entry.tipo) {
+              patchPayload.tipo = entry.tipo
+            }
+            if (!matchedSab.descricao || matchedSab.descricao.startsWith('Aula #')) {
+              patchPayload.descricao = desc
+            }
+            if (matchedSab.lesson_id) {
+              patchPayload.lesson_id = ''
+            }
+            if (Object.keys(patchPayload).length > 0) {
+              try {
+                await schoolYearService.updateSabado(matchedSab.id, patchPayload)
+              } catch (err) {
+                console.warn('Atualização de sábado não-letivo ignorada:', err)
+              }
+            }
+          } else {
+            try {
+              const created = await schoolYearService.createSabado({
+                ano_letivo_id: anoRec.id,
+                data: `${entry.date} 00:00:00.000Z`,
+                tipo: entry.tipo,
+                descricao: desc,
+                revisado: true,
+              })
+              sabadosByDate.set(entry.date, created)
+            } catch (createErr) {
+              console.warn('Criação de sábado não-letivo ignorada:', createErr)
+            }
           }
         }
       }

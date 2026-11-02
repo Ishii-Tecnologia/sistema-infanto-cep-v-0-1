@@ -352,7 +352,16 @@ export default function CalendarPage() {
                           selectedLesson.id === matchedLesson.id) ||
                         (selectedLesson?.date && selectedLesson.date.split('T')[0] === sabIsoDate)
                       const isRecesso = sab.tipo === 'recesso' || sab.tipo === 'feriado'
-                      const displayNum = matchedLesson?.session_number || idx + 1
+                      const isEvento = sab.tipo === 'evento'
+                      // Para aulas letivas, exibe o número da sessão ou sequência relativa
+                      let letivoSeq = 0
+                      if (sab.tipo === 'letivo') {
+                        for (let sIdx = 0; sIdx <= idx; sIdx++) {
+                          if (sabadosLetivos[sIdx].tipo === 'letivo') letivoSeq++
+                        }
+                      }
+                      const displayNum =
+                        matchedLesson?.session_number || (sab.tipo === 'letivo' ? letivoSeq : null)
                       const displayTema =
                         sab.descricao || matchedLesson?.central_theme || 'Tema não definido'
 
@@ -364,17 +373,24 @@ export default function CalendarPage() {
                               setSelectedLesson(matchedLesson)
                             }
                           }}
-                          className={`p-3 rounded-lg border text-xs cursor-pointer transition-all ${
+                          className={`p-3 rounded-lg border text-xs transition-all ${
+                            matchedLesson ? 'cursor-pointer' : 'cursor-default'
+                          } ${
                             isSelected
                               ? 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/40 shadow-xs'
                               : 'border-slate-200 dark:border-slate-800 hover:border-indigo-200'
-                          } ${isRecesso ? 'opacity-60 bg-slate-50 dark:bg-slate-900/30' : ''}`}
+                          } ${isRecesso ? 'opacity-60 bg-slate-50 dark:bg-slate-900/30' : ''} ${
+                            isEvento
+                              ? 'bg-sky-50/40 dark:bg-sky-950/20 border-sky-200 dark:border-sky-800'
+                              : ''
+                          }`}
                         >
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
-                              {/* Quadro com data e número: exemplo "#1 07/03/2026" */}
+                              {/* Quadro com data e número: exemplo "#1 07/03/2026" ou data do evento */}
                               <span className="font-mono font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                                #{displayNum} {formatDate(sab.data)}
+                                {displayNum !== null ? `#${displayNum} ` : ''}
+                                {formatDate(sab.data)}
                               </span>
                             </div>
 
@@ -415,7 +431,11 @@ export default function CalendarPage() {
                                   variant="ghost"
                                   onClick={(e) => handleStartEditTema(sab, idx, matchedLesson, e)}
                                   className="h-6 px-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 font-medium"
-                                  title="Editar assunto da aula"
+                                  title={
+                                    sab.tipo === 'letivo'
+                                      ? 'Editar assunto da aula'
+                                      : 'Editar descrição'
+                                  }
                                 >
                                   <Edit2 className="h-3 w-3 mr-1" />
                                   Editar Assunto
@@ -424,7 +444,7 @@ export default function CalendarPage() {
                             </div>
                           </div>
 
-                          {/* Linha do assunto editável (ex: Deus, Pai e Criador de Todas as Coisas) */}
+                          {/* Linha do assunto editável (ex: Deus, Pai e Criador de Todas as Coisas ou Bingo da Noite Italiana) */}
                           <p
                             className="font-semibold text-slate-800 dark:text-slate-200 line-clamp-2 mt-1"
                             title={displayTema}
@@ -434,6 +454,13 @@ export default function CalendarPage() {
                           {matchedLesson?.thematic_block && (
                             <p className="text-[11px] text-muted-foreground mt-0.5">
                               Bloco: {matchedLesson.thematic_block}
+                            </p>
+                          )}
+                          {!matchedLesson && (sab.tipo === 'evento' || isRecesso) && (
+                            <p className="text-[10px] text-muted-foreground italic mt-0.5">
+                              {sab.tipo === 'evento'
+                                ? 'Evento escolar — sem aula/chamada de presença'
+                                : 'Recesso / Feriado — sem aula letiva'}
                             </p>
                           )}
                         </div>
