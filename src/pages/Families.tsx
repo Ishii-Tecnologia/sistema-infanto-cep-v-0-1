@@ -39,6 +39,7 @@ import {
   MapPin,
   Heart,
   AlertCircle,
+  AlertTriangle,
   Camera,
   CheckCircle2,
   ChevronRight,
@@ -57,7 +58,7 @@ import { useAuth } from '@/contexts/AuthContext'
 
 export default function FamiliesPage() {
   const navigate = useNavigate()
-  const { logout } = useAuth()
+  const { logout, hasRole } = useAuth()
   const { toast } = useToast()
   const {
     classrooms,
@@ -82,6 +83,13 @@ export default function FamiliesPage() {
   const [editingFamily, setEditingFamily] = useState<Family | null>(null)
   const [currentStep, setCurrentStep] = useState(1)
   const [saving, setSaving] = useState(false)
+
+  // Estado da Exclusão de Família
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [familyToDelete, setFamilyToDelete] = useState<Family | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const canDeleteFamily = hasRole(['admin', 'dirigente'])
 
   // Dados do Wizard
   const [wizardFamily, setWizardFamily] = useState<{
@@ -332,6 +340,44 @@ export default function FamiliesPage() {
   }
 
   // Abre o wizard em MODO EDIÇÃO preenchido com os dados da ficha da família
+  const handleRequestDelete = (fam: Family) => {
+    setFamilyToDelete(fam)
+    setDeleteModalOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!familyToDelete) return
+
+    if (!pb.authStore.isValid) {
+      checkAuthAndHandleExpired(new Error('Sessão expirada'))
+      return
+    }
+
+    try {
+      setDeleting(true)
+      await familyService.delete(familyToDelete.id)
+
+      toast({
+        title: 'Família excluída com sucesso',
+        description: `A ficha da família "${familyToDelete.reference_name}" e seus registros foram removidos do Sistema Infanto-CEP.`,
+      })
+
+      setDeleteModalOpen(false)
+      setFamilyToDelete(null)
+      setSelectedFamily(null)
+      await loadFamilies()
+    } catch (err: any) {
+      if (checkAuthAndHandleExpired(err)) return
+      toast({
+        title: 'Erro ao excluir família',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const handleOpenEditWizard = (fam: Family) => {
     setEditingFamily(fam)
     setCurrentStep(1)
@@ -807,18 +853,34 @@ export default function FamiliesPage() {
                 </div>
               </div>
 
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  className="border-indigo-300 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
-                  onClick={() => handleOpenEditWizard(selectedFamily)}
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Editar Informações
-                </Button>
-                <Button variant="outline" onClick={() => setSelectedFamily(null)}>
-                  Fechar Ficha
-                </Button>
+              <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 border-t pt-3">
+                <div>
+                  {canDeleteFamily && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-rose-300 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-800"
+                      onClick={() => handleRequestDelete(selectedFamily)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2 text-rose-600" />
+                      Excluir Família
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    className="border-indigo-300 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                    onClick={() => handleOpenEditWizard(selectedFamily)}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar Informações
+                  </Button>
+                  <Button variant="outline" onClick={() => setSelectedFamily(null)}>
+                    Fechar Ficha
+                  </Button>
+                </div>
               </DialogFooter>
             </div>
           )}
@@ -1392,6 +1454,89 @@ export default function FamiliesPage() {
                 </Button>
               )}
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação de Exclusão de Família */}
+      <Dialog
+        open={deleteModalOpen}
+        onOpenChange={(open) => {
+          if (!deleting) {
+            setDeleteModalOpen(open)
+            if (!open) setFamilyToDelete(null)
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-md"
+          onInteractOutside={(e) => deleting && e.preventDefault()}
+          onEscapeKeyDown={(e) => deleting && e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Excluir Ficha da Família
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Você está prestes a remover a família{' '}
+              <strong>{familyToDelete?.reference_name}</strong> do cadastro da instituição{' '}
+              <strong>CEP-Coligação Espírita Progressista</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-2 text-xs text-slate-700 dark:text-slate-300">
+            <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 space-y-1.5">
+              <p className="font-semibold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Esta ação é irreversível e definitiva.
+              </p>
+              <ul className="list-disc list-inside text-rose-700 dark:text-rose-400 space-y-1 text-[11px]">
+                <li>A ficha da família será completamente removida do sistema.</li>
+                <li>
+                  Os responsáveis cadastrados ({familyToDelete?.guardians?.length || 0}) e as
+                  crianças vinculadas ({familyToDelete?.children?.length || 0}) serão
+                  desvinculados/excluídos.
+                </li>
+                <li>
+                  Registros dependentes associados às crianças (presenças, transações de DimDim e
+                  empréstimos) serão limpos para não deixar órfãos no banco de dados.
+                </li>
+              </ul>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Deseja realmente confirmar a exclusão da família{' '}
+              <strong className="text-slate-900 dark:text-slate-100">
+                {familyToDelete?.reference_name}
+              </strong>
+              ?
+            </p>
+          </div>
+
+          <DialogFooter className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDeleteModalOpen(false)
+                setFamilyToDelete(null)
+              }}
+              disabled={deleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              {deleting ? 'Excluindo...' : 'Sim, Excluir Família'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

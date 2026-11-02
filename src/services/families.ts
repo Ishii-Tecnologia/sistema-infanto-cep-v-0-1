@@ -323,6 +323,77 @@ export const familyService = {
   },
 
   async delete(id: string): Promise<boolean> {
+    // 1. Busca todas as crianças vinculadas à família para limpar registros dependentes
+    try {
+      const children = await pb.collection('children').getFullList<Child>({
+        filter: `family_id = "${id}"`,
+      })
+
+      for (const child of children) {
+        // Remove empréstimos de livros vinculados à criança (para manter consistência do acervo se houver)
+        try {
+          const loans = await pb.collection('book_loans').getFullList({
+            filter: `child_id = "${child.id}"`,
+          })
+          for (const loan of loans) {
+            await pb.collection('book_loans').delete(loan.id)
+          }
+        } catch (loanErr) {
+          console.warn('Erro ao remover empréstimos de livros da criança:', loanErr)
+        }
+
+        // Remove registros de frequência da criança
+        try {
+          const attendances = await pb.collection('attendances').getFullList({
+            filter: `child_id = "${child.id}"`,
+          })
+          for (const att of attendances) {
+            await pb.collection('attendances').delete(att.id)
+          }
+        } catch (attErr) {
+          console.warn('Erro ao remover presenças da criança:', attErr)
+        }
+
+        // Remove transações de DimDim da criança
+        try {
+          const txs = await pb.collection('dimdim_transactions').getFullList({
+            filter: `child_id = "${child.id}"`,
+          })
+          for (const tx of txs) {
+            await pb.collection('dimdim_transactions').delete(tx.id)
+          }
+        } catch (dimErr) {
+          console.warn('Erro ao remover transações dimdim da criança:', dimErr)
+        }
+
+        // Remove a criança
+        try {
+          await pb.collection('children').delete(child.id)
+        } catch (childErr) {
+          console.warn('Erro ao remover registro da criança:', childErr)
+        }
+      }
+    } catch (fetchChildrenErr) {
+      console.warn('Erro ao listar crianças para exclusão em cascata:', fetchChildrenErr)
+    }
+
+    // 2. Remove todos os guardiões vinculados à família
+    try {
+      const guardians = await pb.collection('guardians').getFullList<Guardian>({
+        filter: `family_id = "${id}"`,
+      })
+      for (const guardian of guardians) {
+        try {
+          await pb.collection('guardians').delete(guardian.id)
+        } catch (guardErr) {
+          console.warn('Erro ao remover guardião:', guardErr)
+        }
+      }
+    } catch (fetchGuardiansErr) {
+      console.warn('Erro ao listar guardiões para exclusão:', fetchGuardiansErr)
+    }
+
+    // 3. Exclui a família
     await pb.collection('families').delete(id)
     return true
   },
