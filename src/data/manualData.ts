@@ -534,7 +534,7 @@ export const MANUAL_MODULES: ManualModule[] = [
       {
         title: 'Como alterar sua própria senha de operador',
         description:
-          'Em qualquer tela do sistema, clique no menu do usuário ou no botão "Mudar papel / Minha Conta" no cabeçalho superior e escolha "Alterar minha senha". Digite sua nova senha com no mínimo 8 caracteres e confirme.',
+          'Em qualquer tela do sistema, clique no menu "Minha Conta" no cabeçalho superior e escolha "Alterar minha senha". Digite sua nova senha com no mínimo 8 caracteres e confirme.',
         tips: [
           'A troca entra em vigor imediatamente e é confirmada por mensagem do Sistema Infanto-CEP.',
         ],

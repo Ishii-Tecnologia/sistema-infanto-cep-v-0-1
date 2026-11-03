@@ -25,7 +25,6 @@ import {
   LogOut,
   Menu,
   ChevronDown,
-  ShieldCheck,
   UserCheck,
   KeyRound,
   HelpCircle,
@@ -34,7 +33,7 @@ import {
 import { UserRole } from '@/types'
 
 export default function Layout() {
-  const { user, logout, switchRole, hasRole } = useAuth()
+  const { user, logout, hasRole } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -206,26 +205,34 @@ export default function Layout() {
               >
                 <span className="flex items-center gap-1.5 truncate">
                   <UserCheck className="h-3.5 w-3.5 text-sky-300 shrink-0" />
-                  Mudar papel
+                  Minha Conta
                 </span>
                 <ChevronDown className="h-3 w-3 opacity-70 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel className="text-xs">Alternar Perfil (Demo)</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs">Minha Conta</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {(['admin', 'dirigente', 'professor', 'auxiliar', 'bibliotecario'] as UserRole[]).map(
-                (r) => (
-                  <DropdownMenuItem
-                    key={r}
-                    onClick={() => switchRole(r)}
-                    className={`text-xs capitalize ${user?.role === r ? 'font-bold bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300' : ''}`}
-                  >
-                    <ShieldCheck className="h-3.5 w-3.5 mr-2" />
-                    {roleLabels[r].label}
-                  </DropdownMenuItem>
-                ),
-              )}
+              <DropdownMenuItem
+                onClick={() => {
+                  setMobileOpen(false)
+                  navigate('/manual')
+                }}
+                className="text-xs"
+              >
+                <BookOpen className="h-3.5 w-3.5 mr-2 text-sky-600" />
+                Manual do Sistema
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setMobileOpen(false)
+                  setOwnPasswordModalOpen(true)
+                }}
+                className="text-xs"
+              >
+                <KeyRound className="h-3.5 w-3.5 mr-2" />
+                Alterar minha senha
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -301,7 +308,7 @@ export default function Layout() {
               })}
             </nav>
 
-            {/* Lado Direito: Usuário, Papel, Alternar Perfil e Sair (Desktop & Mobile) */}
+            {/* Lado Direito: Usuário, Papel, Minha Conta e Sair (Desktop & Mobile) */}
             <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
               {/* Usuário e Perfil em telas médias/grandes */}
               <div className="hidden md:flex items-center space-x-2 pr-1 border-r border-sky-800">
@@ -321,7 +328,7 @@ export default function Layout() {
                 </div>
               </div>
 
-              {/* Menu rápido de papel (demo) */}
+              {/* Menu da Conta (Manual do Sistema, Alterar senha) */}
               <div className="hidden sm:block">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -329,10 +336,10 @@ export default function Layout() {
                       variant="ghost"
                       size="sm"
                       className="text-xs h-8 text-sky-100 hover:text-white hover:bg-sky-600/70 px-2 gap-1.5 border border-transparent hover:border-sky-500/60"
-                      title="Alternar perfil de acesso"
+                      title="Menu da minha conta"
                     >
                       <UserCheck className="h-3.5 w-3.5 text-sky-300" />
-                      <span className="hidden 2xl:inline">Papel</span>
+                      <span className="hidden 2xl:inline">Conta</span>
                       <ChevronDown className="h-3 w-3 opacity-70" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -350,23 +357,6 @@ export default function Layout() {
                       <KeyRound className="h-3.5 w-3.5 mr-2" />
                       Alterar minha senha
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-xs">
-                      Alternar Perfil (Demo)
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {(
-                      ['admin', 'dirigente', 'professor', 'auxiliar', 'bibliotecario'] as UserRole[]
-                    ).map((r) => (
-                      <DropdownMenuItem
-                        key={r}
-                        onClick={() => switchRole(r)}
-                        className={`text-xs capitalize ${user?.role === r ? 'font-bold bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300' : ''}`}
-                      >
-                        <ShieldCheck className="h-3.5 w-3.5 mr-2" />
-                        {roleLabels[r].label}
-                      </DropdownMenuItem>
-                    ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
