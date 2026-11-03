@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { dimdimService } from '@/services/dimdim'
+import { auditLogService } from '@/services/auditLogs'
 import { childService } from '@/services/families'
 import { Child, DimDimTransaction, DimDimTransactionType, DimDimCategory } from '@/types'
 import { formatDateTime, getClassroomBadge } from '@/lib/academic'
@@ -213,9 +214,18 @@ export default function DimDimPage() {
     try {
       setReversing(true)
       await dimdimService.reverseTransaction(txToReverse.id)
+
+      // Registra log explícito de auditoria do estorno
+      const childName = txToReverse.expand?.child_id?.name || 'aluno'
+      auditLogService.recordLog({
+        recordType: 'Estorno DimDim',
+        recordIdentifier: `Estorno de ${txToReverse.amount} DD (${childName})`,
+        details: `Lançamento original: "${txToReverse.reason}" (${txToReverse.type}) • Aluno: ${childName}`,
+      })
+
       toast({
-        title: 'Estorno realizado com sucesso!',
-        description: `O lançamento de ${txToReverse.amount} DimDim foi estornado no Sistema Infanto-CEP.`,
+        title: 'Sistema Infanto-CEP',
+        description: `O lançamento de ${txToReverse.amount} DimDim foi estornado com sucesso no Sistema Infanto-CEP.`,
       })
       setReverseModalOpen(false)
       setTxToReverse(null)

@@ -272,7 +272,7 @@ export const MANUAL_MODULES: ManualModule[] = [
     },
     roles: ['admin', 'dirigente'],
     summary:
-      'Acompanhamento de assiduidade escolar, lista nominal de alunos por sala com data de aniversário e conferência de tamanhos de roupa e calçado com filtro de pendências.',
+      'Acompanhamento de assiduidade escolar, lista nominal de alunos por sala com data de aniversário, conferência de tamanhos de roupa e calçado com filtro de pendências e logs de exclusão/auditoria.',
     steps: [
       {
         title: 'Relatório de Alunos por Sala (com Aniversário)',
@@ -283,6 +283,16 @@ export const MANUAL_MODULES: ManualModule[] = [
         title: 'Relatório de Tamanhos de Roupa e Calçado',
         description:
           'Exibe o tamanho de roupa e calçado de cada aluno por sala, com filtros rápidos por sala específica e destaque de alunos sem informação (filtro para exibir quem está sem roupa, sem calçado ou sem ambos), agilizando a arrecadação de uniformes e campanhas de final de ano.',
+      },
+      {
+        title: 'Logs de Exclusão e Auditoria (Exclusivo Administrador)',
+        description:
+          'Disponível exclusivamente para o papel Administrador na barra de relatórios. Registra de forma indelével cada exclusão feita no sistema (data/hora, operador autenticado, papel, tipo de registro, identificação e detalhes, incluindo contagens em exclusões em cascata). Possui ordenação clicável em todas as colunas.',
+      },
+      {
+        title: 'Rotina de Expurgo Seguro de Logs por Data Limite',
+        description:
+          'Dentro do relatório de Logs de Exclusão, o Administrador pode executar o expurgo de registros antigos selecionando uma data limite. Um modal de confirmação irreversível com mensagem explicativa previne exclusões acidentais (o botão Cancelar mantém tudo intacto). A própria operação de expurgo gera um registro permanente de auditoria no Sistema Infanto-CEP.',
       },
       {
         title: 'Ordenação Clicável nas Colunas de Todas as Tabelas',
@@ -435,7 +445,7 @@ export const MANUAL_MODULES: ManualModule[] = [
     id: 'configuracoes',
     title: 'Operadores, Ano Letivo e Configurações',
     shortTitle: 'Operadores & Config.',
-    badge: 'Apenas Coordenação',
+    badge: 'Apenas Administrador',
     icon: Settings,
     colorClass: {
       bg: 'bg-rose-50 dark:bg-rose-950/40',
@@ -443,9 +453,9 @@ export const MANUAL_MODULES: ManualModule[] = [
       border: 'border-rose-200 dark:border-rose-800',
       accent: 'bg-rose-600',
     },
-    roles: ['admin', 'dirigente'],
+    roles: ['admin'],
     summary:
-      'Gestão de operadores e senhas, ficha dinâmica do ano letivo, janelas de feriados com botão Alterar, replicação de anos anteriores e planos pedagógicos.',
+      'Acesso restrito exclusivamente ao Administrador. Gestão de operadores e senhas, ficha dinâmica do ano letivo, janelas de feriados com botão Alterar, replicação de anos anteriores e planos pedagógicos.',
     steps: [
       {
         title: 'Ficha "Ano Letivo {ano} e Janelas de Feriados": Seleção Dinâmica e Refetch',

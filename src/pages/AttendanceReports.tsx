@@ -59,6 +59,7 @@ import {
 import { ChildAttendanceDetailModal } from '@/components/ChildAttendanceDetailModal'
 import { StudentsByClassroomReport } from '@/components/reports/StudentsByClassroomReport'
 import { StudentSizesReport } from '@/components/reports/StudentSizesReport'
+import { DeletionLogsReport } from '@/components/reports/DeletionLogsReport'
 import { SortableTableHead, SortDirection } from '@/components/reports/SortableTableHead'
 import { useToast } from '@/hooks/use-toast'
 
@@ -75,15 +76,23 @@ const MONTH_NAMES = [
   { value: 12, label: 'Dezembro' },
 ]
 
-export type ReportCategory = 'attendance' | 'students_birthday' | 'student_sizes'
+export type ReportCategory = 'attendance' | 'students_birthday' | 'student_sizes' | 'deletion_logs'
 
 export default function AttendanceReportsPage() {
   const { toast } = useToast()
   const { classrooms, schoolYear, loading: academicLoading } = useAcademic()
   const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
 
   // Seletor do tipo de relatório ativo
   const [reportCategory, setReportCategory] = useState<ReportCategory>('attendance')
+
+  // Guarda estrita: se não for admin e tentar acessar 'deletion_logs', reverte para 'attendance'
+  useEffect(() => {
+    if (!isAdmin && reportCategory === 'deletion_logs') {
+      setReportCategory('attendance')
+    }
+  }, [isAdmin, reportCategory])
 
   // Filtros principais
   const [selectedClassroom, setSelectedClassroom] = useState<ClassroomId | 'ALL'>('ALL')
@@ -357,6 +366,8 @@ export default function AttendanceReportsPage() {
         return 'Relatório de Alunos por Sala com Data de Aniversário'
       case 'student_sizes':
         return 'Relatório de Tamanhos para Calçado e Roupa dos Alunos'
+      case 'deletion_logs':
+        return 'Logs de Exclusão e Auditoria'
       case 'attendance':
       default:
         return 'Relatório de Frequência e Assiduidade'
@@ -521,224 +532,244 @@ export default function AttendanceReportsPage() {
           <Shirt className="h-4 w-4 text-sky-600 dark:text-sky-400" />
           <span>Tamanhos de Roupa e Calçado</span>
         </Button>
+
+        {/* Relatório de Logs de Exclusão: EXCLUSIVO para Administrador */}
+        {isAdmin && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setReportCategory('deletion_logs')}
+            className={`text-xs h-9 font-semibold flex items-center gap-2 border transition-colors ${
+              reportCategory === 'deletion_logs'
+                ? 'bg-rose-100/90 hover:bg-rose-200/90 text-rose-950 border-rose-300 dark:bg-rose-900/50 dark:hover:bg-rose-900/70 dark:text-rose-100 dark:border-rose-700 shadow-xs ring-1 ring-rose-400/40'
+                : 'bg-rose-50/70 hover:bg-rose-100/90 text-rose-900 hover:text-rose-950 border-rose-200 hover:border-rose-300 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 dark:text-rose-200 dark:border-rose-800'
+            }`}
+          >
+            <ShieldAlert className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+            <span>Logs de Exclusão (Admin)</span>
+          </Button>
+        )}
       </div>
 
       {/* ========================================================
-          FILTROS PRINCIPAIS: SALA E CRITÉRIOS (oculto na impressão)
+          FILTROS PRINCIPAIS: SALA E CRITÉRIOS (oculto na impressão e oculto quando em Logs)
           ======================================================== */}
-      <Card className="print:hidden border-sky-100 dark:border-sky-950 shadow-sm">
-        <CardHeader className="p-3.5 sm:p-4 pb-2 border-b">
-          <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
-            <Filter className="h-4 w-4 text-sky-600" /> Filtros do Relatório
-          </CardTitle>
-          <CardDescription className="text-xs">
-            {reportCategory === 'attendance'
-              ? 'Selecione a sala e a janela de datas que deseja consolidar.'
-              : reportCategory === 'students_birthday'
-                ? 'Filtre pela turma/sala desejada ou veja todas as salas agrupadas com as datas de nascimento e aniversário.'
-                : 'Selecione a turma/sala e filtre alunos com dados completos ou com informações faltantes de roupa e calçado.'}
-          </CardDescription>
-        </CardHeader>
+      {reportCategory !== 'deletion_logs' && (
+        <Card className="print:hidden border-sky-100 dark:border-sky-950 shadow-sm">
+          <CardHeader className="p-3.5 sm:p-4 pb-2 border-b">
+            <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-2 text-slate-800 dark:text-slate-200">
+              <Filter className="h-4 w-4 text-sky-600" /> Filtros do Relatório
+            </CardTitle>
+            <CardDescription className="text-xs">
+              {reportCategory === 'attendance'
+                ? 'Selecione a sala e a janela de datas que deseja consolidar.'
+                : reportCategory === 'students_birthday'
+                  ? 'Filtre pela turma/sala desejada ou veja todas as salas agrupadas com as datas de nascimento e aniversário.'
+                  : 'Selecione a turma/sala e filtre alunos com dados completos ou com informações faltantes de roupa e calçado.'}
+            </CardDescription>
+          </CardHeader>
 
-        <CardContent className="p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* 1. Seleção de Sala (comum a todos os relatórios) */}
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Turma / Sala
-            </Label>
-            <Select
-              value={selectedClassroom}
-              onValueChange={(val) => setSelectedClassroom(val as ClassroomId | 'ALL')}
-            >
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Selecione a sala" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL" className="text-xs font-bold text-sky-700">
-                  Todas as Salas (A, B, C, D)
-                </SelectItem>
-                {classrooms.map((c) => (
-                  <SelectItem key={c.id} value={c.id} className="text-xs">
-                    {c.name} ({c.minAge} a {c.maxAge} anos)
+          <CardContent className="p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 1. Seleção de Sala (comum a todos os relatórios) */}
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Turma / Sala
+              </Label>
+              <Select
+                value={selectedClassroom}
+                onValueChange={(val) => setSelectedClassroom(val as ClassroomId | 'ALL')}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Selecione a sala" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL" className="text-xs font-bold text-sky-700">
+                    Todas as Salas (A, B, C, D)
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 2. Campo de busca por nome (comum a todos os relatórios) */}
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Buscar na Lista
-            </Label>
-            <div className="relative">
-              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9 pl-8 text-xs"
-              />
+                  {classrooms.map((c) => (
+                    <SelectItem key={c.id} value={c.id} className="text-xs">
+                      {c.name} ({c.minAge} a {c.maxAge} anos)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </div>
 
-          {/* Filtros específicos de Frequência (período/datas) */}
-          {reportCategory === 'attendance' && (
-            <>
-              <div className="space-y-1">
+            {/* 2. Campo de busca por nome (comum a todos os relatórios) */}
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Buscar na Lista
+              </Label>
+              <div className="relative">
+                <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-9 pl-8 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Filtros específicos de Frequência (período/datas) */}
+            {reportCategory === 'attendance' && (
+              <>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Tipo de Período
+                  </Label>
+                  <Select
+                    value={periodType}
+                    onValueChange={(val) => setPeriodType(val as 'all' | 'month' | 'custom')}
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Tipo de período" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-xs">
+                        Ano Completo ({academicLoading ? '...' : schoolYear.year})
+                      </SelectItem>
+                      <SelectItem value="month" className="text-xs">
+                        Mês Específico
+                      </SelectItem>
+                      <SelectItem value="custom" className="text-xs">
+                        Intervalo de Datas Personalizado
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {periodType === 'month' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Mês de Referência
+                    </Label>
+                    <Select
+                      value={String(selectedMonth)}
+                      onValueChange={(val) => setSelectedMonth(Number(val))}
+                    >
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Selecione o mês" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MONTH_NAMES.map((m) => (
+                          <SelectItem key={m.value} value={String(m.value)} className="text-xs">
+                            {m.label} de {academicLoading ? '...' : schoolYear.year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {periodType === 'custom' && (
+                  <>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          Data Inicial
+                        </Label>
+                        {startDate && (
+                          <span className="text-[10px] text-sky-700 font-mono font-medium">
+                            {formatDate(startDate)}
+                          </span>
+                        )}
+                      </div>
+                      <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          Data Final
+                        </Label>
+                        {endDate && (
+                          <span className="text-[10px] text-sky-700 font-mono font-medium">
+                            {formatDate(endDate)}
+                          </span>
+                        )}
+                      </div>
+                      <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {periodType === 'all' && (
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Calendário Letivo
+                    </Label>
+                    <div className="h-9 px-3 rounded-md border bg-slate-50 dark:bg-slate-900 flex items-center text-xs text-muted-foreground">
+                      <CalendarDays className="h-3.5 w-3.5 mr-1.5 text-sky-600" />
+                      Ano Letivo {academicLoading ? '...' : schoolYear.year}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Filtros específicos de Tamanho (filtro de pendências) */}
+            {reportCategory === 'student_sizes' && (
+              <div className="space-y-1 sm:col-span-2">
                 <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Tipo de Período
+                  Filtro de Informações de Tamanho
                 </Label>
                 <Select
-                  value={periodType}
-                  onValueChange={(val) => setPeriodType(val as 'all' | 'month' | 'custom')}
+                  value={sizeMissingFilter}
+                  onValueChange={(val) => setSizeMissingFilter(val as SizeMissingFilter)}
                 >
                   <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Tipo de período" />
+                    <SelectValue placeholder="Selecione a situação" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all" className="text-xs">
-                      Ano Completo ({academicLoading ? '...' : schoolYear.year})
+                      Todos os Alunos
                     </SelectItem>
-                    <SelectItem value="month" className="text-xs">
-                      Mês Específico
+                    <SelectItem value="missing_any" className="text-xs font-bold text-rose-700">
+                      Sem Informação (Roupa OU Calçado)
                     </SelectItem>
-                    <SelectItem value="custom" className="text-xs">
-                      Intervalo de Datas Personalizado
+                    <SelectItem value="missing_both" className="text-xs font-bold text-rose-800">
+                      Sem Ambos (Sem Roupa E Sem Calçado)
+                    </SelectItem>
+                    <SelectItem value="missing_clothing" className="text-xs text-amber-800">
+                      Apenas Sem Tamanho de Roupa
+                    </SelectItem>
+                    <SelectItem value="missing_shoe" className="text-xs text-amber-800">
+                      Apenas Sem Tamanho de Calçado
+                    </SelectItem>
+                    <SelectItem value="complete" className="text-xs text-emerald-700">
+                      Tamanhos Completos (Ambos Preenchidos)
                     </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+            )}
 
-              {periodType === 'month' && (
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Mês de Referência
-                  </Label>
-                  <Select
-                    value={String(selectedMonth)}
-                    onValueChange={(val) => setSelectedMonth(Number(val))}
-                  >
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder="Selecione o mês" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MONTH_NAMES.map((m) => (
-                        <SelectItem key={m.value} value={String(m.value)} className="text-xs">
-                          {m.label} de {academicLoading ? '...' : schoolYear.year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            {/* Indicativo rápido para Aniversariantes */}
+            {reportCategory === 'students_birthday' && (
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Mês Corrente
+                </Label>
+                <div className="h-9 px-3 rounded-md border bg-slate-50 dark:bg-slate-900 flex items-center text-xs text-muted-foreground">
+                  <Cake className="h-3.5 w-3.5 mr-1.5 text-pink-600" />
+                  Data de Nascimento em padrão brasileiro (dd/mm/aaaa) com destaque mensal
                 </div>
-              )}
-
-              {periodType === 'custom' && (
-                <>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Data Inicial
-                      </Label>
-                      {startDate && (
-                        <span className="text-[10px] text-sky-700 font-mono font-medium">
-                          {formatDate(startDate)}
-                        </span>
-                      )}
-                    </div>
-                    <Input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Data Final
-                      </Label>
-                      {endDate && (
-                        <span className="text-[10px] text-sky-700 font-mono font-medium">
-                          {formatDate(endDate)}
-                        </span>
-                      )}
-                    </div>
-                    <Input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                </>
-              )}
-
-              {periodType === 'all' && (
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Calendário Letivo
-                  </Label>
-                  <div className="h-9 px-3 rounded-md border bg-slate-50 dark:bg-slate-900 flex items-center text-xs text-muted-foreground">
-                    <CalendarDays className="h-3.5 w-3.5 mr-1.5 text-sky-600" />
-                    Ano Letivo {academicLoading ? '...' : schoolYear.year}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Filtros específicos de Tamanho (filtro de pendências) */}
-          {reportCategory === 'student_sizes' && (
-            <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Filtro de Informações de Tamanho
-              </Label>
-              <Select
-                value={sizeMissingFilter}
-                onValueChange={(val) => setSizeMissingFilter(val as SizeMissingFilter)}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Selecione a situação" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">
-                    Todos os Alunos
-                  </SelectItem>
-                  <SelectItem value="missing_any" className="text-xs font-bold text-rose-700">
-                    Sem Informação (Roupa OU Calçado)
-                  </SelectItem>
-                  <SelectItem value="missing_both" className="text-xs font-bold text-rose-800">
-                    Sem Ambos (Sem Roupa E Sem Calçado)
-                  </SelectItem>
-                  <SelectItem value="missing_clothing" className="text-xs text-amber-800">
-                    Apenas Sem Tamanho de Roupa
-                  </SelectItem>
-                  <SelectItem value="missing_shoe" className="text-xs text-amber-800">
-                    Apenas Sem Tamanho de Calçado
-                  </SelectItem>
-                  <SelectItem value="complete" className="text-xs text-emerald-700">
-                    Tamanhos Completos (Ambos Preenchidos)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Indicativo rápido para Aniversariantes */}
-          {reportCategory === 'students_birthday' && (
-            <div className="space-y-1 sm:col-span-2">
-              <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Mês Corrente
-              </Label>
-              <div className="h-9 px-3 rounded-md border bg-slate-50 dark:bg-slate-900 flex items-center text-xs text-muted-foreground">
-                <Cake className="h-3.5 w-3.5 mr-1.5 text-pink-600" />
-                Data de Nascimento em padrão brasileiro (dd/mm/aaaa) com destaque mensal
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ========================================================
           CONTEÚDO DO RELATÓRIO SELECIONADO
@@ -1322,6 +1353,11 @@ export default function AttendanceReportsPage() {
           onMissingFilterChange={setSizeMissingFilter}
         />
       )}
+
+      {/* --------------------------------------------------------
+          TIPO 4: RELATÓRIO DE LOGS DE EXCLUSÃO (SOMENTE ADMINISTRADOR)
+          -------------------------------------------------------- */}
+      {reportCategory === 'deletion_logs' && isAdmin && <DeletionLogsReport />}
 
       {/* ========================================================
           RODAPÉ DE IMPRESSÃO LIMPO COM ASSINATURA INSTITUCIONAL

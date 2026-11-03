@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { familyService, childService } from '@/services/families'
+import { auditLogService } from '@/services/auditLogs'
 import { Family, Guardian, Child, ClassroomId } from '@/types'
 import { Pencil } from 'lucide-react'
 import {
@@ -355,11 +356,22 @@ export default function FamiliesPage() {
 
     try {
       setDeleting(true)
+      const refName = familyToDelete.reference_name
+      const gCount = familyToDelete.guardians?.length || 0
+      const cCount = familyToDelete.children?.length || 0
+
       await familyService.delete(familyToDelete.id)
 
+      // Grava log explícito de auditoria para exclusão de família em cascata
+      auditLogService.recordLog({
+        recordType: 'Família (Cascata)',
+        recordIdentifier: refName,
+        details: `Exclusão em cascata concluída: ${gCount} responsável(is) e ${cCount} criança(s) associada(s) removidos.`,
+      })
+
       toast({
-        title: 'Família excluída com sucesso',
-        description: `A ficha da família "${familyToDelete.reference_name}" e seus registros foram removidos do Sistema Infanto-CEP.`,
+        title: 'Sistema Infanto-CEP',
+        description: `A ficha da família "${refName}" e seus registros foram removidos com sucesso do Sistema Infanto-CEP.`,
       })
 
       setDeleteModalOpen(false)

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { settingsService } from '@/services/settings'
+import { auditLogService } from '@/services/auditLogs'
 import { User, UserRole } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -358,10 +359,21 @@ export default function SettingsPage() {
 
     try {
       setDeleting(true)
+      const uName = userToDelete.name
+      const uRole = userToDelete.role
+      const uEmail = userToDelete.email
+
       await settingsService.deleteUser(userToDelete.id)
+
+      auditLogService.recordLog({
+        recordType: 'Operador',
+        recordIdentifier: uName,
+        details: `Conta de operador excluída: Papel ${uRole} • E-mail: ${uEmail}`,
+      })
+
       toast({
-        title: 'Operador excluído com sucesso!',
-        description: `A conta de ${userToDelete.name} foi removida do Sistema Infanto-CEP.`,
+        title: 'Sistema Infanto-CEP',
+        description: `A conta de ${uName} foi removida com sucesso do Sistema Infanto-CEP.`,
       })
       setDeleteModalOpen(false)
       setUserToDelete(null)
@@ -923,6 +935,12 @@ export default function SettingsPage() {
           try {
             await schoolYearService.deleteJanela(foundJan.id)
             setJanelasDoAno(janelasDoAno.filter((j) => j.id !== foundJan.id))
+
+            auditLogService.recordLog({
+              recordType: 'Janela de Recesso/Feriado',
+              recordIdentifier: item?.name || 'Janela de Recesso',
+              details: `Removida da configuração do ano letivo • Data base: ${item?.date || ''}`,
+            })
           } catch {
             /* intentionally ignored */
           }
@@ -930,8 +948,8 @@ export default function SettingsPage() {
       }
       setRecessList(recessList.filter((_, i) => i !== recessToDeleteIndex))
       toast({
-        title: 'Janela de recesso removida',
-        description: `A janela "${item?.name}" foi removida do calendário no Sistema Infanto-CEP.`,
+        title: 'Sistema Infanto-CEP',
+        description: `A janela "${item?.name}" foi removida com sucesso do calendário no Sistema Infanto-CEP.`,
       })
       setDeleteRecessModalOpen(false)
       setRecessToDeleteIndex(null)

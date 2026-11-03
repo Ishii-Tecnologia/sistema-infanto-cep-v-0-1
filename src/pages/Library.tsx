@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { libraryService } from '@/services/library'
+import { auditLogService } from '@/services/auditLogs'
 import { childService } from '@/services/families'
 import { Book, BookCopy, BookLoan, Child } from '@/types'
 import { formatDate } from '@/lib/academic'
@@ -338,10 +339,20 @@ export default function LibraryPage() {
 
     try {
       setDeletingCopy(true)
+      const copyNum = copyToDelete.copy_number
+      const bookTitle = copyToDelete.expand?.book_id?.title || 'Obra'
+
       await libraryService.deleteCopy(copyToDelete.id)
+
+      auditLogService.recordLog({
+        recordType: 'Exemplar',
+        recordIdentifier: `Exemplar ${copyNum}`,
+        details: `Exemplar da obra "${bookTitle}" removido do acervo.`,
+      })
+
       toast({
-        title: 'Exemplar excluído com sucesso',
-        description: `O exemplar de código ${copyToDelete.copy_number} foi removido do acervo no Sistema Infanto-CEP.`,
+        title: 'Sistema Infanto-CEP',
+        description: `O exemplar de código ${copyNum} foi removido do acervo com sucesso no Sistema Infanto-CEP.`,
       })
       setDeleteCopyModalOpen(false)
       setCopyToDelete(null)

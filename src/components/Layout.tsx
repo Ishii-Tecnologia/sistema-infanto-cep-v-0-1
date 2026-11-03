@@ -106,7 +106,7 @@ export default function Layout() {
       shortTitle: 'Operadores e Config.',
       path: '/configuracoes',
       icon: Settings,
-      roles: ['admin', 'dirigente'] as UserRole[],
+      roles: ['admin'] as UserRole[],
     },
     {
       title: 'Manual do Sistema',

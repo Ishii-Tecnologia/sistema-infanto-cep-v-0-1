@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { lessonService } from '@/services/lessons'
 import { schoolYearService } from '@/services/schoolYear'
+import { auditLogService } from '@/services/auditLogs'
 import { Lesson, LessonPlan, ClassroomId, AnoLetivo, SabadoLetivo } from '@/types'
 import { formatDate, getClassroomBadge } from '@/lib/academic'
 import { useAcademic } from '@/contexts/AcademicContext'
@@ -300,9 +301,15 @@ export default function CalendarPage() {
       setDeletingYear(true)
       const res = await deleteAnoLetivo(currentAnoLetivo.id)
 
+      auditLogService.recordLog({
+        recordType: 'Ano Letivo (Cascata)',
+        recordIdentifier: `Ano Letivo ${res.deletedYear}`,
+        details: `Exclusão em cascata: ${res.sabadosRemovidos} sábados letivos/recessos e ${res.janelasRemovidas} janelas de feriado removidos.`,
+      })
+
       toast({
-        title: 'Ano Letivo excluído com sucesso!',
-        description: `O ano ${res.deletedYear} e seus registros dependentes (${res.sabadosRemovidos} sábados e ${res.janelasRemovidas} feriados) foram removidos no Sistema Infanto-CEP.`,
+        title: 'Sistema Infanto-CEP',
+        description: `O ano ${res.deletedYear} e seus registros dependentes (${res.sabadosRemovidos} sábados e ${res.janelasRemovidas} feriados) foram removidos com sucesso do Sistema Infanto-CEP.`,
       })
 
       setDeleteModalOpen(false)

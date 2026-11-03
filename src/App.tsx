@@ -108,14 +108,9 @@ const App = () => (
                 <Route path="/dimdim" element={<DimDimPage />} />
               </Route>
 
-              {/* Configurações e Operadores: Apenas Admin e Dirigente */}
+              {/* Configurações e Operadores: Exclusivo Administrador */}
               <Route
-                element={
-                  <RoleRoute
-                    allowedRoles={['admin', 'dirigente']}
-                    rolesDescription="Admin, Dirigente"
-                  />
-                }
+                element={<RoleRoute allowedRoles={['admin']} rolesDescription="Administrador" />}
               >
                 <Route path="/configuracoes" element={<SettingsPage />} />
               </Route>
