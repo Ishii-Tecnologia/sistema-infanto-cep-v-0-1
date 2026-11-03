@@ -1163,9 +1163,19 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="operadores" className="space-y-4">
-        <TabsList className="grid grid-cols-2 max-w-sm">
-          <TabsTrigger value="operadores">Operadores e Papéis</TabsTrigger>
-          <TabsTrigger value="parametros">Regras e Parâmetros</TabsTrigger>
+        <TabsList className="grid grid-cols-2 max-w-sm bg-yellow-100 dark:bg-yellow-950/40">
+          <TabsTrigger
+            value="operadores"
+            className="bg-yellow-100 dark:bg-yellow-950/40 text-yellow-900 dark:text-yellow-200 data-[state=active]:bg-yellow-200 dark:data-[state=active]:bg-yellow-900/60 data-[state=active]:text-yellow-900 dark:data-[state=active]:text-yellow-100 data-[state=active]:shadow-md data-[state=active]:ring-1 data-[state=active]:ring-yellow-400/60"
+          >
+            Operadores e Papéis
+          </TabsTrigger>
+          <TabsTrigger
+            value="parametros"
+            className="bg-yellow-100 dark:bg-yellow-950/40 text-yellow-900 dark:text-yellow-200 data-[state=active]:bg-yellow-200 dark:data-[state=active]:bg-yellow-900/60 data-[state=active]:text-yellow-900 dark:data-[state=active]:text-yellow-100 data-[state=active]:shadow-md data-[state=active]:ring-1 data-[state=active]:ring-yellow-400/60"
+          >
+            Regras e Parâmetros
+          </TabsTrigger>
         </TabsList>
 
         {/* ABA 1: OPERADORES */}
