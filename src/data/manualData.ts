@@ -270,9 +270,9 @@ export const MANUAL_MODULES: ManualModule[] = [
       border: 'border-teal-200 dark:border-teal-800',
       accent: 'bg-teal-600',
     },
-    roles: ['admin', 'dirigente'],
+    roles: ['admin', 'dirigente', 'professor'],
     summary:
-      'Acompanhamento de assiduidade escolar, lista nominal de alunos por sala com data de aniversário, conferência de tamanhos de roupa e calçado com filtro de pendências e logs de exclusão/auditoria.',
+      'Acompanhamento de assiduidade escolar, lista nominal de alunos por sala com data de aniversário, conferência de tamanhos de roupa e calçado com filtro de pendências e logs de exclusão e auditoria.',
     steps: [
       {
         title: 'Relatório de Alunos por Sala (com Aniversário)',
@@ -287,12 +287,20 @@ export const MANUAL_MODULES: ManualModule[] = [
       {
         title: 'Logs de Exclusão e Auditoria (Exclusivo Administrador)',
         description:
-          'Disponível exclusivamente para o papel Administrador na barra de relatórios. Registra de forma indelével cada exclusão feita no sistema (data/hora, operador autenticado, papel, tipo de registro, identificação e detalhes, incluindo contagens em exclusões em cascata). Possui ordenação clicável em todas as colunas.',
+          'Disponível exclusivamente para o papel Administrador na barra de relatórios. Registra de forma indelével cada exclusão feita no sistema (data/hora, operador autenticado, papel, tipo de registro, identificação e detalhes, incluindo contagens em exclusões em cascata). Possui ordenação clicável em todas as colunas. Demais perfis (Dirigente e Professor) não visualizam esta aba.',
+        tips: [
+          'Qualquer exclusão de família, aluno, responsável, exemplar de livro, ano letivo, janela de recesso ou operador é automaticamente registrada.',
+          'A coleção PocketBase logs_exclusao garante a rastreabilidade com operador autenticado e data/hora.',
+        ],
       },
       {
-        title: 'Rotina de Expurgo Seguro de Logs por Data Limite',
+        title: 'Rotina de Expurgo Seguro de Logs por Data Limite (Admin)',
         description:
           'Dentro do relatório de Logs de Exclusão, o Administrador pode executar o expurgo de registros antigos selecionando uma data limite. Um modal de confirmação irreversível com mensagem explicativa previne exclusões acidentais (o botão Cancelar mantém tudo intacto). A própria operação de expurgo gera um registro permanente de auditoria no Sistema Infanto-CEP.',
+        tips: [
+          'O expurgo permanente remove apenas registros anteriores à data estipulada.',
+          'Um log de auditoria do próprio expurgo é gravado informando quantos registros foram removidos.',
+        ],
       },
       {
         title: 'Ordenação Clicável nas Colunas de Todas as Tabelas',
@@ -313,6 +321,18 @@ export const MANUAL_MODULES: ManualModule[] = [
         title: 'Impressão Institucional Limpa e Exportação',
         description:
           'Todos os relatórios contam com cabeçalho oficial da CEP-Coligação Espírita Progressista, data/hora da emissão e rodapé padronizado pronto para impressão limpa ou exportação em PDF.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Quem pode visualizar o relatório Logs de Exclusão?',
+        answer:
+          'Apenas o Administrador. O botão correspondente não é exibido para Dirigentes, Professores ou outros operadores, e tentativas de acesso direto são revertidas automaticamente para o relatório de Frequência.',
+      },
+      {
+        question: 'Como funciona a rotina de expurgo de logs?',
+        answer:
+          'O Administrador clica em "Expurgar Logs por Data", informa a data de corte desejada e confirma a operação. Os logs anteriores a essa data são permanentemente removidos e um novo registro de auditoria é criado detalhando a ação.',
       },
     ],
   },
@@ -403,44 +423,7 @@ export const MANUAL_MODULES: ManualModule[] = [
       },
     ],
   },
-  {
-    id: 'dimdim',
-    title: 'Moeda DimDim (Incentivo Pedagógico)',
-    shortTitle: 'Moeda DimDim',
-    badge: 'Incentivo Fraterno',
-    icon: Coins,
-    colorClass: {
-      bg: 'bg-emerald-50 dark:bg-emerald-950/40',
-      text: 'text-emerald-700 dark:text-emerald-300',
-      border: 'border-emerald-200 dark:border-emerald-800',
-      accent: 'bg-emerald-600',
-    },
-    roles: ['admin', 'dirigente'],
-    summary:
-      'Sistema de pontuação pedagógica fraterna para incentivar assiduidade, pontualidade, colaboração e tarefas.',
-    steps: [
-      {
-        title: 'Saldo da criança',
-        description:
-          'Acompanhe o saldo atual de DimDim de cada aluno por sala. A moeda incentiva a participação nas aulas, a devolução pontual de livros e as boas atitudes coletivas.',
-      },
-      {
-        title: 'Crédito de DimDim',
-        description:
-          'Lance créditos individuais ou por sala, informando o valor em DimDim, a categoria (presença, tarefa de evangelho, pontualidade, colaboração) e o motivo pedagógico.',
-      },
-      {
-        title: 'Débito / Resgate na Feirinha',
-        description:
-          'No dia da feirinha fraterna ou troca de brindes/livros, lance os débitos para debitar do saldo da criança os itens adquiridos.',
-      },
-      {
-        title: 'Estorno de lançamentos incorretos',
-        description:
-          'Se algum lançamento for feito por engano, você pode realizar o estorno diretamente pelo extrato da criança, mantendo a trilha de auditoria transparente.',
-      },
-    ],
-  },
+
   {
     id: 'configuracoes',
     title: 'Operadores, Ano Letivo e Configurações',
@@ -455,8 +438,13 @@ export const MANUAL_MODULES: ManualModule[] = [
     },
     roles: ['admin'],
     summary:
-      'Acesso restrito exclusivamente ao Administrador. Gestão de operadores e senhas, ficha dinâmica do ano letivo, janelas de feriados com botão Alterar, replicação de anos anteriores e planos pedagógicos.',
+      'Acesso restrito exclusivamente ao Administrador (/configuracoes). Gestão de contas de operadores e senhas, ficha dinâmica do ano letivo, janelas de feriados com botão Alterar, replicação inteligente de anos anteriores e planos pedagógicos.',
     steps: [
+      {
+        title: 'Acesso Restrito ao Administrador',
+        description:
+          'A rota /configuracoes e o menu "Operadores e Configurações" são protegidos e visíveis somente para o papel Administrador. Demais operadores não visualizam o item no menu e, se tentarem o acesso direto, são barrados pela guarda de rota com tela de acesso restrito.',
+      },
       {
         title: 'Ficha "Ano Letivo {ano} e Janelas de Feriados": Seleção Dinâmica e Refetch',
         description:
@@ -491,6 +479,18 @@ export const MANUAL_MODULES: ManualModule[] = [
         title: 'Regras da Biblioteca e Moeda DimDim',
         description:
           'Configure o prazo padrão de devolução de livros (dias), o limite máximo de livros por criança e as regras de bonificação da Moeda DimDim.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Quem pode acessar o menu Operadores e Configurações (/configuracoes)?',
+        answer:
+          'Exclusivamente o Administrador. Os papéis Dirigente, Professor, Auxiliar e Bibliotecário não visualizam a opção na navegação e têm o acesso bloqueado com tela de permissão insuficiente.',
+      },
+      {
+        question: 'Onde encontro os Logs de Exclusão e a rotina de expurgo?',
+        answer:
+          'O relatório de Logs de Exclusão e a rotina de expurgo seguro ficam localizados no módulo de Relatórios (/relatorios), visíveis apenas quando o usuário logado possui perfil de Administrador.',
       },
     ],
   },

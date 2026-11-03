@@ -55,6 +55,7 @@ import {
   Cake,
   Shirt,
   FileText,
+  ShieldAlert,
 } from 'lucide-react'
 import { ChildAttendanceDetailModal } from '@/components/ChildAttendanceDetailModal'
 import { StudentsByClassroomReport } from '@/components/reports/StudentsByClassroomReport'
