@@ -30,25 +30,11 @@ export function getErrorMessage(error: unknown): string {
 
 export function isAuthExpiredError(error: unknown): boolean {
   if (error instanceof ClientResponseError) {
-    if (error.status === 401 || error.status === 403) return true
-    const msg = (error.message || '').toLowerCase()
-    return (
-      msg.includes('token') ||
-      msg.includes('expired') ||
-      msg.includes('unauthorized') ||
-      msg.includes('authenticate') ||
-      msg.includes('expirou')
-    )
+    return error.status === 401 || error.status === 403
   }
-  if (error instanceof Error) {
-    const msg = error.message.toLowerCase()
-    return (
-      msg.includes('sessão expirada') ||
-      msg.includes('sessao expirada') ||
-      msg.includes('token expired') ||
-      msg.includes('unauthorized') ||
-      msg.includes('jwt')
-    )
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = (error as { status: unknown }).status
+    return status === 401 || status === 403
   }
   return false
 }

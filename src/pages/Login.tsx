@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { BookOpen, Heart, CheckCircle2 } from 'lucide-react'
+import { Heart, CheckCircle2 } from 'lucide-react'
 import { settingsService } from '@/services/settings'
 import { useAcademic } from '@/contexts/AcademicContext'
 
@@ -21,8 +21,8 @@ export default function Login() {
   const navigate = useNavigate()
   const { login } = useAuth()
   const { schoolYear, loading: academicLoading } = useAcademic()
-  const [email, setEmail] = useState('admin@cep.org.br')
-  const [password, setPassword] = useState('Skip@Pass')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resetSent, setResetSent] = useState(false)
@@ -59,13 +59,6 @@ export default function Login() {
       setIsResetting(false)
     }
   }
-
-  const quickLogins = [
-    { label: 'Administrador', email: 'admin@cep.org.br', role: 'admin' },
-    { label: 'Dirigente', email: 'dirigente@cep.org.br', role: 'dirigente' },
-    { label: 'Professor(a)', email: 'prof.claudia@cep.org.br', role: 'professor' },
-    { label: 'Bibliotecário(a)', email: 'biblio.teresa@cep.org.br', role: 'bibliotecario' },
-  ]
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 dark:bg-slate-950">
@@ -160,35 +153,11 @@ export default function Login() {
                 <Input
                   id="password"
                   type="password"
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-              </div>
-
-              {/* Botões de acesso rápido para testes e demonstração */}
-              <div className="pt-2">
-                <Label className="text-xs text-muted-foreground mb-1 block">
-                  Atalhos de demonstração (senha: Skip@Pass):
-                </Label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {quickLogins.map((ql) => (
-                    <Button
-                      key={ql.email}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-xs justify-start h-8 px-2 font-normal"
-                      onClick={() => {
-                        setEmail(ql.email)
-                        setPassword('Skip@Pass')
-                      }}
-                    >
-                      <BookOpen className="h-3 w-3 mr-1 text-indigo-500" />
-                      {ql.label}
-                    </Button>
-                  ))}
-                </div>
               </div>
             </CardContent>
 
