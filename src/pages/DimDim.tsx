@@ -34,6 +34,7 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Gift,
   Pencil,
 } from 'lucide-react'
@@ -76,6 +77,11 @@ export default function DimDimPage() {
   const [editingChild, setEditingChild] = useState<Child | null>(null)
   const [customBalance, setCustomBalance] = useState<number>(0)
   const [savingBalance, setSavingBalance] = useState(false)
+
+  // Modal de Confirmação de Estorno de Lançamento
+  const [reverseModalOpen, setReverseModalOpen] = useState(false)
+  const [txToReverse, setTxToReverse] = useState<DimDimTransaction | null>(null)
+  const [reversing, setReversing] = useState(false)
 
   useEffect(() => {
     loadDimDimData()
@@ -197,13 +203,22 @@ export default function DimDimPage() {
     }
   }
 
-  const handleReverseTransaction = async (txId: string) => {
+  const handleRequestReverseTransaction = (tx: DimDimTransaction) => {
+    setTxToReverse(tx)
+    setReverseModalOpen(true)
+  }
+
+  const handleConfirmReverseTransaction = async () => {
+    if (!txToReverse) return
     try {
-      await dimdimService.reverseTransaction(txId)
+      setReversing(true)
+      await dimdimService.reverseTransaction(txToReverse.id)
       toast({
-        title: 'Estorno realizado!',
-        description: 'A transação foi estornada e o saldo da criança atualizado.',
+        title: 'Estorno realizado com sucesso!',
+        description: `O lançamento de ${txToReverse.amount} DimDim foi estornado no Sistema Infanto-CEP.`,
       })
+      setReverseModalOpen(false)
+      setTxToReverse(null)
       loadDimDimData()
     } catch (err: any) {
       toast({
@@ -211,6 +226,8 @@ export default function DimDimPage() {
         description: getErrorMessage(err),
         variant: 'destructive',
       })
+    } finally {
+      setReversing(false)
     }
   }
 
@@ -524,7 +541,7 @@ export default function DimDimPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleReverseTransaction(tx.id)}
+                            onClick={() => handleRequestReverseTransaction(tx)}
                             className="h-7 text-[10px] text-slate-500 hover:text-rose-600"
                             title="Estornar lançamento"
                           >
@@ -688,6 +705,84 @@ export default function DimDimPage() {
               className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
             >
               Executar Crédito Coletivo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Confirmação de Estorno de Lançamento */}
+      <Dialog
+        open={reverseModalOpen}
+        onOpenChange={(open) => {
+          if (!reversing) {
+            setReverseModalOpen(open)
+            if (!open) setTxToReverse(null)
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-md"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Estornar Lançamento de DimDim
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Você está prestes a estornar a transação &quot;{txToReverse?.reason}&quot; (
+              {txToReverse?.amount} DimDim) de{' '}
+              <strong>{txToReverse?.expand?.child_id?.name || 'aluno'}</strong> no{' '}
+              <strong>Sistema Infanto-CEP</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-2 text-xs text-slate-700 dark:text-slate-300">
+            <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 space-y-1.5">
+              <p className="font-semibold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Esta ação reverte o saldo e não pode ser desfeita.
+              </p>
+              <ul className="list-disc list-inside text-rose-700 dark:text-rose-400 space-y-1 text-[11px]">
+                <li>
+                  {txToReverse?.type === 'credit'
+                    ? `O saldo da criança será debitado em ${txToReverse?.amount} DimDim.`
+                    : `O saldo da criança será creditado de volta em ${txToReverse?.amount} DimDim.`}
+                </li>
+                <li>
+                  Um registro de estorno será gerado no extrato para auditoria e histórico de
+                  lançamentos.
+                </li>
+              </ul>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Deseja realmente confirmar o estorno deste lançamento?
+            </p>
+          </div>
+
+          <DialogFooter className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setReverseModalOpen(false)
+                setTxToReverse(null)
+              }}
+              disabled={reversing}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={handleConfirmReverseTransaction}
+              disabled={reversing}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {reversing ? 'Estornando...' : 'Sim, Estornar Lançamento'}
             </Button>
           </DialogFooter>
         </DialogContent>

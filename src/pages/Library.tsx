@@ -88,6 +88,11 @@ export default function LibraryPage() {
   })
   const [savingCopy, setSavingCopy] = useState(false)
 
+  // Modal de Confirmação de Exclusão de Exemplar
+  const [deleteCopyModalOpen, setDeleteCopyModalOpen] = useState(false)
+  const [copyToDelete, setCopyToDelete] = useState<BookCopy | null>(null)
+  const [deletingCopy, setDeletingCopy] = useState(false)
+
   // Modal de Adição de Novo Exemplar para livro existente
   const [addCopyOpen, setAddCopyOpen] = useState(false)
   const [bookForNewCopy, setBookForNewCopy] = useState<Book | null>(null)
@@ -308,7 +313,7 @@ export default function LibraryPage() {
     }
   }
 
-  const handleDeleteCopy = async (copy: BookCopy) => {
+  const handleRequestDeleteCopy = (copy: BookCopy) => {
     if (copy.status !== 'disponivel') {
       toast({
         title: 'Atenção',
@@ -319,13 +324,12 @@ export default function LibraryPage() {
       return
     }
 
-    if (
-      !window.confirm(
-        `Excluir o exemplar de código ${copy.copy_number}? Esta ação não pode ser desfeita.`,
-      )
-    ) {
-      return
-    }
+    setCopyToDelete(copy)
+    setDeleteCopyModalOpen(true)
+  }
+
+  const handleConfirmDeleteCopy = async () => {
+    if (!copyToDelete) return
 
     if (!pb.authStore.isValid) {
       checkAuthAndHandleExpired(new Error('Sessão expirada'))
@@ -333,15 +337,26 @@ export default function LibraryPage() {
     }
 
     try {
-      await libraryService.deleteCopy(copy.id)
+      setDeletingCopy(true)
+      await libraryService.deleteCopy(copyToDelete.id)
       toast({
-        title: 'Exemplar excluído',
-        description: `O código ${copy.copy_number} foi removido do acervo no Sistema Infanto-CEP.`,
+        title: 'Exemplar excluído com sucesso',
+        description: `O exemplar de código ${copyToDelete.copy_number} foi removido do acervo no Sistema Infanto-CEP.`,
       })
+      setDeleteCopyModalOpen(false)
+      setCopyToDelete(null)
+      setCopyEditOpen(false)
+      setEditingCopy(null)
       loadLibraryData()
     } catch (err: any) {
       if (checkAuthAndHandleExpired(err)) return
-      toast({ title: 'Erro ao excluir', description: getErrorMessage(err), variant: 'destructive' })
+      toast({
+        title: 'Erro ao excluir exemplar',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
+    } finally {
+      setDeletingCopy(false)
     }
   }
 
@@ -1066,13 +1081,14 @@ export default function LibraryPage() {
 
           <DialogFooter className="flex items-center justify-between gap-2">
             <Button
+              type="button"
               variant="ghost"
               size="sm"
-              onClick={() => editingCopy && handleDeleteCopy(editingCopy)}
+              onClick={() => editingCopy && handleRequestDeleteCopy(editingCopy)}
               className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
             >
               <Trash2 className="h-3.5 w-3.5 mr-1" />
-              Excluir
+              Excluir Exemplar
             </Button>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => setCopyEditOpen(false)}>
@@ -1129,6 +1145,88 @@ export default function LibraryPage() {
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {addingCopy ? 'Adicionando...' : 'Cadastrar Exemplar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Confirmação de Exclusão de Exemplar */}
+      <Dialog
+        open={deleteCopyModalOpen}
+        onOpenChange={(open) => {
+          if (!deletingCopy) {
+            setDeleteCopyModalOpen(open)
+            if (!open) setCopyToDelete(null)
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-md"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Excluir Exemplar do Acervo
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Você está prestes a remover o exemplar físico de código{' '}
+              <strong>{copyToDelete?.copy_number}</strong>{' '}
+              {copyToDelete?.expand?.book_id?.title
+                ? `da obra "${copyToDelete.expand.book_id.title}"`
+                : ''}{' '}
+              do acervo da biblioteca infantil no <strong>Sistema Infanto-CEP</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-2 text-xs text-slate-700 dark:text-slate-300">
+            <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 space-y-1.5">
+              <p className="font-semibold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Esta ação é irreversível e definitiva.
+              </p>
+              <ul className="list-disc list-inside text-rose-700 dark:text-rose-400 space-y-1 text-[11px]">
+                <li>
+                  O registro físico deste exemplar será permanentemente apagado da base de dados.
+                </li>
+                <li>
+                  Apenas exemplares sem empréstimos ativos podem ser excluídos, preservando o
+                  histórico da biblioteca.
+                </li>
+              </ul>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Deseja realmente confirmar a exclusão do exemplar{' '}
+              <strong className="text-slate-900 dark:text-slate-100">
+                {copyToDelete?.copy_number}
+              </strong>
+              ?
+            </p>
+          </div>
+
+          <DialogFooter className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDeleteCopyModalOpen(false)
+                setCopyToDelete(null)
+              }}
+              disabled={deletingCopy}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={handleConfirmDeleteCopy}
+              disabled={deletingCopy}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {deletingCopy ? 'Excluindo...' : 'Sim, Excluir Exemplar'}
             </Button>
           </DialogFooter>
         </DialogContent>

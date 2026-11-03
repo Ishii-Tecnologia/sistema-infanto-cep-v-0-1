@@ -32,11 +32,9 @@ export function isAuthExpiredError(error: unknown): boolean {
   if (error instanceof ClientResponseError) {
     return error.status === 401 || error.status === 403
   }
-  if (typeof error === 'object' && error !== null) {
-    const err = error as { status?: number; statusCode?: number; code?: number }
-    return (
-      err.status === 401 || err.status === 403 || err.statusCode === 401 || err.statusCode === 403
-    )
+  if (error && typeof error === 'object' && 'status' in error) {
+    const s = (error as { status: unknown }).status
+    return s === 401 || s === 403
   }
   return false
 }

@@ -132,6 +132,11 @@ export default function SettingsPage() {
   const [editJanelaEnd, setEditJanelaEnd] = useState('')
   const [savingEditJanela, setSavingEditJanela] = useState(false)
 
+  // Modal de Confirmação de Exclusão de Janela de Feriado / Recesso
+  const [deleteRecessModalOpen, setDeleteRecessModalOpen] = useState(false)
+  const [recessToDeleteIndex, setRecessToDeleteIndex] = useState<number | null>(null)
+  const [deletingRecess, setDeletingRecess] = useState(false)
+
   // Guarda de permissão para Admin e Dirigente
   const canManage = currentUser?.role === 'admin' || currentUser?.role === 'dirigente'
 
@@ -362,7 +367,8 @@ export default function SettingsPage() {
       setUserToDelete(null)
       loadData()
     } catch (err: any) {
-      const errMsg = err?.data?.message || err?.message || 'Falha ao excluir o operador.'
+      const errMsg =
+        err?.data?.message || err?.message || 'Falha ao excluir o operador no Sistema Infanto-CEP.'
       toast({
         title: 'Erro ao excluir operador',
         description: errMsg,
@@ -900,21 +906,38 @@ export default function SettingsPage() {
     toast({ title: 'Janela de recesso adicionada!' })
   }
 
-  const handleRemoveRecess = async (indexToRemove: number) => {
-    const item = recessList[indexToRemove]
-    if (item && selectedAnoLetivoRecord) {
-      const dStr = item.date.split('T')[0]
-      const foundJan = janelasDoAno.find((j) => j.data_inicio.startsWith(dStr))
-      if (foundJan) {
-        try {
-          await schoolYearService.deleteJanela(foundJan.id)
-          setJanelasDoAno(janelasDoAno.filter((j) => j.id !== foundJan.id))
-        } catch {
-          /* intentionally ignored */
+  const handleRequestRemoveRecess = (indexToRemove: number) => {
+    setRecessToDeleteIndex(indexToRemove)
+    setDeleteRecessModalOpen(true)
+  }
+
+  const handleConfirmRemoveRecess = async () => {
+    if (recessToDeleteIndex === null) return
+    const item = recessList[recessToDeleteIndex]
+    try {
+      setDeletingRecess(true)
+      if (item && selectedAnoLetivoRecord) {
+        const dStr = item.date.split('T')[0]
+        const foundJan = janelasDoAno.find((j) => j.data_inicio.startsWith(dStr))
+        if (foundJan) {
+          try {
+            await schoolYearService.deleteJanela(foundJan.id)
+            setJanelasDoAno(janelasDoAno.filter((j) => j.id !== foundJan.id))
+          } catch {
+            /* intentionally ignored */
+          }
         }
       }
+      setRecessList(recessList.filter((_, i) => i !== recessToDeleteIndex))
+      toast({
+        title: 'Janela de recesso removida',
+        description: `A janela "${item?.name}" foi removida do calendário no Sistema Infanto-CEP.`,
+      })
+      setDeleteRecessModalOpen(false)
+      setRecessToDeleteIndex(null)
+    } finally {
+      setDeletingRecess(false)
     }
-    setRecessList(recessList.filter((_, i) => i !== indexToRemove))
   }
 
   const handleOpenEditJanela = (rec: RecessSaturday, index: number) => {
@@ -1767,8 +1790,13 @@ export default function SettingsPage() {
                       const matchedJan = janelasDoAno.find(
                         (j) => j.data_inicio.startsWith(dStr) || j.nome === rec.name,
                       )
-                      const hasMultiDays =
-                        matchedJan?.data_fim && matchedJan.data_fim.split('T')[0] !== dStr
+                      const startDateStr = matchedJan?.data_inicio
+                        ? matchedJan.data_inicio.split('T')[0]
+                        : dStr
+                      const endDateStr = matchedJan?.data_fim
+                        ? matchedJan.data_fim.split('T')[0]
+                        : startDateStr
+                      const hasMultiDays = endDateStr !== startDateStr
 
                       return (
                         <div
@@ -1781,8 +1809,8 @@ export default function SettingsPage() {
                               className="font-mono text-[10px] font-semibold text-indigo-700 bg-indigo-50 border-indigo-200 shrink-0"
                             >
                               {hasMultiDays
-                                ? `${formatDate(dStr)} a ${formatDate(matchedJan!.data_fim)}`
-                                : formatDate(rec.date)}
+                                ? `${formatDate(startDateStr)} a ${formatDate(endDateStr)}`
+                                : formatDate(startDateStr)}
                             </Badge>
                             <span
                               className="font-medium text-slate-800 dark:text-slate-200 truncate"
@@ -1808,7 +1836,7 @@ export default function SettingsPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => handleRemoveRecess(i)}
+                                onClick={() => handleRequestRemoveRecess(i)}
                                 className="h-7 w-7 p-0 text-rose-600 hover:text-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/30"
                                 title="Remover recesso"
                               >
@@ -2194,6 +2222,88 @@ export default function SettingsPage() {
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {savingEditJanela ? 'Salvando...' : 'Salvar Alteração'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Confirmar Exclusão de Janela de Feriado / Recesso */}
+      <Dialog
+        open={deleteRecessModalOpen}
+        onOpenChange={(open) => {
+          if (!deletingRecess) {
+            setDeleteRecessModalOpen(open)
+            if (!open) setRecessToDeleteIndex(null)
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-md"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              Excluir Janela de Recesso / Feriado
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Você está prestes a remover a janela de feriado/recesso{' '}
+              <strong>
+                {recessToDeleteIndex !== null ? recessList[recessToDeleteIndex]?.name : ''}
+              </strong>{' '}
+              do calendário do ano letivo {selectedYearNum}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-2 text-xs text-slate-700 dark:text-slate-300">
+            <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 space-y-1.5">
+              <p className="font-semibold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Esta ação é irreversível e definitiva.
+              </p>
+              <ul className="list-disc list-inside text-rose-700 dark:text-rose-400 space-y-1 text-[11px]">
+                <li>
+                  A janela de recesso/feriado será desvinculada deste ano letivo no{' '}
+                  <strong>Sistema Infanto-CEP</strong>.
+                </li>
+                <li>
+                  Os sábados anteriormente bloqueados por este feriado poderão voltar a constar como
+                  dias letivos regulares após a sincronização do calendário.
+                </li>
+              </ul>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Deseja realmente confirmar a exclusão da janela{' '}
+              <strong className="text-slate-900 dark:text-slate-100">
+                {recessToDeleteIndex !== null ? recessList[recessToDeleteIndex]?.name : ''}
+              </strong>
+              ?
+            </p>
+          </div>
+
+          <DialogFooter className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDeleteRecessModalOpen(false)
+                setRecessToDeleteIndex(null)
+              }}
+              disabled={deletingRecess}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={handleConfirmRemoveRecess}
+              disabled={deletingRecess}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {deletingRecess ? 'Excluindo...' : 'Sim, Excluir Janela'}
             </Button>
           </DialogFooter>
         </DialogContent>
