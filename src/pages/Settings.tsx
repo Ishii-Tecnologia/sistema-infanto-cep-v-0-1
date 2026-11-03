@@ -45,7 +45,7 @@ import { DatePickerBR } from '@/components/DatePickerBR'
 import pb from '@/lib/pocketbase/client'
 import { getErrorMessage, isAuthExpiredError } from '@/lib/pocketbase/errors'
 import { useNavigate } from 'react-router-dom'
-import { Plus, X, Sliders, RefreshCw, Copy, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Plus, X, Sliders, RefreshCw, Copy, CheckCircle2, AlertCircle, Pencil } from 'lucide-react'
 
 export default function SettingsPage() {
   const { toast } = useToast()
@@ -122,6 +122,18 @@ export default function SettingsPage() {
   const [savingYear, setSavingYear] = useState(false)
   const [syncingCalendar, setSyncingCalendar] = useState(false)
   const [replicating, setReplicating] = useState(false)
+
+  // Modal de Alteração de Janela de Feriado / Recesso
+  const [editJanelaModalOpen, setEditJanelaModalOpen] = useState(false)
+  const [editingJanelaId, setEditingJanelaId] = useState<string | null>(null)
+  const [editingJanelaIndex, setEditingJanelaIndex] = useState<number | null>(null)
+  const [editJanelaNome, setEditJanelaNome] = useState('')
+  const [editJanelaStart, setEditJanelaStart] = useState('')
+  const [editJanelaEnd, setEditJanelaEnd] = useState('')
+  const [savingEditJanela, setSavingEditJanela] = useState(false)
+
+  // Guarda de permissão para Admin e Dirigente
+  const canManage = currentUser?.role === 'admin' || currentUser?.role === 'dirigente'
 
   // Modal para criar novo ano letivo
   const [newYearModalOpen, setNewYearModalOpen] = useState(false)
@@ -905,6 +917,127 @@ export default function SettingsPage() {
     setRecessList(recessList.filter((_, i) => i !== indexToRemove))
   }
 
+  const handleOpenEditJanela = (rec: RecessSaturday, index: number) => {
+    const dStr = rec.date.split('T')[0]
+    const matchedJan = janelasDoAno.find(
+      (j) => j.data_inicio.startsWith(dStr) || j.nome === rec.name,
+    )
+    setEditingJanelaIndex(index)
+    setEditingJanelaId(matchedJan?.id || null)
+    setEditJanelaNome(matchedJan?.nome || rec.name)
+    setEditJanelaStart(matchedJan?.data_inicio ? matchedJan.data_inicio.split('T')[0] : dStr)
+    setEditJanelaEnd(
+      matchedJan?.data_fim
+        ? matchedJan.data_fim.split('T')[0]
+        : matchedJan?.data_inicio
+          ? matchedJan.data_inicio.split('T')[0]
+          : dStr,
+    )
+    setEditJanelaModalOpen(true)
+  }
+
+  const handleSaveEditJanela = async () => {
+    if (!canManage) {
+      toast({
+        title: 'Acesso Restrito',
+        description: 'Apenas Administradores e Dirigentes podem alterar janelas de feriado.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const trimmedNome = editJanelaNome.trim()
+    if (!trimmedNome) {
+      toast({
+        title: 'Nome obrigatório',
+        description: 'Informe o nome ou motivo da janela de recesso/feriado.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (!editJanelaStart || !editJanelaEnd) {
+      toast({
+        title: 'Datas obrigatórias',
+        description: 'Informe a data de início e a data de fim da janela de recesso.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const sStr = editJanelaStart.split('T')[0]
+    const eStr = editJanelaEnd.split('T')[0]
+
+    if (eStr < sStr) {
+      toast({
+        title: 'Data inválida',
+        description: 'A data de fim não pode ser anterior à data de início.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      setSavingEditJanela(true)
+
+      if (editingJanelaId && selectedAnoLetivoRecord) {
+        await schoolYearService.updateJanela(editingJanelaId, {
+          nome: trimmedNome.substring(0, 120),
+          data_inicio: `${sStr} 00:00:00.000Z`,
+          data_fim: `${eStr} 23:59:59.000Z`,
+          revisado: true,
+        })
+      } else if (selectedAnoLetivoRecord) {
+        // Se ainda não tinha ID gravado
+        await schoolYearService.createJanela({
+          ano_letivo_id: selectedAnoLetivoRecord.id,
+          nome: trimmedNome.substring(0, 120),
+          data_inicio: `${sStr} 00:00:00.000Z`,
+          data_fim: `${eStr} 23:59:59.000Z`,
+          revisado: true,
+        })
+      }
+
+      // Recarrega lista de janelas da fonte de verdade
+      if (selectedAnoLetivoRecord) {
+        const jans = await schoolYearService.getJanelas(selectedAnoLetivoRecord.id)
+        setJanelasDoAno(jans)
+        setRecessList(
+          jans.map((j) => ({
+            date: j.data_inicio.split('T')[0],
+            name: j.nome,
+          })),
+        )
+      } else {
+        const updated = [...recessList]
+        if (editingJanelaIndex !== null && updated[editingJanelaIndex]) {
+          updated[editingJanelaIndex] = { date: sStr, name: trimmedNome }
+          updated.sort((a, b) => a.date.localeCompare(b.date))
+          setRecessList(updated)
+        }
+      }
+
+      toast({
+        title: 'Janela alterada com sucesso!',
+        description: `A janela "${trimmedNome}" foi atualizada no Sistema Infanto-CEP.`,
+      })
+      setEditJanelaModalOpen(false)
+      setEditingJanelaId(null)
+      setEditingJanelaIndex(null)
+    } catch (err: any) {
+      toast({
+        title: 'Sobreposição de feriados',
+        description:
+          err?.data?.message ||
+          err?.message ||
+          'O período informado coincide com outra janela de feriado já cadastrada neste ano.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingEditJanela(false)
+    }
+  }
+
   const handleSaveRooms = async () => {
     try {
       setSavingRooms(true)
@@ -1629,33 +1762,63 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="max-h-60 overflow-y-auto space-y-1.5 border rounded-lg p-2 bg-slate-50/50 dark:bg-slate-900/30">
-                    {recessList.map((rec, i) => (
-                      <div
-                        key={`${rec.date}-${i}`}
-                        className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border text-xs"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className="font-mono text-[10px] font-semibold text-indigo-700 bg-indigo-50 border-indigo-200"
-                          >
-                            {formatDate(rec.date)}
-                          </Badge>
-                          <span className="font-medium text-slate-800 dark:text-slate-200">
-                            {rec.name}
-                          </span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleRemoveRecess(i)}
-                          className="h-7 w-7 p-0 text-rose-600 hover:text-rose-800 hover:bg-rose-50"
-                          title="Remover recesso"
+                    {recessList.map((rec, i) => {
+                      const dStr = rec.date.split('T')[0]
+                      const matchedJan = janelasDoAno.find(
+                        (j) => j.data_inicio.startsWith(dStr) || j.nome === rec.name,
+                      )
+                      const hasMultiDays =
+                        matchedJan?.data_fim && matchedJan.data_fim.split('T')[0] !== dStr
+
+                      return (
+                        <div
+                          key={`${rec.date}-${i}`}
+                          className="flex items-center justify-between p-2 rounded bg-white dark:bg-slate-900 border text-xs gap-2"
                         >
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ))}
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <Badge
+                              variant="outline"
+                              className="font-mono text-[10px] font-semibold text-indigo-700 bg-indigo-50 border-indigo-200 shrink-0"
+                            >
+                              {hasMultiDays
+                                ? `${formatDate(dStr)} a ${formatDate(matchedJan!.data_fim)}`
+                                : formatDate(rec.date)}
+                            </Badge>
+                            <span
+                              className="font-medium text-slate-800 dark:text-slate-200 truncate"
+                              title={rec.name}
+                            >
+                              {rec.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {canManage && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenEditJanela(rec, i)}
+                                className="h-7 px-2 text-xs text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+                                title="Alterar período e nome desta janela de feriado"
+                              >
+                                <Pencil className="h-3 w-3 mr-1" />
+                                Alterar
+                              </Button>
+                            )}
+                            {canManage && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleRemoveRecess(i)}
+                                className="h-7 w-7 p-0 text-rose-600 hover:text-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                title="Remover recesso"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
 
                   {/* Formulário para Adicionar Sábado com Recesso */}
@@ -1953,6 +2116,84 @@ export default function SettingsPage() {
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               Criar Ano Letivo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Alterar Janela de Feriado / Recesso */}
+      <Dialog open={editJanelaModalOpen} onOpenChange={setEditJanelaModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400">
+              <Calendar className="h-4 w-4" />
+              Alterar Janela de Feriado / Recesso
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Atualize o nome e as datas de início e fim da janela cadastrada para o ano letivo{' '}
+              {selectedYearNum}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-3 text-xs">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Nome / Motivo do Recesso *</Label>
+              <Input
+                placeholder="Ex: Sábado de Páscoa ou Recesso Municipal"
+                value={editJanelaNome}
+                onChange={(e) => setEditJanelaNome(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold">Data de Início *</Label>
+                  {editJanelaStart && (
+                    <span className="text-[10px] text-indigo-600 font-mono">
+                      {formatDate(editJanelaStart)}
+                    </span>
+                  )}
+                </div>
+                <DatePickerBR value={editJanelaStart} onChange={(val) => setEditJanelaStart(val)} />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold">Data de Fim *</Label>
+                  {editJanelaEnd && (
+                    <span className="text-[10px] text-indigo-600 font-mono">
+                      {formatDate(editJanelaEnd)}
+                    </span>
+                  )}
+                </div>
+                <DatePickerBR value={editJanelaEnd} onChange={(val) => setEditJanelaEnd(val)} />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground">
+              A alteração será validada contra sobreposições com outras janelas cadastradas. Para
+              aplicar ao calendário após salvar, utilize o botão &quot;Sincronizar Calendário de
+              Sábados&quot;.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditJanelaModalOpen(false)}
+              disabled={savingEditJanela}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveEditJanela}
+              disabled={savingEditJanela}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {savingEditJanela ? 'Salvando...' : 'Salvar Alteração'}
             </Button>
           </DialogFooter>
         </DialogContent>

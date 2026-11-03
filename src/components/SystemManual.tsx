@@ -41,20 +41,18 @@ const ROLE_DISPLAY: Record<UserRole, { label: string; desc: string; badgeColor: 
   },
   professor: {
     label: 'Professor(a) / Evangelizador(a)',
-    desc: 'Painel, cadastro e consulta de famílias, calendário, chamada no celular, relatórios, biblioteca e DimDim.',
-    badgeColor:
-      'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300',
+    desc: 'Painel principal, presença e chamada no celular, calendário de aulas, cadastro de famílias e relatórios.',
+    badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   },
   auxiliar: {
     label: 'Auxiliar de Sala',
-    desc: 'Painel, consulta de famílias, chamada de presença no celular, calendário e DimDim.',
-    badgeColor:
-      'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300',
+    desc: 'Painel principal, chamada de presença no celular, consulta de famílias e calendário.',
+    badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
   },
   bibliotecario: {
     label: 'Bibliotecário(a)',
-    desc: 'Painel geral, acervo de livros, gestão de exemplares e controle de empréstimos/devoluções.',
-    badgeColor: 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/40 dark:text-sky-300',
+    desc: 'Biblioteca infantil, acervo de livros, gestão de exemplares e controle de empréstimos.',
+    badgeColor: 'bg-sky-100 text-sky-800 border-sky-200',
   },
 }
 
