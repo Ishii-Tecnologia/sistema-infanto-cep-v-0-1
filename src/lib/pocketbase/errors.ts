@@ -20,13 +20,6 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
-export function isAuthExpiredError(error: unknown): boolean {
-  return (
-    error instanceof ClientResponseError &&
-    (error.status === 401 || error.status === 403 || error.status === 0)
-  )
-}
-
 export function getErrorMessage(error: unknown): string {
   if (!(error instanceof ClientResponseError)) {
     return error instanceof Error ? error.message : 'An unexpected error occurred.'

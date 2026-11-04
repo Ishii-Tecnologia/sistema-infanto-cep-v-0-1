@@ -71,17 +71,29 @@ export default function SettingsPage() {
 
   // Modal de Novo Operador
   const [userModalOpen, setUserModalOpen] = useState(false)
+  const emptyUserForm: { name: string; email: string; role: UserRole; password: string } = {
+    name: '',
+    email: '',
+    role: 'professor',
+    password: '',
+  }
   const [userForm, setUserForm] = useState<{
     name: string
     email: string
     role: UserRole
     password: string
-  }>({
-    name: '',
-    email: '',
-    role: 'professor',
-    password: 'Skip@Pass',
-  })
+  }>(emptyUserForm)
+
+  // Abre o modal de criação sempre com o formulário limpo
+  const openCreateUserModal = () => {
+    setUserForm(emptyUserForm)
+    setUserModalOpen(true)
+  }
+
+  const handleUserModalOpenChange = (open: boolean) => {
+    if (!open) setUserForm(emptyUserForm)
+    setUserModalOpen(open)
+  }
 
   // Modal de Redefinição de Senha
   const [resetModalOpen, setResetModalOpen] = useState(false)
@@ -292,7 +304,7 @@ export default function SettingsPage() {
         description: 'Novo acesso registrado no Sistema Infanto-CEP.',
       })
       setUserModalOpen(false)
-      setUserForm({ name: '', email: '', role: 'professor', password: 'Skip@Pass' })
+      setUserForm(emptyUserForm)
       loadData()
     } catch (err: any) {
       toast({
@@ -1153,7 +1165,7 @@ export default function SettingsPage() {
           </Button>
 
           <Button
-            onClick={() => setUserModalOpen(true)}
+            onClick={openCreateUserModal}
             className="bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             <UserPlus className="h-4 w-4 mr-2" />
@@ -1953,7 +1965,7 @@ export default function SettingsPage() {
       </Tabs>
 
       {/* Modal: Novo Operador */}
-      <Dialog open={userModalOpen} onOpenChange={setUserModalOpen}>
+      <Dialog open={userModalOpen} onOpenChange={handleUserModalOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cadastrar Novo Operador</DialogTitle>
@@ -2011,6 +2023,8 @@ export default function SettingsPage() {
               <Label>Senha Inicial</Label>
               <Input
                 type="password"
+                placeholder="Em branco usa a senha padrão"
+                autoComplete="new-password"
                 value={userForm.password}
                 onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
               />
@@ -2018,7 +2032,7 @@ export default function SettingsPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setUserModalOpen(false)}>
+            <Button variant="outline" size="sm" onClick={() => handleUserModalOpenChange(false)}>
               Cancelar
             </Button>
             <Button
