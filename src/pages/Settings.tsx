@@ -83,15 +83,20 @@ export default function SettingsPage() {
     role: UserRole
     password: string
   }>(emptyUserForm)
+  const [userConfirmPassword, setUserConfirmPassword] = useState('')
 
   // Abre o modal de criação sempre com o formulário limpo
   const openCreateUserModal = () => {
     setUserForm(emptyUserForm)
+    setUserConfirmPassword('')
     setUserModalOpen(true)
   }
 
   const handleUserModalOpenChange = (open: boolean) => {
-    if (!open) setUserForm(emptyUserForm)
+    if (!open) {
+      setUserForm(emptyUserForm)
+      setUserConfirmPassword('')
+    }
     setUserModalOpen(open)
   }
 
@@ -99,6 +104,7 @@ export default function SettingsPage() {
   const [resetModalOpen, setResetModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [newPassword, setNewPassword] = useState('Skip@Pass')
+  const [confirmNewPassword, setConfirmNewPassword] = useState('')
 
   // Modal de Alteração da Própria Senha
   const [ownPasswordModalOpen, setOwnPasswordModalOpen] = useState(false)
@@ -297,6 +303,15 @@ export default function SettingsPage() {
       return
     }
 
+    if (userForm.password !== userConfirmPassword) {
+      toast({
+        title: 'Atenção',
+        description: 'As senhas não coincidem. Digite a mesma senha nos dois campos.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     try {
       await settingsService.createUser(userForm)
       toast({
@@ -305,6 +320,7 @@ export default function SettingsPage() {
       })
       setUserModalOpen(false)
       setUserForm(emptyUserForm)
+      setUserConfirmPassword('')
       loadData()
     } catch (err: any) {
       toast({
@@ -338,6 +354,15 @@ export default function SettingsPage() {
       toast({
         title: 'Atenção',
         description: 'A nova senha deve ter no mínimo 8 caracteres.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      toast({
+        title: 'Atenção',
+        description: 'As senhas não coincidem. Digite a mesma senha nos dois campos.',
         variant: 'destructive',
       })
       return
@@ -1267,6 +1292,7 @@ export default function SettingsPage() {
                         onClick={() => {
                           setSelectedUser(u)
                           setNewPassword('Skip@Pass')
+                          setConfirmNewPassword('')
                           setResetModalOpen(true)
                         }}
                         className="h-8 text-xs text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900/50 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 font-medium px-2"
@@ -2029,6 +2055,25 @@ export default function SettingsPage() {
                 onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
               />
             </div>
+
+            <div className="space-y-1">
+              <Label>Confirmar Senha</Label>
+              <Input
+                type="password"
+                placeholder="Repita a senha inicial"
+                autoComplete="new-password"
+                value={userConfirmPassword}
+                onChange={(e) => setUserConfirmPassword(e.target.value)}
+                aria-invalid={
+                  userConfirmPassword !== '' && userForm.password !== userConfirmPassword
+                }
+              />
+              {userConfirmPassword !== '' && userForm.password !== userConfirmPassword && (
+                <p className="text-[11px] text-rose-600 dark:text-rose-400">
+                  As senhas não coincidem.
+                </p>
+              )}
+            </div>
           </div>
 
           <DialogFooter>
@@ -2064,6 +2109,20 @@ export default function SettingsPage() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
+            <Label>Confirmar Nova Senha</Label>
+            <Input
+              type="password"
+              placeholder="Repita a nova senha"
+              autoComplete="new-password"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              aria-invalid={confirmNewPassword !== '' && newPassword !== confirmNewPassword}
+            />
+            {confirmNewPassword !== '' && newPassword !== confirmNewPassword && (
+              <p className="text-[11px] text-rose-600 dark:text-rose-400">
+                As senhas não coincidem.
+              </p>
+            )}
             <p className="text-[11px] text-muted-foreground">
               Por privacidade e segurança, a senha informada não será exibida na confirmação.
             </p>
