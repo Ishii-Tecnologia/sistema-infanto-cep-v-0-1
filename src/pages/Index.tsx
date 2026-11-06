@@ -110,7 +110,7 @@ export default function Index() {
             className="border-white/30 text-white hover:bg-white/15"
           >
             <Users className="h-4 w-4 mr-2" />
-            Cadastros
+            Cadastrar Famílias
           </Button>
         </div>
       </div>

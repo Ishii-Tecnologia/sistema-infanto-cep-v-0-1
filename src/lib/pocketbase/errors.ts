@@ -20,12 +20,9 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
-/**
- * Sessão expirada ou sem permissão no backend: 401/403, ou status 0 (rede/CORS).
- */
+/** True when the error means the session token is no longer valid (HTTP 401). */
 export function isAuthExpiredError(error: unknown): boolean {
-  if (!(error instanceof ClientResponseError)) return false
-  return error.status === 401 || error.status === 403 || error.status === 0
+  return error instanceof ClientResponseError && error.status === 401
 }
 
 export function getErrorMessage(error: unknown): string {
