@@ -48,6 +48,8 @@ export default function CalendarPage() {
   const { user, hasRole } = useAuth()
   const canManageYear = hasRole(['admin', 'dirigente'])
   const canEditTheme = user?.role === 'admin' || user?.role === 'professor'
+  // Operador Auxiliar não vê as ações de configuração (salas e atalho para Configurações)
+  const canConfigure = user?.role !== 'auxiliar'
   const {
     classrooms,
     saveClassrooms,
@@ -459,15 +461,17 @@ export default function CalendarPage() {
             </Button>
           )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenClassroomsModal}
-            className="h-9 text-xs border-indigo-200 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
-          >
-            <Sliders className="h-3.5 w-3.5 mr-1.5 text-indigo-600" />
-            Configurar Salas
-          </Button>
+          {canConfigure && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenClassroomsModal}
+              className="h-9 text-xs border-indigo-200 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+            >
+              <Sliders className="h-3.5 w-3.5 mr-1.5 text-indigo-600" />
+              Configurar Salas
+            </Button>
+          )}
 
           {/* Badge com status e quantidade de sábados */}
           <Badge
@@ -774,17 +778,19 @@ export default function CalendarPage() {
                             Aula Agendada
                           </Badge>
                         )}
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                        >
-                          <Link to="/settings">
-                            <Settings2 className="h-3.5 w-3.5 mr-1 text-indigo-600" />
-                            Gerenciar em Configurações
-                          </Link>
-                        </Button>
+                        {canConfigure && (
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                          >
+                            <Link to="/settings">
+                              <Settings2 className="h-3.5 w-3.5 mr-1 text-indigo-600" />
+                              Gerenciar em Configurações
+                            </Link>
+                          </Button>
+                        )}
                       </div>
                     </div>
 

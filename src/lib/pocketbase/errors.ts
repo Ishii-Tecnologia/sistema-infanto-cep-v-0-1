@@ -20,7 +20,7 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
-/** True when the error means the session token is no longer valid (HTTP 401). */
+/** Sessão expirada/sem permissão no PocketBase (HTTP 401). */
 export function isAuthExpiredError(error: unknown): boolean {
   return error instanceof ClientResponseError && error.status === 401
 }
