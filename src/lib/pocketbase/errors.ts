@@ -20,15 +20,15 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
-/** Sessão expirada/sem permissão no PocketBase (HTTP 401). */
-export function isAuthExpiredError(error: unknown): boolean {
-  return error instanceof ClientResponseError && error.status === 401
-}
-
 export function getErrorMessage(error: unknown): string {
   if (!(error instanceof ClientResponseError)) {
     return error instanceof Error ? error.message : 'An unexpected error occurred.'
   }
   const msgs = Object.values(extractFieldErrors(error))
   return msgs.length > 0 ? msgs.join(' ') : error.message || 'An unexpected error occurred.'
+}
+
+/** Indica se o erro é de sessão expirada/não autenticada (HTTP 401). */
+export function isAuthExpiredError(error: unknown): boolean {
+  return error instanceof ClientResponseError && error.status === 401
 }

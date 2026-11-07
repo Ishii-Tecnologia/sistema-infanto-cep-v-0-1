@@ -21,6 +21,9 @@ function sanitizeFamilyPayload(data: Partial<Family>): Record<string, any> {
   if (data.address !== undefined) {
     payload.address = (data.address || '').trim()
   }
+  if (data.bairro !== undefined) {
+    payload.bairro = (data.bairro || '').trim()
+  }
   if (data.notes !== undefined) {
     payload.notes = (data.notes || '').trim()
   }

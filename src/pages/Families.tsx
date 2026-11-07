@@ -98,12 +98,14 @@ export default function FamiliesPage() {
     primary_phone: string
     email: string
     address: string
+    bairro: string
     notes: string
   }>({
     reference_name: '',
     primary_phone: '',
     email: '',
     address: '',
+    bairro: '',
     notes: '',
   })
 
@@ -202,6 +204,7 @@ export default function FamiliesPage() {
       primary_phone: '',
       email: '',
       address: '',
+      bairro: '',
       notes: '',
     })
     setWizardGuardians([
@@ -398,6 +401,7 @@ export default function FamiliesPage() {
       primary_phone: fam.primary_phone || '',
       email: fam.email || '',
       address: fam.address || '',
+      bairro: fam.bairro || '',
       notes: fam.notes || '',
     })
     setWizardGuardians(
@@ -687,10 +691,16 @@ export default function FamiliesPage() {
                       {selectedFamily.email || 'Não informado'}
                     </strong>
                   </div>
-                  <div className="sm:col-span-2">
-                    <span className="text-muted-foreground block">Endereço Residencial:</span>
+                  <div>
+                    <span className="text-muted-foreground block">Endereço Completo:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
                       {selectedFamily.address || 'Não informado'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block">Bairro:</span>
+                    <strong className="text-slate-800 dark:text-slate-200">
+                      {selectedFamily.bairro || 'Não informado'}
                     </strong>
                   </div>
                 </div>
@@ -998,14 +1008,27 @@ export default function FamiliesPage() {
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="fam_address">Endereço Completo</Label>
-                  <Input
-                    id="fam_address"
-                    placeholder="Rua, número, complemento, bairro e cidade"
-                    value={wizardFamily.address}
-                    onChange={(e) => setWizardFamily({ ...wizardFamily, address: e.target.value })}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label htmlFor="fam_address">Endereço Completo</Label>
+                    <Input
+                      id="fam_address"
+                      placeholder="Rua, número, complemento"
+                      value={wizardFamily.address}
+                      onChange={(e) =>
+                        setWizardFamily({ ...wizardFamily, address: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fam_bairro">Bairro</Label>
+                    <Input
+                      id="fam_bairro"
+                      placeholder="Nome do bairro"
+                      value={wizardFamily.bairro}
+                      onChange={(e) => setWizardFamily({ ...wizardFamily, bairro: e.target.value })}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
@@ -1349,6 +1372,9 @@ export default function FamiliesPage() {
                     {wizardFamily.email || 'Sem e-mail'}
                   </p>
                   <p className="text-muted-foreground">{wizardFamily.address || 'Sem endereço'}</p>
+                  <p className="text-muted-foreground">
+                    Bairro: {wizardFamily.bairro || 'Sem bairro'}
+                  </p>
                 </div>
 
                 <div>

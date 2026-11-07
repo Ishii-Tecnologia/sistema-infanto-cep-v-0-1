@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T00:29:06.873Z",
+  "generatedAt": "2026-11-07T21:10:25.747Z",
   "collections": [
     {
       "name": "users",
@@ -157,6 +157,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "bairro",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_families_ref_name ON families (reference_name)"]

@@ -72,6 +72,7 @@ export interface Family {
   primary_phone?: string
   email?: string
   address?: string
+  bairro?: string
   notes?: string
   created?: string
   updated?: string
