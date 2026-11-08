@@ -36,6 +36,11 @@ export function VoiceTextInput({
       if (!spoken) return
       onChange({ target: { value: appendSpokenText(baseRef.current, spoken) } })
     },
+    // Comando "limpar": esvazia o campo por completo, inclusive o texto-base
+    onClear: () => {
+      baseRef.current = ''
+      onChange({ target: { value: '' } })
+    },
   })
 
   const handleToggle = () => {

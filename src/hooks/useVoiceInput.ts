@@ -50,9 +50,24 @@ export function isVoiceInputSupported(): boolean {
   return getSpeechRecognitionCtor() !== null
 }
 
+/**
+ * Comando de voz "limpar": se a fala contém a palavra, devolve o texto dito
+ * depois da última ocorrência (ou '' se nada veio depois); null se não há comando.
+ */
+function textAfterClearCommand(text: string): string | null {
+  const re = /\blimpar\b/gi
+  let last: RegExpExecArray | null = null
+  let match: RegExpExecArray | null
+  while ((match = re.exec(text)) !== null) last = match
+  if (!last) return null
+  return text.slice(last.index + last[0].length).trim()
+}
+
 interface UseVoiceInputOptions {
   /** Recebe o texto reconhecido até o momento (trechos finais + parcial atual). */
   onTranscript: (text: string) => void
+  /** Chamado quando a fala contém o comando "limpar": o campo deve ser esvaziado. */
+  onClear?: () => void
   /** Chamado quando a escuta termina de vez (microfone desligado), com o texto final. */
   onEnd?: (text: string) => void
 }
@@ -60,17 +75,21 @@ interface UseVoiceInputOptions {
 /**
  * Reconhecimento de voz em pt-BR via Web Speech API.
  *
- * Correção para duplicação no celular (Chrome/Android):
- * - o texto confirmado (`isFinal`) é guardado uma única vez, lendo apenas os
- *   resultados a partir de `event.resultIndex` — o Chrome no Android reemite a
- *   lista de resultados (às vezes refeita do zero) quando o stream reinicia,
- *   e concatenar a lista inteira a cada evento duplicava as falas;
- * - o resultado parcial (interim) SUBSTITUI o rascunho anterior, nunca soma;
- * - o Android encerra o stream com frequência: no `onend` o reconhecimento é
- *   reiniciado automaticamente preservando o texto já confirmado, sem reappend.
+ * Regras anti-duplicação (Chrome/Android):
+ * - cada instância de reconhecimento tem a sua própria lista de resultados: o
+ *   contador de confirmados é zerado a cada nova instância;
+ * - dentro de uma instância, só se lê a partir de `event.resultIndex` (e nunca
+ *   antes de um resultado já confirmado): cada trecho `isFinal` entra uma única vez;
+ * - o parcial (interim) SUBSTITUI o rascunho anterior, nunca é somado;
+ * - o texto-base do campo NÃO é reanexado nos reinícios: o hook guarda tudo o que
+ *   já foi confirmado nesta ditadura (committedRef);
+ * - se o stream termina com um parcial pendente, ele é confirmado no `onend`; se a
+ *   instância seguinte reemitir exatamente esse trecho como primeiro final, é ignorado.
+ *
+ * Comando "limpar": zera o texto confirmado e o parcial, e chama `onClear`.
  * Avisos (sem suporte, permissão negada, erro) saem como toast; o campo segue editável.
  */
-export function useVoiceInput({ onTranscript, onEnd }: UseVoiceInputOptions) {
+export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOptions) {
   const [listening, setListening] = useState(false)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const restartTimerRef = useRef<number | null>(null)
@@ -80,18 +99,16 @@ export function useVoiceInput({ onTranscript, onEnd }: UseVoiceInputOptions) {
   const committedRef = useRef('')
   // Parcial atual (interim) — substituído a cada evento
   const interimRef = useRef('')
-  // Quantidade de resultados já confirmados como final na lista atual
+  // Quantidade de resultados já confirmados na instância atual do reconhecimento
   const finalizedCountRef = useRef(0)
-  // Último trecho final confirmado (proteção contra reemissão duplicada do Chrome)
-  const lastFinalRef = useRef('')
-  // true quando o último evento trouxe parcial (o final correspondente ainda não veio)
-  const hadInterimRef = useRef(false)
+  // Trecho confirmado no onend (parcial pendente); evita reemissão na instância seguinte
+  const pendingEndRef = useRef<string | null>(null)
   const failuresRef = useRef(0)
-  const callbacksRef = useRef({ onTranscript, onEnd })
+  const callbacksRef = useRef({ onTranscript, onClear, onEnd })
   const beginRef = useRef<() => void>(() => {})
 
   useEffect(() => {
-    callbacksRef.current = { onTranscript, onEnd }
+    callbacksRef.current = { onTranscript, onClear, onEnd }
   })
 
   const clearRestartTimer = useCallback(() => {
@@ -105,6 +122,12 @@ export function useVoiceInput({ onTranscript, onEnd }: UseVoiceInputOptions) {
   const buildText = () =>
     [committedRef.current.trim(), interimRef.current.trim()].filter(Boolean).join(' ')
 
+  /** Comando "limpar": esvazia o que foi confirmado e o parcial. */
+  const clearField = () => {
+    committedRef.current = ''
+    callbacksRef.current.onClear?.()
+  }
+
   /** Encerra de vez (usuário parou ou desistiu após falhas). */
   const finish = useCallback(() => {
     clearRestartTimer()
@@ -116,15 +139,24 @@ export function useVoiceInput({ onTranscript, onEnd }: UseVoiceInputOptions) {
     callbacksRef.current.onEnd?.(finalText)
   }, [clearRestartTimer])
 
-  /** Confirma um trecho final exatamente uma vez. */
-  const commitFinal = (segment: string) => {
-    const seg = segment.trim()
+  /** Confirma um trecho final exatamente uma vez (aplica o comando "limpar", se houver). */
+  const commitFinal = (segment: string, fromEnd: boolean) => {
+    const raw = segment.trim()
+    if (!raw) return
+    // Reemissão do mesmo trecho logo após o reinício do stream: ignora
+    if (!fromEnd && pendingEndRef.current !== null && raw === pendingEndRef.current) {
+      pendingEndRef.current = null
+      return
+    }
+    pendingEndRef.current = fromEnd ? raw : null
+
+    let seg = raw
+    const afterClear = textAfterClearCommand(seg)
+    if (afterClear !== null) {
+      clearField()
+      seg = afterClear
+    }
     if (!seg) return
-    // Chrome (Android) pode reemitir o mesmo trecho final já confirmado sem que
-    // tenha havido parcial novo entre os eventos: nesse caso, ignora.
-    if (seg === lastFinalRef.current && !hadInterimRef.current) return
-    lastFinalRef.current = seg
-    hadInterimRef.current = false
     committedRef.current = committedRef.current ? `${committedRef.current.trimEnd()} ${seg}` : seg
   }
 
@@ -157,6 +189,9 @@ export function useVoiceInput({ onTranscript, onEnd }: UseVoiceInputOptions) {
         // ignora
       }
 
+      // Nova instância = nova lista de resultados começando em 0
+      finalizedCountRef.current = 0
+
       const recognition = new Ctor()
       recognition.lang = 'pt-BR'
       recognition.continuous = true
@@ -165,13 +200,7 @@ export function useVoiceInput({ onTranscript, onEnd }: UseVoiceInputOptions) {
 
       recognition.onresult = (event) => {
         failuresRef.current = 0
-        // Reinício do stream (Android): a lista de resultados volta ao início
-        // com apenas o áudio novo — não há o que já tenha sido confirmado nela.
-        if (event.results.length <= finalizedCountRef.current) {
-          finalizedCountRef.current = 0
-        }
-        // Só lê a partir do primeiro resultado ainda não confirmado: reprocessar
-        // a lista inteira é o que duplicava o texto no celular.
+        // Só lê a partir do primeiro resultado ainda não confirmado.
         const startIdx = Math.max(event.resultIndex, finalizedCountRef.current)
         let interim = ''
         for (let i = startIdx; i < event.results.length; i++) {
@@ -180,12 +209,17 @@ export function useVoiceInput({ onTranscript, onEnd }: UseVoiceInputOptions) {
           if (!transcript) continue
           if (result.isFinal) {
             finalizedCountRef.current = i + 1
-            commitFinal(transcript)
+            commitFinal(transcript, false)
             interim = ''
           } else {
             interim = interim ? `${interim} ${transcript}` : transcript
-            hadInterimRef.current = true
           }
+        }
+        // Comando "limpar" no parcial: descarta o que veio antes dele.
+        const afterClear = textAfterClearCommand(interim)
+        if (afterClear !== null) {
+          clearField()
+          interim = afterClear
         }
         // O parcial substitui o rascunho anterior — nunca é concatenado.
         interimRef.current = interim.trim()
@@ -221,6 +255,14 @@ export function useVoiceInput({ onTranscript, onEnd }: UseVoiceInputOptions) {
       recognition.onend = () => {
         if (recognitionRef.current !== recognition) return
         recognitionRef.current = null
+        // Stream encerrado com parcial pendente: confirma o parcial para não perder a fala.
+        if (interimRef.current) {
+          const pending = interimRef.current
+          interimRef.current = ''
+          commitFinal(pending, true)
+          const text = buildText()
+          if (text) callbacksRef.current.onTranscript(text)
+        }
         // No Android o stream é encerrado com frequência: reinicia preservando
         // o texto já confirmado (committedRef), sem reappend.
         scheduleRestart()
@@ -278,9 +320,8 @@ export function useVoiceInput({ onTranscript, onEnd }: UseVoiceInputOptions) {
     // Ditadura nova: zera os trechos confirmados uma única vez, no início.
     committedRef.current = ''
     interimRef.current = ''
-    lastFinalRef.current = ''
+    pendingEndRef.current = null
     finalizedCountRef.current = 0
-    hadInterimRef.current = false
     failuresRef.current = 0
     shouldListenRef.current = true
     setListening(true)

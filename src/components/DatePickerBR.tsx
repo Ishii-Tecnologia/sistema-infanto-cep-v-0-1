@@ -113,6 +113,11 @@ export function DatePickerBR({
       setTextValue(isoToBR(iso))
       onChange(iso)
     },
+    // Comando "limpar" ditado: esvazia a data
+    onClear: () => {
+      setTextValue('')
+      onChange('')
+    },
   })
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
