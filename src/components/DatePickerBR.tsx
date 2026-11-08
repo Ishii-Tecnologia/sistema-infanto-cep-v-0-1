@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { useVoiceInput } from '@/hooks/useVoiceInput'
+import { VoiceMicButton } from '@/components/VoiceMicButton'
+import { parseSpokenDate } from '@/lib/spokenDate'
 
 interface DatePickerBRProps {
   value?: string // Formato YYYY-MM-DD (ISO)
@@ -14,6 +17,8 @@ interface DatePickerBRProps {
   disabled?: boolean
   id?: string
   name?: string
+  /** Mostra o botão de microfone para ditar a data em português */
+  enableVoice?: boolean
 }
 
 // Converte YYYY-MM-DD para DD/MM/AAAA
@@ -89,6 +94,7 @@ export function DatePickerBR({
   disabled = false,
   id,
   name,
+  enableVoice = false,
 }: DatePickerBRProps) {
   const [textValue, setTextValue] = useState<string>(() => isoToBR(value))
   const [open, setOpen] = useState(false)
@@ -98,6 +104,16 @@ export function DatePickerBR({
   useEffect(() => {
     setTextValue(isoToBR(value))
   }, [value])
+
+  // Ditado: aplica a data falada assim que ela estiver completa e válida
+  const { listening, toggle } = useVoiceInput({
+    onTranscript: (spoken) => {
+      const iso = parseSpokenDate(spoken)
+      if (!iso) return
+      setTextValue(isoToBR(iso))
+      onChange(iso)
+    },
+  })
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const masked = applyDateMask(e.target.value)
@@ -170,6 +186,15 @@ export function DatePickerBR({
       />
 
       <div className="absolute right-1 flex items-center gap-0.5">
+        {enableVoice && (
+          <VoiceMicButton
+            listening={listening}
+            onToggle={toggle}
+            label={placeholder}
+            disabled={disabled}
+          />
+        )}
+
         {textValue && !disabled && (
           <button
             type="button"
@@ -179,15 +204,6 @@ export function DatePickerBR({
           >
             <X className="h-3.5 w-3.5" />
           </button>
-        )}
-
-        {enableVoice && (
-          <VoiceMicButton
-            listening={listening}
-            onToggle={toggle}
-            label={placeholder}
-            disabled={disabled}
-          />
         )}
 
         <Popover open={open} onOpenChange={setOpen}>
