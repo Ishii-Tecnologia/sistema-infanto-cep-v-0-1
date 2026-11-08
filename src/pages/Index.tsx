@@ -107,7 +107,7 @@ export default function Index() {
           <Button
             onClick={() => navigate('/familias')}
             variant="outline"
-            className="border-white/30 text-white hover:bg-white/15"
+            className="bg-green-200 hover:bg-green-300 text-green-900 font-semibold border-green-300"
           >
             <Users className="h-4 w-4 mr-2" />
             Cadastrar Famílias
