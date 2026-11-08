@@ -2,6 +2,11 @@ import { ClientResponseError } from 'pocketbase'
 
 export type FieldErrors = Record<string, string>
 
+/** Erro de sessão expirada (401): as páginas usam para deslogar o usuário. */
+export function isAuthExpiredError(error: unknown): boolean {
+  return error instanceof ClientResponseError && error.status === 401
+}
+
 export function extractFieldErrors(error: unknown): FieldErrors {
   if (!(error instanceof ClientResponseError)) return {}
   const data = error.response?.data
@@ -18,15 +23,6 @@ export function extractFieldErrors(error: unknown): FieldErrors {
     }
   }
   return errors
-}
-
-/**
- * Erro de autenticação expirada (401) da PocketBase — usado para deslogar o
- * usuário nas telas de Famílias, Biblioteca e Ajustes. Esta exportação já foi
- * removida acidentalmente várias vezes e o build quebrou: não remover.
- */
-export function isAuthExpiredError(error: unknown): boolean {
-  return error instanceof ClientResponseError && error.status === 401
 }
 
 export function getErrorMessage(error: unknown): string {

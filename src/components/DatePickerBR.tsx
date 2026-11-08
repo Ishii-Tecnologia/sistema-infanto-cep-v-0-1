@@ -105,11 +105,20 @@ export function DatePickerBR({
     setTextValue(isoToBR(value))
   }, [value])
 
-  // Ditado: aplica a data falada assim que ela estiver completa e válida
+  // Ditado: aplica a data falada assim que ela estiver completa e válida.
+  // O enunciado SUBSTITUI o valor anterior (idempotente): se o navegador
+  // reemitir o mesmo enunciado, `parseSpokenDate` devolve a MESMA data e
+  // `setTextValue`/`onChange` recebem o mesmo valor — nunca é anexado ao texto
+  // já aplicado, então data não duplica (padrão "logo de uma vez" do Android).
   const { listening, toggle } = useVoiceInput({
-    onTranscript: (spoken) => {
+    onTranscript: (spoken, isFinal) => {
       const iso = parseSpokenDate(spoken)
-      if (!iso) return
+      if (!iso) {
+        // Enunciado ainda incompleto ("doze de") ou inválido: em `interim`
+        // aguarda o próximo evento; em `final`, mostra o bruto para o usuário.
+        if (isFinal) setTextValue(spoken)
+        return
+      }
       setTextValue(isoToBR(iso))
       onChange(iso)
     },
