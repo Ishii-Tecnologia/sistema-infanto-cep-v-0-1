@@ -51,6 +51,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { ImageCaptureInput } from '@/components/ImageCaptureInput'
 import { DatePickerBR } from '@/components/DatePickerBR'
+import { VoiceTextInput } from '@/components/VoiceTextInput'
 import { ImageLightbox } from '@/components/ImageLightbox'
 import { getErrorMessage, isAuthExpiredError } from '@/lib/pocketbase/errors'
 import pb from '@/lib/pocketbase/client'
@@ -970,7 +971,7 @@ export default function FamiliesPage() {
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="ref_name">Nome de Referência da Família *</Label>
-                  <Input
+                  <VoiceTextInput
                     id="ref_name"
                     placeholder="Ex: Família Silva Santos"
                     value={wizardFamily.reference_name}
@@ -986,7 +987,7 @@ export default function FamiliesPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="fam_phone">Telefone Principal / WhatsApp</Label>
-                    <Input
+                    <VoiceTextInput
                       id="fam_phone"
                       placeholder="(11) 98765-4321"
                       value={wizardFamily.primary_phone}
@@ -1011,7 +1012,7 @@ export default function FamiliesPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label htmlFor="fam_address">Endereço Completo</Label>
-                    <Input
+                    <VoiceTextInput
                       id="fam_address"
                       placeholder="Rua, número, complemento"
                       value={wizardFamily.address}
@@ -1022,7 +1023,7 @@ export default function FamiliesPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="fam_bairro">Bairro</Label>
-                    <Input
+                    <VoiceTextInput
                       id="fam_bairro"
                       placeholder="Nome do bairro"
                       value={wizardFamily.bairro}
@@ -1033,7 +1034,7 @@ export default function FamiliesPage() {
 
                 <div className="space-y-1.5">
                   <Label htmlFor="fam_notes">Observações Gerais</Label>
-                  <Input
+                  <VoiceTextInput
                     id="fam_notes"
                     placeholder="Notas adicionais sobre a família..."
                     value={wizardFamily.notes}
@@ -1070,7 +1071,7 @@ export default function FamiliesPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">Nome Completo *</Label>
-                        <Input
+                        <VoiceTextInput
                           placeholder="Nome do responsável"
                           value={guardian.name}
                           onChange={(e) => {
@@ -1083,7 +1084,7 @@ export default function FamiliesPage() {
 
                       <div className="space-y-1">
                         <Label className="text-xs">Grau de Parentesco</Label>
-                        <Input
+                        <VoiceTextInput
                           placeholder="Mãe, Pai, Avô, Tutora..."
                           value={guardian.relationship}
                           onChange={(e) => {
@@ -1104,12 +1105,13 @@ export default function FamiliesPage() {
                             setWizardGuardians(updated)
                           }}
                           placeholder="dd/mm/aaaa"
+                          enableVoice
                         />
                       </div>
 
                       <div className="space-y-1">
                         <Label className="text-xs">Telefone</Label>
-                        <Input
+                        <VoiceTextInput
                           placeholder="(11) 99999-9999"
                           value={guardian.phone}
                           onChange={(e) => {
@@ -1229,7 +1231,7 @@ export default function FamiliesPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Nome da Criança *</Label>
-                          <Input
+                          <VoiceTextInput
                             placeholder="Nome completo do aluno"
                             value={child.name}
                             onChange={(e) => {
@@ -1253,12 +1255,13 @@ export default function FamiliesPage() {
                             value={child.birth_date}
                             onChange={(isoDate) => handleBirthDateChange(index, isoDate)}
                             placeholder="dd/mm/aaaa"
+                            enableVoice
                           />
                         </div>
 
                         <div className="space-y-1">
                           <Label className="text-xs">Tamanho de Roupa</Label>
-                          <Input
+                          <VoiceTextInput
                             placeholder="Ex: 8, 10, P, M..."
                             value={child.clothing_size || ''}
                             onChange={(e) => {
@@ -1271,7 +1274,7 @@ export default function FamiliesPage() {
 
                         <div className="space-y-1">
                           <Label className="text-xs">Tamanho de Calçado</Label>
-                          <Input
+                          <VoiceTextInput
                             placeholder="Ex: 28, 32, 35..."
                             value={child.shoe_size || ''}
                             onChange={(e) => {
@@ -1284,7 +1287,7 @@ export default function FamiliesPage() {
 
                         <div className="space-y-1">
                           <Label className="text-xs">Alergias ou Restrições Alimentares</Label>
-                          <Input
+                          <VoiceTextInput
                             placeholder="Ex: Amendoim, Lactose, Nenhuma..."
                             value={child.allergies}
                             onChange={(e) => {
@@ -1297,7 +1300,7 @@ export default function FamiliesPage() {
 
                         <div className="space-y-1">
                           <Label className="text-xs">Observações Médicas / Remédios</Label>
-                          <Input
+                          <VoiceTextInput
                             placeholder="Ex: Usa bombinha, atenção para..."
                             value={child.medical_notes}
                             onChange={(e) => {

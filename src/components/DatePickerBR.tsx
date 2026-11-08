@@ -166,7 +166,7 @@ export function DatePickerBR({
         onBlur={handleBlur}
         disabled={disabled}
         maxLength={10}
-        className="pr-16 font-mono text-xs h-9"
+        className={enableVoice ? 'pr-24 font-mono text-xs h-9' : 'pr-16 font-mono text-xs h-9'}
       />
 
       <div className="absolute right-1 flex items-center gap-0.5">
@@ -179,6 +179,15 @@ export function DatePickerBR({
           >
             <X className="h-3.5 w-3.5" />
           </button>
+        )}
+
+        {enableVoice && (
+          <VoiceMicButton
+            listening={listening}
+            onToggle={toggle}
+            label={placeholder}
+            disabled={disabled}
+          />
         )}
 
         <Popover open={open} onOpenChange={setOpen}>
