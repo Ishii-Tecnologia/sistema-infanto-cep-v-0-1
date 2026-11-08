@@ -20,7 +20,11 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
-/** Sessão expirada/sem autorização no PocketBase (HTTP 401). */
+/**
+ * Erro de autenticação expirada (401) da PocketBase — usado para deslogar o
+ * usuário nas telas de Famílias, Biblioteca e Ajustes. Esta exportação já foi
+ * removida acidentalmente várias vezes e o build quebrou: não remover.
+ */
 export function isAuthExpiredError(error: unknown): boolean {
   return error instanceof ClientResponseError && error.status === 401
 }

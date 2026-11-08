@@ -76,7 +76,10 @@ interface UseVoiceInputOptions {
  * Reconhecimento de voz em pt-BR via Web Speech API.
  *
  * Regras anti-duplicação (Chrome/Android):
- * - cada instância de reconhecimento tem a sua própria lista de resultados: o
+ * - apenas UMA instância de reconhecimento vive por vez: erros fatais
+ *   (not-allowed, audio-capture) CANCELAM o reinício agendado — uma segunda
+ *   instância ativa em paralelo reemite os resultados e duplica o texto;
+ * - cada instância tem a sua própria lista de resultados: o
  *   contador de confirmados é zerado a cada nova instância;
  * - dentro de uma instância, só se lê a partir de `event.resultIndex` (e nunca
  *   antes de um resultado já confirmado): cada trecho `isFinal` entra uma única vez;
@@ -211,7 +214,7 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
             finalizedCountRef.current = i + 1
             commitFinal(transcript, false)
             interim = ''
-          } else {
+          } else if (i >= event.resultIndex) {
             interim = interim ? `${interim} ${transcript}` : transcript
           }
         }
@@ -236,6 +239,10 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
               'Libere o microfone nas configurações do navegador para usar o comando de voz. O cadastro segue funcionando normalmente por digitação.',
             variant: 'destructive',
           })
+          // Erro fatal: SEM reinício — se o timer de reinício continuar ativo,
+          // uma SEGUNDA instância de recognition começa a ouvir em paralelo e
+          // reemite os resultados, duplicando o texto ditado.
+          clearRestartTimer()
           shouldListenRef.current = false
           return
         }
@@ -246,6 +253,7 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
               'Verifique se há um microfone conectado. O cadastro segue funcionando normalmente por digitação.',
             variant: 'destructive',
           })
+          clearRestartTimer()
           shouldListenRef.current = false
           return
         }
