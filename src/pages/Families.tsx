@@ -52,6 +52,27 @@ import { useToast } from '@/hooks/use-toast'
 import { ImageCaptureInput } from '@/components/ImageCaptureInput'
 import { DatePickerBR } from '@/components/DatePickerBR'
 import { VoiceTextInput } from '@/components/VoiceTextInput'
+import { VoicePhoneInput } from '@/components/VoicePhoneInput'
+import { formatPhoneBR } from '@/lib/phoneBR'
+
+// Sugestões do campo "Grau de Parentesco" (digitação livre continua valendo)
+const RELATIONSHIP_SUGGESTIONS = [
+  'Mãe',
+  'Pai',
+  'Avó',
+  'Avô',
+  'Tio',
+  'Tia',
+  'Padrasto',
+  'Madrasta',
+  'Irmão',
+  'Irmã',
+  'Primo',
+  'Prima',
+  'Tutor',
+  'Tutora',
+  'Outro',
+]
 import { ImageLightbox } from '@/components/ImageLightbox'
 import { getErrorMessage, isAuthExpiredError } from '@/lib/pocketbase/errors'
 import pb from '@/lib/pocketbase/client'
@@ -399,7 +420,7 @@ export default function FamiliesPage() {
     setCurrentStep(1)
     setWizardFamily({
       reference_name: fam.reference_name || '',
-      primary_phone: fam.primary_phone || '',
+      primary_phone: formatPhoneBR(fam.primary_phone || ''),
       email: fam.email || '',
       address: fam.address || '',
       bairro: fam.bairro || '',
@@ -412,7 +433,7 @@ export default function FamiliesPage() {
             name: g.name || '',
             relationship: g.relationship || '',
             birth_date: (g.birth_date || '').slice(0, 10),
-            phone: g.phone || '',
+            phone: formatPhoneBR(g.phone || ''),
             email: g.email || '',
             is_emergency_contact: !!g.is_emergency_contact,
             photo_url: g.photo_url || '',
@@ -546,7 +567,7 @@ export default function FamiliesPage() {
                   </CardTitle>
                   <CardDescription className="text-xs mt-1 flex items-center gap-1.5">
                     <Phone className="h-3 w-3 text-indigo-500" />
-                    {fam.primary_phone || 'Sem telefone registrado'}
+                    {formatPhoneBR(fam.primary_phone || '') || 'Sem telefone registrado'}
                   </CardDescription>
                 </div>
                 <Badge variant="outline" className="text-xs bg-slate-100 dark:bg-slate-800">
@@ -683,7 +704,7 @@ export default function FamiliesPage() {
                   <div>
                     <span className="text-muted-foreground block">Telefone Principal:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
-                      {selectedFamily.primary_phone || 'Não informado'}
+                      {formatPhoneBR(selectedFamily.primary_phone || '') || 'Não informado'}
                     </strong>
                   </div>
                   <div>
@@ -725,7 +746,9 @@ export default function FamiliesPage() {
                               setLightboxImage({
                                 src: g.photo_url,
                                 title: g.name,
-                                description: `${g.relationship}${g.phone ? ` • ${g.phone}` : ''}`,
+                                description: `${g.relationship}${
+                                  g.phone ? ` • ${formatPhoneBR(g.phone)}` : ''
+                                }`,
                               })
                             }
                           }}
@@ -753,7 +776,7 @@ export default function FamiliesPage() {
                             {g.name}
                           </p>
                           <p className="text-muted-foreground">
-                            {g.relationship} • {g.phone || 'Sem tel'}
+                            {g.relationship} • {formatPhoneBR(g.phone || '') || 'Sem tel'}
                             {g.birth_date ? ` • Nasc: ${formatDate(g.birth_date)}` : ''}
                           </p>
                           {g.is_emergency_contact && (
@@ -987,7 +1010,7 @@ export default function FamiliesPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="fam_phone">Telefone Principal / WhatsApp</Label>
-                    <VoiceTextInput
+                    <VoicePhoneInput
                       id="fam_phone"
                       placeholder="(11) 98765-4321"
                       value={wizardFamily.primary_phone}
@@ -1086,6 +1109,7 @@ export default function FamiliesPage() {
                         <Label className="text-xs">Grau de Parentesco</Label>
                         <VoiceTextInput
                           placeholder="Mãe, Pai, Avô, Tutora..."
+                          suggestions={RELATIONSHIP_SUGGESTIONS}
                           value={guardian.relationship}
                           onChange={(e) => {
                             const updated = [...wizardGuardians]
@@ -1111,7 +1135,7 @@ export default function FamiliesPage() {
 
                       <div className="space-y-1">
                         <Label className="text-xs">Telefone</Label>
-                        <VoiceTextInput
+                        <VoicePhoneInput
                           placeholder="(11) 99999-9999"
                           value={guardian.phone}
                           onChange={(e) => {
@@ -1229,10 +1253,11 @@ export default function FamiliesPage() {
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <Label className="text-xs">Nome da Criança *</Label>
                           <VoiceTextInput
                             placeholder="Nome completo do aluno"
+                            className="h-10"
                             value={child.name}
                             onChange={(e) => {
                               const updated = [...wizardChildren]
@@ -1242,7 +1267,7 @@ export default function FamiliesPage() {
                           />
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
                             <Label className="text-xs">Data de Nascimento *</Label>
                             {child.birth_date && (
@@ -1256,6 +1281,7 @@ export default function FamiliesPage() {
                             onChange={(isoDate) => handleBirthDateChange(index, isoDate)}
                             placeholder="dd/mm/aaaa"
                             enableVoice
+                            className="h-10"
                           />
                         </div>
 

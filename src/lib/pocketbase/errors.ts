@@ -2,7 +2,10 @@ import { ClientResponseError } from 'pocketbase'
 
 export type FieldErrors = Record<string, string>
 
-/** Erro de sessão expirada (401): as páginas usam para deslogar o usuário. */
+/**
+ * true quando o erro é de sessão exposta/inválida (401): as páginas usam isso
+ * para deslogar o usuário em vez de mostrar erro genérico.
+ */
 export function isAuthExpiredError(error: unknown): boolean {
   return error instanceof ClientResponseError && error.status === 401
 }

@@ -82,16 +82,23 @@ interface UseVoiceInputOptions {
 // MESMOS resultados (uma a partir da lista antiga, outra da nova) — é a causa
 // clássica de texto duplicado/triplicado "logo de uma vez". Cada campo cria o
 // seu hook; antes de ligar o microfone de um campo, a escuta de qualquer outro
-// campo é abortada e desregistrada aqui.
+// campo é abortada e desregistrada aqui. O registro `onForeignStop` permite que
+// a escuta abortada AVISE o dono para que o botão de microfone do campo
+// anterior volte ao estado "parado" (um campo ouvindo por vez, inclusive no
+// visual).
 // ---------------------------------------------------------------------------
 const singleton: {
   active: SpeechRecognitionLike | null
+  onForeignStop: (() => void) | null
   abortCurrent: () => void
 } = {
   active: null,
+  onForeignStop: null,
   abortCurrent() {
     const current = singleton.active
     singleton.active = null
+    const notify = singleton.onForeignStop
+    singleton.onForeignStop = null
     if (current) {
       current.onresult = null
       current.onend = null
@@ -102,6 +109,9 @@ const singleton: {
         // ignora
       }
     }
+    // Avisa o dono da escuta abortada APÓS o abort (pode chamar stop() do
+    // outro hook, que toca neste singleton já com active = null — sem efeito).
+    notify?.()
   },
 }
 
@@ -121,6 +131,9 @@ const singleton: {
  *   audio-capture) cancelam o reinício e encerram a ditadura.
  * - Comando "limpar": zera o rascunho e chama `onClear` imediatamente (parcial
  *   ou final), e o texto dito depois do comando é entregue como novo enunciado.
+ * - Exclusividade global: iniciar uma escuta aqui aborta a escuta de
+ *   qualquer outro campo (singleton) e notifica o dono anterior, que volta ao
+ *   estado "parado" — apenas UM campo escuta por vez, incluindo o visual.
  */
 export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOptions) {
   const [listening, setListening] = useState(false)
@@ -133,6 +146,8 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
   const utteranceRef = useRef('')
   const callbacksRef = useRef({ onTranscript, onClear, onEnd })
   const beginRef = useRef<() => void>(() => {})
+  // Este hook é o dono da escuta ativa do singleton neste momento?
+  const ownsActiveRef = useRef(false)
 
   useEffect(() => {
     callbacksRef.current = { onTranscript, onClear, onEnd }
@@ -156,14 +171,15 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
     return text
   }
 
-  /** Encerra de vez (usuário parou ou desistiu após falhas). */
+  /** Encerra de vez (usuário parou, escuta tomada por outro campo ou desistiu). */
   const finish = useCallback(() => {
     clearRestartTimer()
     shouldListenRef.current = false
-    if (recognitionRef.current) {
+    if (ownsActiveRef.current) {
       singleton.abortCurrent()
-      recognitionRef.current = null
+      ownsActiveRef.current = false
     }
+    recognitionRef.current = null
     utteranceRef.current = ''
     setListening(false)
     callbacksRef.current.onEnd?.()
@@ -191,9 +207,12 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
         return
       }
 
-      // SINGLETON: aborta e desregistrada QUALQUER escuta anterior (inclusive a
-      // de outro campo) antes de abrir a nova.
+      // EXCLUSIVIDADE GLOBAL: aborta e desregistra QUALQUER escuta anterior
+      // (inclusive a de outro campo — o dono anterior é notificado e volta ao
+      // estado "parado") antes de abrir a nova.
       singleton.abortCurrent()
+      singleton.onForeignStop = () => finish()
+      ownsActiveRef.current = true
 
       const recognition = new Ctor()
       recognition.lang = 'pt-BR'
@@ -284,7 +303,6 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
         recognition.start()
       } catch {
         recognitionRef.current = null
-        singleton.active = null
         failuresRef.current += 1
         if (failuresRef.current >= 5) {
           toast({
@@ -306,7 +324,11 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
       shouldListenRef.current = false
       clearRestartTimer()
       if (recognitionRef.current) {
+        // Unmount com escuta ativa: aborta via singleton e limpa o registro de
+        // notificação (o cleanup roda antes do próximo efeito/begin).
+        singleton.onForeignStop = null
         singleton.abortCurrent()
+        ownsActiveRef.current = false
         recognitionRef.current = null
       }
     }

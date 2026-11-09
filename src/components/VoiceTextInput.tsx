@@ -1,4 +1,4 @@
-import { useRef, type ComponentProps } from 'react'
+import { useId, useRef, type ComponentProps } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useVoiceInput } from '@/hooks/useVoiceInput'
@@ -12,6 +12,11 @@ export interface VoiceChangeEvent {
 interface VoiceTextInputProps extends Omit<ComponentProps<typeof Input>, 'value' | 'onChange'> {
   value: string
   onChange: (e: VoiceChangeEvent) => void
+  /**
+   * Sugestões de preenchimento (datalist nativo): aparecem ao focar/digitar,
+   * mas o campo continua aceitando texto livre e ditado por voz.
+   */
+  suggestions?: string[]
 }
 
 // Anexa o texto falado ao final do que já estava no campo
@@ -46,8 +51,10 @@ export function VoiceTextInput({
   onChange,
   className,
   disabled,
+  suggestions,
   ...rest
 }: VoiceTextInputProps) {
+  const suggestionsId = useId()
   // "Geração" da ditadura: incrementada a cada microfone ligado e a cada comando
   // "limpar". O texto-base de cada geração é capturado de forma LAZY (na
   // primeira aplicação de voz) em vez de no toggle — é o mesmo texto do campo.
@@ -134,8 +141,16 @@ export function VoiceTextInput({
         disabled={disabled}
         value={value}
         onChange={(e) => onChange({ target: { value: e.target.value } })}
+        list={suggestions && suggestions.length > 0 ? suggestionsId : undefined}
         className={cn('pr-9', className)}
       />
+      {suggestions && suggestions.length > 0 && (
+        <datalist id={suggestionsId}>
+          {suggestions.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+      )}
       <VoiceMicButton
         listening={listening}
         onToggle={handleToggle}
