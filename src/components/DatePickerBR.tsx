@@ -180,19 +180,24 @@ export function DatePickerBR({
     setTextValue('')
   }
 
-  // GUARDA DE FOCO: o microfone para quando o foco sai do campo (mesmo
-  // contrato do VoiceTextInput). O clique no botão de microfone não rouba o
-  // foco (preventDefault no VoiceMicButton), então o toggle não dispara isto.
+  // GUARDA DE FOCO (mesmo contrato do VoiceTextInput): só desliga o microfone
+  // quando o campo tem `id` e o foco do documento está em OUTRO elemento com
+  // id — usuário tocou/entrou em outro campo ou controle do modal. Sem `id`,
+  // o guard não roda: tocar no microfone sem antes focar o campo (o clique no
+  // botão não rouba o foco, por preventDefault no VoiceMicButton) NÃO pode
+  // matar a escuta 200ms depois — era o motivo do ditado "não funcionar" nos
+  // campos de data. O desligar ao trocar de campo continua garantido pela
+  // exclusividade global do useVoiceInput (só um campo escuta por vez).
   useEffect(() => {
-    if (!listening) return
+    if (!listening || !id) return
     const t = window.setTimeout(() => {
       const active = document.activeElement
-      if (active !== inputRef.current) {
+      if (active && active.id !== id) {
         toggle()
       }
     }, 200)
     return () => window.clearTimeout(t)
-  }, [listening, toggle])
+  }, [listening, id, toggle])
 
   const selectedDate = parseLocalDate(value)
 

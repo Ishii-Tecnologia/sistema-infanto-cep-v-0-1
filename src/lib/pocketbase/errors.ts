@@ -20,21 +20,14 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
-// ----------------------------------------------------------------------------
-// NÃO REMOVER: exportação isAuthExpiredError (6ª restauração). Sumiu deste
-// arquivo repetidamente quebrando o build — é usada por Families.tsx,
-// Library.tsx, Settings.tsx, AttendanceReports.tsx e Calendar.tsx.
-// ----------------------------------------------------------------------------
+/**
+ * Indica se o erro é de sessão expirada (401). Usada por Families, Library e
+ * Settings para distinguir "sessão caiu" de erro de validação comum. Esta
+ * exportação já sumiu várias vezes quebrando o build — não remover.
+ */
 export function isAuthExpiredError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const isClientResponseError =
-    error instanceof ClientResponseError ||
-    (typeof (error as { name?: unknown }).name === 'string' &&
-      (error as { name: string }).name === 'ClientResponseError')
-  if (!isClientResponseError) return false
-  return (
-    (error as { status?: unknown }).status === 401 || (error as { status?: unknown }).status === 403
-  )
+  if (!(error instanceof ClientResponseError)) return false
+  return error.status === 401
 }
 
 export function getErrorMessage(error: unknown): string {
