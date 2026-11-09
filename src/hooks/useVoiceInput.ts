@@ -116,17 +116,26 @@ const singleton: {
 }
 
 /**
- * Reconhecimento de voz em pt-BR via Web Speech API, em ciclo POR ENUNCIADO.
+ * Reconhecimento de voz em pt-BR via Web Speech API, em ESCUTA CONTÍNUA.
  *
- * Design (redesign v0.0.108, substitui o modelo "contínuo + acumulado"):
- * - `continuous = false` (single-utterance): o Chrome/Android entrega UM
- *   resultado final por enunciado e encerra o stream — muito mais estável.
+ * Design (v0.0.110, substitui o ciclo "single-utterance por enunciado"):
+ * - `continuous = true`: o stream NÃO encerra após cada enunciado — o que dá
+ *   a sensação de "microfone desligado" entre frases. Com continuous=true o
+ *   navegador entrega enunciados finais consecutivos no MESMO stream, sem
+ *   lacuna perceptível.
+ * - No Android/Chrome o modo contínuo ainda pode encerrar o stream após cada
+ *   enunciado: o onend reinicia a escuta em 150ms (antes eram 300ms) enquanto
+ *   a intenção do usuário for permanecer ouvindo — reinício imperceptível.
+ * - Processa apenas o que é NOVO na lista de resultados: um final só é
+ *   entregue se o índice dele ainda não foi processado (`processedUpToRef`
+ * guarda até onde a lista já foi consumida), e interims são reconstruídos
+ *   APENAS a partir de `event.resultIndex`. Assim as reemissões do Chrome em
+ *   modo contínuo (resultados antigos reaparecendo na lista) nunca entram
+ *   duas vezes no campo.
  * - O interim nunca é confirmado: enquanto é falado, é entregue como rascunho
  *   substitutivo; no final, o enunciado é entregue uma única vez com
  *   `isFinal = true`. O CONSUMIDOR (campo) decide o que fazer com o rascunho.
- * - Processa APENAS `results[event.resultIndex]` quando `isFinal` — nunca
- *   percorre a lista inteira, que reemite trechos já confirmados.
- * - Depois do final, reinicia automaticamente a escuta (novo enunciado) até que
+ * - Depois do final, a MESMA instância segue ouvindo (novo enunciado) até que
  *   o usuário toque no microfone de novo. Erros fatais (not-allowed,
  *   audio-capture) cancelam o reinício e encerram a ditadura.
  * - Comando "limpar": zera o rascunho e chama `onClear` imediatamente (parcial
@@ -144,6 +153,9 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
   const failuresRef = useRef(0)
   // Enunciado em curso (parcial atual): substituído a cada evento de interim
   const utteranceRef = useRef('')
+  // Até onde a lista de resultados desta instância já foi CONSUMIDA: um final
+  // em índice < processedUpToRef é reemissão do Chrome — nunca é entregue.
+  const processedUpToRef = useRef(0)
   const callbacksRef = useRef({ onTranscript, onClear, onEnd })
   const beginRef = useRef<() => void>(() => {})
   // Este hook é o dono da escuta ativa do singleton neste momento?
@@ -192,10 +204,13 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
         return
       }
       if (restartTimerRef.current !== null) return
+      // Reinício RÁPIDO (150ms): no Android o stream contínuo encerra após
+      // cada enunciado — recomeçar quase imediatamente mantém a escuta sem
+      // lacuna perceptível e sem tocar de novo.
       restartTimerRef.current = window.setTimeout(() => {
         restartTimerRef.current = null
         if (shouldListenRef.current) beginRef.current()
-      }, 300)
+      }, 150)
     }
 
     const begin = () => {
@@ -216,9 +231,10 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
 
       const recognition = new Ctor()
       recognition.lang = 'pt-BR'
-      // Modo single-utterance: um resultado final por enunciado, stream mais
-      // estável no Chrome/Android.
-      recognition.continuous = false
+      // ESCUTA CONTÍNUA: o stream segue aberto entre enunciados — sem a
+      // sensação de "desligado" entre frases. Reemissões de resultados antigos
+      // são filtradas por processedUpToRef (ver onresult).
+      recognition.continuous = true
       recognition.interimResults = true
       recognition.maxAlternatives = 1
 
@@ -226,16 +242,20 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
         failuresRef.current = 0
         if (recognitionRef.current !== recognition) return
 
-        // Interim: o parcial atual SUBSTITUI o rascunho anterior — nunca soma.
+        // Nada da lista abaixo do resultIndex é novo: nunca reprocessa trechos
+        // já confirmados (fonte clássica de duplicação em modo contínuo).
         let interim = ''
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i]
           const transcript = (result?.[0]?.transcript ?? '').trim()
           if (!transcript) continue
           if (result.isFinal) {
-            // 3. Processa APENAS results[resultIndex] quando isFinal: nunca
-            // percorre a lista inteira nem anexa por cima do parcial.
-            if (i !== event.resultIndex) continue
+            // Final em índice já consumido = reemissão: ignora.
+            if (i < processedUpToRef.current) continue
+            // A partir de agora, toda a lista atual está consumida — nenhum
+            // final desta lista entra duas vezes, mesmo que o navegador
+            // reemita o evento com resultIndex menor.
+            processedUpToRef.current = event.results.length
             const raw = applyClearCommand(transcript)
             utteranceRef.current = ''
             if (raw) {
@@ -247,15 +267,17 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
                 utteranceRef.current = replaced
               }
             }
-            return
+            continue
           }
           interim = interim ? `${interim} ${transcript}` : transcript
         }
 
-        interim = applyClearCommand(interim)
         if (interim) {
-          utteranceRef.current = interim
-          callbacksRef.current.onTranscript(interim, false)
+          interim = applyClearCommand(interim)
+          if (interim) {
+            utteranceRef.current = interim
+            callbacksRef.current.onTranscript(interim, false)
+          }
         }
       }
 
@@ -290,14 +312,15 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
       recognition.onend = () => {
         if (recognitionRef.current !== recognition) return
         recognitionRef.current = null
-        // No modo single-utterance o stream encerra após cada enunciado:
-        // reinicia automaticamente para o próximo, mantendo o texto já
-        // confirmado no campo como âncora. Rascunho pendente NÃO é confirmado
+        // Em modo contínuo o stream encerra apenas quando o navegador decide
+        // (silêncio longo, Android): reinicia automaticamente enquanto a
+        // intenção for permanecer ouvindo. Rascunho pendente NÃO é confirmado
         // aqui — o próximo enunciado substitui o rascunho pendente no campo.
         scheduleRestart()
       }
 
       recognitionRef.current = recognition
+      processedUpToRef.current = 0
       singleton.active = recognition
       try {
         recognition.start()

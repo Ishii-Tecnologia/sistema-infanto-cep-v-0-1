@@ -20,6 +20,7 @@ export function VoiceMicButton({
   return (
     <button
       type="button"
+      onPointerDown={(e) => e.preventDefault()}
       onClick={onToggle}
       disabled={disabled}
       aria-pressed={listening}

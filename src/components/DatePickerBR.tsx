@@ -180,6 +180,20 @@ export function DatePickerBR({
     setTextValue('')
   }
 
+  // GUARDA DE FOCO: o microfone para quando o foco sai do campo (mesmo
+  // contrato do VoiceTextInput). O clique no botão de microfone não rouba o
+  // foco (preventDefault no VoiceMicButton), então o toggle não dispara isto.
+  useEffect(() => {
+    if (!listening) return
+    const t = window.setTimeout(() => {
+      const active = document.activeElement
+      if (active !== inputRef.current) {
+        toggle()
+      }
+    }, 200)
+    return () => window.clearTimeout(t)
+  }, [listening, toggle])
+
   const selectedDate = parseLocalDate(value)
 
   return (

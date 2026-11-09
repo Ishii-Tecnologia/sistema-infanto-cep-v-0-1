@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { VoiceMicButton } from '@/components/VoiceMicButton'
@@ -99,6 +99,22 @@ export function VoicePhoneInput({
     }
     toggle()
   }
+
+  // GUARDA DE FOCO: o microfone para quando o foco sai do campo (mesmo
+  // contrato do VoiceTextInput). O clique no botão de microfone não rouba o
+  // foco (preventDefault no VoiceMicButton), então o toggle não dispara isto.
+  useEffect(() => {
+    if (!listening) return
+    const fieldId = rest.id
+    if (!fieldId) return
+    const t = window.setTimeout(() => {
+      const active = document.activeElement
+      if (active && active.id !== fieldId) {
+        stop()
+      }
+    }, 200)
+    return () => window.clearTimeout(t)
+  }, [listening, rest.id])
 
   return (
     <div className="relative">

@@ -2,14 +2,6 @@ import { ClientResponseError } from 'pocketbase'
 
 export type FieldErrors = Record<string, string>
 
-/**
- * true quando o erro é de sessão exposta/inválida (401): as páginas usam isso
- * para deslogar o usuário em vez de mostrar erro genérico.
- */
-export function isAuthExpiredError(error: unknown): boolean {
-  return error instanceof ClientResponseError && error.status === 401
-}
-
 export function extractFieldErrors(error: unknown): FieldErrors {
   if (!(error instanceof ClientResponseError)) return {}
   const data = error.response?.data
@@ -26,6 +18,23 @@ export function extractFieldErrors(error: unknown): FieldErrors {
     }
   }
   return errors
+}
+
+// ----------------------------------------------------------------------------
+// NÃO REMOVER: exportação isAuthExpiredError (6ª restauração). Sumiu deste
+// arquivo repetidamente quebrando o build — é usada por Families.tsx,
+// Library.tsx, Settings.tsx, AttendanceReports.tsx e Calendar.tsx.
+// ----------------------------------------------------------------------------
+export function isAuthExpiredError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const isClientResponseError =
+    error instanceof ClientResponseError ||
+    (typeof (error as { name?: unknown }).name === 'string' &&
+      (error as { name: string }).name === 'ClientResponseError')
+  if (!isClientResponseError) return false
+  return (
+    (error as { status?: unknown }).status === 401 || (error as { status?: unknown }).status === 403
+  )
 }
 
 export function getErrorMessage(error: unknown): string {

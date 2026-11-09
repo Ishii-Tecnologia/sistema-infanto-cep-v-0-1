@@ -1,4 +1,4 @@
-import { useId, useRef, type ComponentProps } from 'react'
+import { useEffect, useId, useRef, type ComponentProps } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useVoiceInput } from '@/hooks/useVoiceInput'
@@ -133,6 +133,25 @@ export function VoiceTextInput({
     }
     toggle()
   }
+
+  // GUARDA DE FOCO (comportamento pedido: "desative quando mudar de campo"):
+  // se o campo estiver ouvindo e o foco do documento sair dele — usuário
+  // tocou/entrou em OUTRO campo ou em outro controle do modal — a escuta
+  // termina. O clique no botão de microfone (onPointerDown é prevenido no
+  // VoiceMicButton) não tira o foco do campo, então ligar/desligar não
+  // dispara este guard.
+  useEffect(() => {
+    if (!listening) return
+    const fieldId = rest.id
+    if (!fieldId) return
+    const t = window.setTimeout(() => {
+      const active = document.activeElement
+      if (active && active.id !== fieldId) {
+        stop()
+      }
+    }, 200)
+    return () => window.clearTimeout(t)
+  }, [listening, rest.id])
 
   return (
     <div className="relative">
