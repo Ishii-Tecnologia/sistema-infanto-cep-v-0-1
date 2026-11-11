@@ -110,11 +110,7 @@ export function DatePickerBR({
   // reemitir o mesmo enunciado, `parseSpokenDate` devolve a MESMA data e
   // `setTextValue`/`onChange` recebem o mesmo valor — nunca é anexado ao texto
   // já aplicado, então data não duplica (padrão "logo de uma vez" do Android).
-  const {
-    listening,
-    toggle,
-    stop: stopListening,
-  } = useVoiceInput({
+  const { listening, toggle } = useVoiceInput({
     // Contrato v0.0.113: o hook entrega APENAS o texto FECHADO do enunciado
     // (último result final novo, dedup por índice+transcript no hook) — o
     // interim nunca é gravado, o que eliminou a duplicação no Chrome/Android.
@@ -129,7 +125,9 @@ export function DatePickerBR({
       setTextValue(isoToBR(iso))
       onChange(iso)
     },
-    // Comando "limpar" ditado: esvazia a data
+    // Comando "limpar" ditado: esvazia a data. A escuta NÃO é interrompida: o
+    // hook segue ativo no mesmo campo (o reinício de 250ms do onend cobre o
+    // Android) e a próxima informação ditada entra em sequência.
     onClear: () => {
       setTextValue('')
       onChange('')
@@ -187,24 +185,20 @@ export function DatePickerBR({
     setTextValue('')
   }
 
-  // GUARDA DE FOCO (mesmo contrato do VoiceTextInput): só desliga o microfone
-  // quando o campo tem `id` e o foco do documento está em OUTRO elemento com
-  // id — usuário tocou/entrou em outro campo ou controle do modal. Sem `id`,
-  // o guard não roda: tocar no microfone sem antes focar o campo (o clique no
-  // botão não rouba o foco, por preventDefault no VoiceMicButton) NÃO pode
-  // matar a escuta 200ms depois — era o motivo do ditado "não funcionar" nos
-  // campos de data. O desligar ao trocar de campo continua garantido pela
-  // exclusividade global do useVoiceInput (só um campo escuta por vez).
-  useEffect(() => {
-    if (!listening || !id) return
-    const t = window.setTimeout(() => {
-      const active = document.activeElement
-      if (active && active.id !== id) {
-        stopListening()
-      }
-    }, 200)
-    return () => window.clearTimeout(t)
-  }, [listening, id, stopListening])
+  // FOCO NO CAMPO: ao ativar o microfone, o input correspondente recebe o foco
+  // (visual/real). preventScroll evita salto de rolagem no modal.
+  const handleVoiceToggle = () => {
+    if (!listening) {
+      inputRef.current?.focus({ preventScroll: true })
+    }
+    toggle()
+  }
+
+  // Sem guarda de foco (mesmo contrato dos demais campos de voz): a escuta só
+  // desliga quando OUTRO campo com microfone é ativado (exclusividade global do
+  // useVoiceInput assume a vez e notifica este dono via onForeignStop) ou quando
+  // o usuário toca no mic deste campo de novo. Focar/tocar em outro controle do
+  // modal não mata o ditado contínuo.
 
   const selectedDate = parseLocalDate(value)
 
@@ -229,7 +223,7 @@ export function DatePickerBR({
         {enableVoice && (
           <VoiceMicButton
             listening={listening}
-            onToggle={toggle}
+            onToggle={handleVoiceToggle}
             label={placeholder}
             disabled={disabled}
           />

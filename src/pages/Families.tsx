@@ -943,7 +943,7 @@ export default function FamiliesPage() {
           <DialogHeader className="border-b pb-3">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-lg font-bold">
-                {editingFamily ? 'Editar Ficha da Família' : 'Cadastro de Família'}
+                {editingFamily ? 'Editar Ficha da Família' : 'Cadastro da Família'}
               </DialogTitle>
               <Badge
                 variant="outline"

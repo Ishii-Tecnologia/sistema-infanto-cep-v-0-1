@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { VoiceMicButton } from '@/components/VoiceMicButton'
@@ -28,6 +28,7 @@ export function VoicePhoneInput({
   disabled,
   ...rest
 }: VoicePhoneInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
   const genRef = useRef(0)
   const capturedRef = useRef<{ gen: number; text: string } | null>(null)
   const draftRef = useRef('')
@@ -42,11 +43,7 @@ export function VoicePhoneInput({
     lastAppliedLenRef.current = 0
   }
 
-  const {
-    listening,
-    toggle,
-    stop: stopListening,
-  } = useVoiceInput({
+  const { listening, toggle } = useVoiceInput({
     // Contrato v0.0.113: o hook entrega APENAS o texto FECHADO do enunciado
     // (último result final novo, dedup por índice+transcript no hook) — o
     // interim nunca é gravado, o que eliminou a duplicação no Chrome/Android.
@@ -102,29 +99,22 @@ export function VoicePhoneInput({
       // Ditadura nova: nova geração, rascunho zerado. O texto-base será
       // capturado de forma lazy na primeira aplicação de voz.
       beginGeneration()
+      // FOCO NO CAMPO: ao ativar o microfone, o input correspondente recebe o
+      // foco (visual/real). preventScroll evita salto de rolagem no modal.
+      inputRef.current?.focus({ preventScroll: true })
     }
     toggle()
   }
 
-  // GUARDA DE FOCO: o microfone para quando o foco sai do campo (mesmo
-  // contrato do VoiceTextInput). O clique no botão de microfone não rouba o
-  // foco (preventDefault no VoiceMicButton), então o toggle não dispara isto.
-  useEffect(() => {
-    if (!listening) return
-    const fieldId = rest.id
-    if (!fieldId) return
-    const t = window.setTimeout(() => {
-      const active = document.activeElement
-      if (active && active.id !== fieldId) {
-        stopListening()
-      }
-    }, 200)
-    return () => window.clearTimeout(t)
-  }, [listening, rest.id, stopListening])
+  // Sem guarda de foco: a escuta segue ATIVA no campo até que outro campo com
+  // microfone seja ativado (exclusividade global do useVoiceInput assume a vez)
+  // ou o usuário toque no mic deste campo de novo. O ditado contínuo não morre
+  // porque o usuário tocou em outro controle do modal.
 
   return (
     <div className="relative">
       <Input
+        ref={inputRef}
         {...rest}
         type="tel"
         inputMode="numeric"

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ComponentProps } from 'react'
+import { useId, useRef, type ComponentProps } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useVoiceInput } from '@/hooks/useVoiceInput'
@@ -55,6 +55,7 @@ export function VoiceTextInput({
   ...rest
 }: VoiceTextInputProps) {
   const suggestionsId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
   // "Geração" da ditadura: incrementada a cada microfone ligado e a cada comando
   // "limpar". O texto-base de cada geração é capturado de forma LAZY (na
   // primeira aplicação de voz) em vez de no toggle — é o mesmo texto do campo.
@@ -80,11 +81,7 @@ export function VoiceTextInput({
     lastAppliedLenRef.current = 0
   }
 
-  const {
-    listening,
-    toggle,
-    stop: stopListening,
-  } = useVoiceInput({
+  const { listening, toggle } = useVoiceInput({
     // Contrato v0.0.113: o hook entrega APENAS o texto FECHADO do enunciado
     // (último result final novo, dedup por índice+transcript no hook) — o
     // interim nunca é gravado, o que eliminou a duplicação no Chrome/Android.
@@ -128,32 +125,17 @@ export function VoiceTextInput({
       // Ditadura nova: nova geração, rascunho zerado. O texto-base será
       // capturado de forma lazy na primeira aplicação de voz.
       beginGeneration()
+      // FOCO NO CAMPO: ao ativar o microfone, o input correspondente recebe o
+      // foco (visual/real). preventScroll evita salto de rolagem no modal.
+      inputRef.current?.focus({ preventScroll: true })
     }
     toggle()
   }
 
-  // GUARDA DE FOCO (comportamento pedido: "desative quando mudar de campo"):
-  // se o campo estiver ouvindo e o foco do documento sair dele — usuário
-  // tocou/entrou em OUTRO campo ou em outro controle do modal — a escuta
-  // termina. O clique no botão de microfone (onPointerDown é prevenido no
-  // VoiceMicButton) não tira o foco do campo, então ligar/desligar não
-  // dispara este guard.
-  useEffect(() => {
-    if (!listening) return
-    const fieldId = rest.id
-    if (!fieldId) return
-    const t = window.setTimeout(() => {
-      const active = document.activeElement
-      if (active && active.id !== fieldId) {
-        stopListening()
-      }
-    }, 200)
-    return () => window.clearTimeout(t)
-  }, [listening, rest.id, stopListening])
-
   return (
     <div className="relative">
       <Input
+        ref={inputRef}
         {...rest}
         disabled={disabled}
         value={value}
