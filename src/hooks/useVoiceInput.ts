@@ -226,7 +226,22 @@ export function useVoiceInput({ onTranscript, onClear, onEnd }: UseVoiceInputOpt
       // EXCLUSIVIDADE GLOBAL: aborta e desregistra QUALQUER escuta anterior
       // (inclusive a de outro campo — o dono anterior é notificado e volta ao
       // estado "parado") antes de abrir a nova.
+      //
+      // AUTO-NOTIFICAÇÃO (bug do Android "mic morre após o 1º ditado e não
+      // religa"): no reinício pós-onend (e num start sobre sessão ainda não
+      // encerrada), singleton.active ainda é uma instância DESTE PRÓPRIO hook.
+      // Se o abort notificar, finish() roda aqui dentro: zera shouldListenRef,
+      // desliga o botão (setListening(false)) e a sessão nova segue como
+      // "zumbi" — o toque seguinte no mic repete o ciclo e nunca ativa. Por
+      // isso, quando a escuta ativa é nossa, o aviso é removido ANTES do
+      // abort: ninguém se auto-notifica.
+      if (ownsActiveRef.current) {
+        singleton.onForeignStop = null
+      }
       singleton.abortCurrent()
+      // Defensiva: o abort de escuta estrangeira pode tocar neste hook em
+      // cascata; sem intenção restante, não abre sessão nova.
+      if (!shouldListenRef.current) return
       singleton.onForeignStop = () => finish()
       ownsActiveRef.current = true
 

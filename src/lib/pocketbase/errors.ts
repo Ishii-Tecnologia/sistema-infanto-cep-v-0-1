@@ -20,20 +20,11 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
-/**
- * True quando o erro indica sessão expirada / não autenticado (401 do
- * PocketBase, auth store inválido ou mensagem de autenticação). Usada por
- * Families.tsx, Library.tsx e Settings.tsx — NÃO remover (ver histórico).
- */
 export function isAuthExpiredError(error: unknown): boolean {
-  if (error instanceof ClientResponseError) {
-    if (error.status === 401 || error.status === 403) return true
-  }
-  if (error instanceof Error) {
-    const msg = error.message.toLowerCase()
-    return msg.includes('auth') || msg.includes('token') || msg.includes('sessão')
-  }
-  return false
+  if (!(error instanceof ClientResponseError)) return false
+  // 401 = não autenticado / sessão expirada (PocketBase); 0 = falha de rede,
+  // que NÃO deve derrubar a sessão do usuário.
+  return error.status === 401
 }
 
 export function getErrorMessage(error: unknown): string {
