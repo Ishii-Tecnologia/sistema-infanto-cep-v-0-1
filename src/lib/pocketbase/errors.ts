@@ -2,6 +2,15 @@ import { ClientResponseError } from 'pocketbase'
 
 export type FieldErrors = Record<string, string>
 
+/**
+ * Detecta erro de autenticação expirada (sessão inválida). Usada por
+ * Families.tsx, Library.tsx e Settings.tsx para decidir o logout/redirecionamento.
+ */
+export function isAuthExpiredError(error: unknown): boolean {
+  if (!(error instanceof ClientResponseError)) return false
+  return error.status === 401 || error.status === 403
+}
+
 export function extractFieldErrors(error: unknown): FieldErrors {
   if (!(error instanceof ClientResponseError)) return {}
   const data = error.response?.data
@@ -18,16 +27,6 @@ export function extractFieldErrors(error: unknown): FieldErrors {
     }
   }
   return errors
-}
-
-/**
- * Indica se o erro é de sessão expirada (401). Usada por Families, Library e
- * Settings para distinguir "sessão caiu" de erro de validação comum. Esta
- * exportação já sumiu várias vezes quebrando o build — não remover.
- */
-export function isAuthExpiredError(error: unknown): boolean {
-  if (!(error instanceof ClientResponseError)) return false
-  return error.status === 401
 }
 
 export function getErrorMessage(error: unknown): string {

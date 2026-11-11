@@ -42,9 +42,16 @@ export function VoicePhoneInput({
     lastAppliedLenRef.current = 0
   }
 
-  const { listening, toggle } = useVoiceInput({
+  const {
+    listening,
+    toggle,
+    stop: stopListening,
+  } = useVoiceInput({
+    // Contrato v0.0.113: o hook entrega APENAS o texto FECHADO do enunciado
+    // (último result final novo, dedup por índice+transcript no hook) — o
+    // interim nunca é gravado, o que eliminou a duplicação no Chrome/Android.
     onTranscript: (spoken, isFinal) => {
-      if (!spoken) return
+      if (!spoken || !isFinal) return
       // Nova geração (microfone recém-ligado ou pós-"limpar"): rascunho zerado.
       if (capturedRef.current === null || capturedRef.current.gen !== genRef.current) {
         capturedRef.current = { gen: genRef.current, text: '' }
@@ -53,8 +60,7 @@ export function VoicePhoneInput({
         lastAppliedLenRef.current = 0
       }
       // Guarda de reemissão: o MESMO texto falado nunca entra duas vezes.
-      if (spoken === lastSpokenRef.current && isFinal) return
-      if (spoken === lastSpokenRef.current && !isFinal) return
+      if (spoken === lastSpokenRef.current) return
       lastSpokenRef.current = spoken
 
       const cap = capturedRef.current
@@ -110,11 +116,11 @@ export function VoicePhoneInput({
     const t = window.setTimeout(() => {
       const active = document.activeElement
       if (active && active.id !== fieldId) {
-        stop()
+        stopListening()
       }
     }, 200)
     return () => window.clearTimeout(t)
-  }, [listening, rest.id])
+  }, [listening, rest.id, stopListening])
 
   return (
     <div className="relative">

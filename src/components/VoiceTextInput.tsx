@@ -80,22 +80,24 @@ export function VoiceTextInput({
     lastAppliedLenRef.current = 0
   }
 
-  const { listening, toggle } = useVoiceInput({
+  const {
+    listening,
+    toggle,
+    stop: stopListening,
+  } = useVoiceInput({
+    // Contrato v0.0.113: o hook entrega APENAS o texto FECHADO do enunciado
+    // (último result final novo, dedup por índice+transcript no hook) — o
+    // interim nunca é gravado, o que eliminou a duplicação no Chrome/Android.
     onTranscript: (spoken, isFinal) => {
-      if (!spoken) return
-      // Nova geração (microfone recém-ligado ou pós-"limpar"): rascunho zerado.
+      if (!spoken || !isFinal) return
+      // Nova geração (microfone recém-ligado ou pós-"limpar"): base zerado.
       if (capturedRef.current === null || capturedRef.current.gen !== genRef.current) {
         capturedRef.current = { gen: genRef.current, text: '' }
-        draftRef.current = ''
         lastSpokenRef.current = ''
         lastAppliedLenRef.current = 0
       }
-      // Guarda de reemissão: o MESMO texto falado nunca entra duas vezes.
-      if (spoken === lastSpokenRef.current && isFinal) return
-      if (spoken === lastSpokenRef.current && !isFinal) {
-        // Parcial reemitido idêntico: nada a fazer, o rascunho já está no campo.
-        return
-      }
+      // Guarda de reemissão: o MESMO enunciado nunca entra duas vezes.
+      if (spoken === lastSpokenRef.current) return
       lastSpokenRef.current = spoken
 
       const cap = capturedRef.current
@@ -108,12 +110,8 @@ export function VoiceTextInput({
       const next = appendSpokenText(base, spoken)
       cap.text = next
       lastAppliedLenRef.current = next.length
-      if (isFinal) {
-        // Final confirmado: o texto entra como base — nenhum rascunho pendente.
-        draftRef.current = ''
-      } else {
-        draftRef.current = spoken
-      }
+      // Final confirmado: o texto entra como base — nenhum rascunho pendente.
+      draftRef.current = ''
       onChange({ target: { value: next } })
       return next
     },
@@ -147,11 +145,11 @@ export function VoiceTextInput({
     const t = window.setTimeout(() => {
       const active = document.activeElement
       if (active && active.id !== fieldId) {
-        stop()
+        stopListening()
       }
     }, 200)
     return () => window.clearTimeout(t)
-  }, [listening, rest.id])
+  }, [listening, rest.id, stopListening])
 
   return (
     <div className="relative">

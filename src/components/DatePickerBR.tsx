@@ -110,13 +110,20 @@ export function DatePickerBR({
   // reemitir o mesmo enunciado, `parseSpokenDate` devolve a MESMA data e
   // `setTextValue`/`onChange` recebem o mesmo valor — nunca é anexado ao texto
   // já aplicado, então data não duplica (padrão "logo de uma vez" do Android).
-  const { listening, toggle } = useVoiceInput({
+  const {
+    listening,
+    toggle,
+    stop: stopListening,
+  } = useVoiceInput({
+    // Contrato v0.0.113: o hook entrega APENAS o texto FECHADO do enunciado
+    // (último result final novo, dedup por índice+transcript no hook) — o
+    // interim nunca é gravado, o que eliminou a duplicação no Chrome/Android.
     onTranscript: (spoken, isFinal) => {
+      if (!isFinal) return
       const iso = parseSpokenDate(spoken)
       if (!iso) {
-        // Enunciado ainda incompleto ("doze de") ou inválido: em `interim`
-        // aguarda o próximo evento; em `final`, mostra o bruto para o usuário.
-        if (isFinal) setTextValue(spoken)
+        // Enunciado inválido: mostra o bruto para o usuário editar/corrigir.
+        setTextValue(spoken)
         return
       }
       setTextValue(isoToBR(iso))
@@ -193,11 +200,11 @@ export function DatePickerBR({
     const t = window.setTimeout(() => {
       const active = document.activeElement
       if (active && active.id !== id) {
-        toggle()
+        stopListening()
       }
     }, 200)
     return () => window.clearTimeout(t)
-  }, [listening, id, toggle])
+  }, [listening, id, stopListening])
 
   const selectedDate = parseLocalDate(value)
 
