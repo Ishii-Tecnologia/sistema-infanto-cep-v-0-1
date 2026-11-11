@@ -1111,6 +1111,7 @@ export default function FamiliesPage() {
                         <VoiceTextInput
                           placeholder="Mãe, Pai, Avô, Tutora..."
                           suggestions={RELATIONSHIP_SUGGESTIONS}
+                          voiceMode="replace"
                           value={guardian.relationship}
                           onChange={(e) => {
                             const updated = [...wizardGuardians]

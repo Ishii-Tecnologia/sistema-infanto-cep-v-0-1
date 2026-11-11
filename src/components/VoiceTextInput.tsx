@@ -1,4 +1,4 @@
-import { useId, useRef, type ComponentProps } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ComponentProps } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useVoiceInput } from '@/hooks/useVoiceInput'
@@ -13,11 +13,19 @@ interface VoiceTextInputProps extends Omit<ComponentProps<typeof Input>, 'value'
   value: string
   onChange: (e: VoiceChangeEvent) => void
   /**
-   * Sugestões de preenchimento (datalist nativo): aparecem ao focar/digitar,
+   * Sugestões de preenchimento (dropdown próprio): aparecem ao focar/digitar,
    * mas o campo continua aceitando texto livre e ditado por voz.
    */
   suggestions?: string[]
+  /**
+   * Comportamento do ditado: 'append' anexa o texto falado ao conteúdo atual
+   * (padrão); 'replace' apaga o que está no campo e coloca o texto falado
+   * (campos de valor único, ex. Grau de Parentesco).
+   */
+  voiceMode?: VoiceTextInputMode
 }
+
+export type VoiceTextInputMode = 'append' | 'replace'
 
 // Anexa o texto falado ao final do que já estava no campo
 export function appendSpokenText(base: string, spoken: string): string {
@@ -52,10 +60,44 @@ export function VoiceTextInput({
   className,
   disabled,
   suggestions,
+  voiceMode = 'append',
   ...rest
 }: VoiceTextInputProps) {
   const suggestionsId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
+  // Dropdown próprio de sugestões (substitui o datalist nativo do navegador,
+  // cujo ícone cobre o botão do microfone no Chrome/Android)
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  // Fecha o dropdown ao clicar/tocar fora dele
+  useEffect(() => {
+    if (!suggestionsOpen) return
+    const close = (event: PointerEvent) => {
+      if (!wrapRef.current?.contains(event.target as Node)) setSuggestionsOpen(false)
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [suggestionsOpen])
+  // Filtra as sugestões pelo que já está digitado (ignora acentos/caixa)
+  const filteredSuggestions = useMemo(() => {
+    if (!suggestions || suggestions.length === 0) return []
+    const norm = (s: string) =>
+      s
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+    const current = norm(value.trim())
+    if (!current) return suggestions
+    return suggestions.filter((s) => norm(s).includes(current))
+  }, [suggestions, value])
+  const openSuggestions = () => {
+    if (!suggestions || suggestions.length === 0 || disabled) return
+    setSuggestionsOpen(true)
+  }
+  const applySuggestion = (s: string) => {
+    setSuggestionsOpen(false)
+    if (onChange) onChange({ target: { value: s } })
+  }
   // "Geração" da ditadura: incrementada a cada microfone ligado e a cada comando
   // "limpar". O texto-base de cada geração é capturado de forma LAZY (na
   // primeira aplicação de voz) em vez de no toggle — é o mesmo texto do campo.
@@ -98,6 +140,16 @@ export function VoiceTextInput({
       lastSpokenRef.current = spoken
 
       const cap = capturedRef.current
+      // Modo 'replace' (campos com valor único, ex. Grau de Parentesco): o
+      // enunciado SUBSTITUI o conteúdo atual do campo, sem anexar.
+      if (voiceMode === 'replace') {
+        const next = spoken
+        cap.text = next
+        lastAppliedLenRef.current = next.length
+        draftRef.current = ''
+        onChange({ target: { value: next } })
+        return next
+      }
       // Usuário editou o campo à mão depois da última aplicação: reancora.
       if (cap.text && value.length !== lastAppliedLenRef.current) {
         cap.text = value
@@ -133,22 +185,47 @@ export function VoiceTextInput({
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={wrapRef}>
       <Input
         ref={inputRef}
         {...rest}
         disabled={disabled}
         value={value}
+        onFocus={openSuggestions}
+        onInput={(e) => {
+          // Abrir as sugestões durante a digitação manual (e não por voz)
+          if (!listening) openSuggestions()
+          rest.onInput?.(e)
+        }}
         onChange={(e) => onChange({ target: { value: e.target.value } })}
-        list={suggestions && suggestions.length > 0 ? suggestionsId : undefined}
+        list={undefined}
         className={cn('pr-9', className)}
       />
-      {suggestions && suggestions.length > 0 && (
-        <datalist id={suggestionsId}>
-          {suggestions.map((s) => (
-            <option key={s} value={s} />
+      {/* Dropdown PRÓPRIO de sugestões (substitui o datalist nativo, cujo
+          ícone do navegador cobria o botão do microfone no Chrome/Android) */}
+      {suggestionsOpen && filteredSuggestions.length > 0 && (
+        <ul
+          className="absolute z-50 mt-1 w-full max-h-56 overflow-auto rounded-md border bg-popover py-1 shadow-md"
+          role="listbox"
+        >
+          {filteredSuggestions.map((s) => (
+            <li key={s}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={s === value}
+                className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                // pointerdown antes do blur do input
+                onPointerDown={(e) => {
+                  e.preventDefault()
+                  applySuggestion(s)
+                }}
+              >
+                {s}
+              </button>
+            </li>
           ))}
-        </datalist>
+        </ul>
       )}
       <VoiceMicButton
         listening={listening}

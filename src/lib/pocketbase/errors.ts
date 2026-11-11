@@ -22,8 +22,6 @@ export function extractFieldErrors(error: unknown): FieldErrors {
 
 export function isAuthExpiredError(error: unknown): boolean {
   if (!(error instanceof ClientResponseError)) return false
-  // 401 = não autenticado / sessão expirada (PocketBase); 0 = falha de rede,
-  // que NÃO deve derrubar a sessão do usuário.
   return error.status === 401
 }
 
