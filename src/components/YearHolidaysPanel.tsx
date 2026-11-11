@@ -47,9 +47,10 @@ import { isAuthExpiredError } from '@/lib/pocketbase/errors'
  * calendário. Antes vivia na página de Configurações (/configuracoes) e foi
  * movido para dentro do modal/página "Calendário e Matriz Pedagógica"
  * (/calendario), mantendo exatamente a mesma funcionalidade e a mesma
- * restrição de acesso (apenas Admin e Dirigente).
+ * restrição de acesso (apenas Admin e Dirigente editam; demais papéis
+ * visualizam somente leitura).
  */
-export default function YearHolidaysPanel() {
+export default function YearHolidaysPanel({ onDataChanged }: { onDataChanged?: () => void }) {
   const { toast } = useToast()
   const navigate = useNavigate()
   const { user: currentUser } = useAuth()
@@ -93,6 +94,18 @@ export default function YearHolidaysPanel() {
 
   // Guarda de permissão para Admin e Dirigente
   const canManage = currentUser?.role === 'admin' || currentUser?.role === 'dirigente'
+ 
+ // Auxiliar e outros papéis visualizam o painel apenas para consulta
+ const readOnly = !canManage
+
+ // Notifica o pai (Calendário) para recarregar os sábados/aulas do ano
+ const notifyDataChanged = () => {
+   try {
+     onDataChanged?.()
+   } catch {
+     /* non-fatal */
+   }
+ }
 
   // Modal para criar novo ano letivo
   const [newYearModalOpen, setNewYearModalOpen] = useState(false)
@@ -208,11 +221,6 @@ export default function YearHolidaysPanel() {
       toast({
         title: 'Ano criado!',
         description: `Ano letivo ${newYearInput} criado no Sistema Infanto-CEP.`,
-      })
-      await reloadSettings()
-      setSelectedYearNum(newYearInput)
-      setSelectedAnoLetivoRecord(created)
-      setNewYearModalOpen(false)
     } catch (err: any) {
       toast({
         title: 'Erro ao criar ano',
