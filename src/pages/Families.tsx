@@ -257,6 +257,7 @@ export default function FamiliesPage() {
   }
 
   const handleBirthDateChange = (index: number, dateStr: string) => {
+    // A data chega em ISO (YYYY-MM-DD) — o DatePickerBR exibe dd/mm/aaaa.
     const updated = [...wizardChildren]
     const autoClass = dateStr ? classifyChild(dateStr) : undefined
     updated[index] = {

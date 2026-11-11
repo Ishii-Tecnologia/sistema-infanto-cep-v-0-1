@@ -2,6 +2,33 @@ import pb from '@/lib/pocketbase/client'
 import { Family, Guardian, Child, ClassroomId } from '@/types'
 
 /**
+ * Normaliza a data de nascimento digitada/ditada para ISO (YYYY-MM-DD).
+ * A interface exibe e manipula a data no formato numérico dd/mm/aaaa — este
+ * helper converte para ISO antes de gravar no banco. Aceita também valores
+ * que já vêm em ISO (YYYY-MM-DD, com ou sem hora). Retorna null se inválido.
+ */
+function normalizeBirthDateIso(raw?: string | null): string | null {
+  const clean = (raw || '').trim()
+  if (!clean) return null
+  if (/^\d{4}-\d{2}-\d{2}( .*)?$/.test(clean) || clean.includes('T')) {
+    return clean
+  }
+  const br = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (br) {
+    const [, d, m, y] = br
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  return null
+}
+
+/** Converte dd/mm/aaaa (ou ISO) para o formato gravado no banco (ISO c/ hora). */
+function toBirthDatePayload(value?: string | null): string {
+  const iso = normalizeBirthDateIso(value)
+  if (!iso) return ''
+  return iso.includes('T') || iso.includes(' ') ? iso : `${iso} 00:00:00.000Z`
+}
+
+/**
  * Sanitiza payload para a coleção 'families' removendo campos de sistema,
  * relações, expand ou valores inválidos de e-mail.
  */
@@ -55,12 +82,7 @@ function sanitizeGuardianPayload(data: Partial<Guardian>): Record<string, any> {
     payload.email = trimmed === '' ? '' : trimmed
   }
   if (data.birth_date !== undefined) {
-    if (data.birth_date && data.birth_date.trim()) {
-      const raw = data.birth_date.trim()
-      payload.birth_date = raw.includes('T') || raw.includes(' ') ? raw : `${raw} 00:00:00.000Z`
-    } else {
-      payload.birth_date = ''
-    }
+    payload.birth_date = toBirthDatePayload(data.birth_date)
   }
   if (data.is_emergency_contact !== undefined) {
     payload.is_emergency_contact = Boolean(data.is_emergency_contact)
@@ -85,8 +107,7 @@ function sanitizeChildPayload(data: Partial<Child>): Record<string, any> {
     payload.name = (data.name || '').trim()
   }
   if (data.birth_date !== undefined && data.birth_date) {
-    const raw = data.birth_date
-    payload.birth_date = raw.includes('T') || raw.includes(' ') ? raw : `${raw} 00:00:00.000Z`
+    payload.birth_date = toBirthDatePayload(data.birth_date)
   }
   if (data.classroom !== undefined && data.classroom) {
     payload.classroom = data.classroom

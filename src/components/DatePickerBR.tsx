@@ -9,6 +9,126 @@ import { useVoiceInput } from '@/hooks/useVoiceInput'
 import { VoiceMicButton } from '@/components/VoiceMicButton'
 import { parseSpokenDate } from '@/lib/spokenDate'
 
+/**
+ * Fallback numérico para datas ditas que o parseSpokenDate não reconheceu
+ * completamente. Extrai os três primeiros números "soltos" do texto (um número
+ * por extenso, ex. "noventa", conta como UMA informação; dígitos individuais
+ * transcritos separados, ex. "1 5 0 6 1 9 8 5", também se agrupam como um
+ * único número) e monta dd/mm/aaaa, ignorando o resto da fala. Assim o campo
+ * nunca exibe texto dito — sempre data numérica (padrão dd/mm/aaaa pedido).
+ */
+function extractNumericDate(spoken: string): string | null {
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+
+  const WORD_NUMBERS: Record<string, number> = {
+    zero: 0,
+    um: 1,
+    uma: 1,
+    dois: 2,
+    duas: 2,
+    tres: 3,
+    quatro: 4,
+    cinco: 5,
+    seis: 6,
+    sete: 7,
+    oito: 8,
+    nove: 9,
+    dez: 10,
+    onze: 11,
+    doze: 12,
+    treze: 13,
+    catorze: 14,
+    quatorze: 14,
+    quinze: 15,
+    dezesseis: 16,
+    dezessete: 17,
+    dezoito: 18,
+    dezenove: 19,
+    vinte: 20,
+    trinta: 30,
+    quarenta: 40,
+    cinquenta: 50,
+    sessenta: 60,
+    setenta: 70,
+    oitenta: 80,
+    noventa: 90,
+    cem: 100,
+    cento: 100,
+    duzentos: 200,
+    trezentos: 300,
+    quatrocentos: 400,
+    quinhentos: 500,
+    seiscentos: 600,
+    setecentos: 700,
+    oitocentos: 800,
+    novecentos: 900,
+    mil: 1000,
+  }
+  const STOP_WORDS = new Set(['e', 'de', 'do', 'da', 'barra', 'dias', 'mes', 'ano'])
+  const TENS_UNITS: Record<string, number> = { ...WORD_NUMBERS }
+
+  const tokens = normalize(spoken)
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+
+  // Caso 1: sequência contínua de dígitos isolados (8 no total) => ddmmyyyy
+  const digitRun: string[] = []
+  for (const t of tokens) {
+    if (/^\d$/.test(t)) digitRun.push(t)
+    else if (digitRun.length > 0) break
+  }
+  if (digitRun.length === 8) {
+    const s = digitRun.join('')
+    return `${s.slice(0, 2)}/${s.slice(2, 4)}/${s.slice(4)}`
+  }
+
+  // Caso 2: agrupa tokens numéricos em "números" (palavras que se somam ou
+  // dígitos literais); STOP_WORDS são ignoradas, o resto encerra a varredura.
+  const groups: string[] = []
+  let current: number | null = null
+  let currentIsDigits = false
+  const flush = () => {
+    if (current !== null) {
+      groups.push(currentIsDigits ? String(current).padStart(2, '0') : String(current))
+      current = null
+    }
+  }
+  for (const t of tokens) {
+    if (/^\d+$/.test(t)) {
+      flush()
+      current = parseInt(t, 10)
+      currentIsDigits = true
+      continue
+    }
+    if (t in WORD_NUMBERS) {
+      if (currentIsDigits) flush()
+      if (current === null) {
+        current = TENS_UNITS[t]
+        currentIsDigits = false
+      } else if (!currentIsDigits) {
+        current += WORD_NUMBERS[t] // "noventa e cinco" -> 95
+      } else {
+        current += WORD_NUMBERS[t]
+      }
+      continue
+    }
+    if (STOP_WORDS.has(t)) continue
+    flush()
+  }
+  flush()
+
+  // Precisa de dia, mês e ano: 3 grupos, na ordem d/m/a.
+  if (groups.length < 3) return null
+  const [d, m, y] = groups
+  if (d.length > 2 || m.length > 2 || y.length !== 4) return null
+  return `${d}/${m}/${y}`
+}
+
 interface DatePickerBRProps {
   value?: string // Formato YYYY-MM-DD (ISO)
   onChange: (isoDate: string) => void
@@ -116,14 +236,19 @@ export function DatePickerBR({
     // interim nunca é gravado, o que eliminou a duplicação no Chrome/Android.
     onTranscript: (spoken, isFinal) => {
       if (!isFinal) return
-      const iso = parseSpokenDate(spoken)
+      const iso = parseSpokenDate(spoken) ?? extractNumericDate(spoken)
       if (!iso) {
-        // Enunciado inválido: mostra o bruto para o usuário editar/corrigir.
-        setTextValue(spoken)
+        // Nada reconhecível (nem dd/mm/aaaa nem por extenso): reverte para o
+        // último valor válido — o texto dito bruto NUNCA aparece como valor
+        // (o campo permanece sempre no formato numérico dd/mm/aaaa).
+        setTextValue(isoToBR(value))
         return
       }
-      setTextValue(isoToBR(iso))
-      onChange(iso)
+      // O parser devolve "YYYY-MM-DD" (ou "DD/MM/AAAA" no fallback); normaliza
+      // para ISO antes de gravar, para que o campo e o valor sejam numéricos.
+      const normalizedIso = brToIso(iso) ?? iso
+      setTextValue(isoToBR(normalizedIso))
+      onChange(normalizedIso)
     },
     // Comando "limpar" ditado: esvazia a data. A escuta NÃO é interrompida: o
     // hook segue ativo no mesmo campo (o reinício de 250ms do onend cobre o
