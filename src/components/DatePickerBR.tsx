@@ -137,6 +137,8 @@ interface DatePickerBRProps {
   disabled?: boolean
   id?: string
   name?: string
+  /** Classe extra para o input interno (ex. alinhar altura com outro campo) */
+  inputClassName?: string
   /** Mostra o botão de microfone para ditar a data em português */
   enableVoice?: boolean
 }
@@ -211,6 +213,7 @@ export function DatePickerBR({
   onChange,
   placeholder = 'dd/mm/aaaa',
   className,
+  inputClassName,
   disabled = false,
   id,
   name,
@@ -341,7 +344,10 @@ export function DatePickerBR({
         onBlur={handleBlur}
         disabled={disabled}
         maxLength={10}
-        className={enableVoice ? 'pr-24 font-mono text-xs h-9' : 'pr-16 font-mono text-xs h-9'}
+        className={cn(
+          enableVoice ? 'pr-24 font-mono text-xs h-9' : 'pr-16 font-mono text-xs h-9',
+          inputClassName,
+        )}
       />
 
       <div className="absolute right-1 flex items-center gap-0.5">

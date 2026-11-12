@@ -36,7 +36,6 @@ import {
   UserPlus,
   Search,
   Phone,
-  Mail,
   MapPin,
   Heart,
   AlertCircle,
@@ -114,18 +113,18 @@ export default function FamiliesPage() {
 
   const canDeleteFamily = hasRole(['admin', 'dirigente'])
 
-  // Dados do Wizard
+  // Dados do Wizard (sem e-mail da família: campo retirado da interface — a
+  // coluna continua no banco; ao editar, o valor existente é preservado porque
+  // a chave não é enviada no payload)
   const [wizardFamily, setWizardFamily] = useState<{
     reference_name: string
     primary_phone: string
-    email: string
     address: string
     bairro: string
     notes: string
   }>({
     reference_name: '',
     primary_phone: '',
-    email: '',
     address: '',
     bairro: '',
     notes: '',
@@ -224,7 +223,6 @@ export default function FamiliesPage() {
     setWizardFamily({
       reference_name: '',
       primary_phone: '',
-      email: '',
       address: '',
       bairro: '',
       notes: '',
@@ -268,6 +266,11 @@ export default function FamiliesPage() {
     setWizardChildren(updated)
   }
 
+  // Novo responsável vem com o telefone pré-preenchido com o "Telefone
+  // Principal / WhatsApp" da aba 1.Família (formatado com a máscara, como já
+  // está no campo de origem) — o usuário ainda pode editar ou apagar antes de
+  // salvar. O ditado por voz do VoicePhoneInput continua funcionando sobre
+  // esse valor pré-preenchido.
   const handleAddGuardian = () => {
     setWizardGuardians([
       ...wizardGuardians,
@@ -275,7 +278,7 @@ export default function FamiliesPage() {
         name: '',
         relationship: 'Pai',
         birth_date: '',
-        phone: '',
+        phone: wizardFamily.primary_phone || '',
         email: '',
         is_emergency_contact: false,
         photo_url: '',
@@ -422,7 +425,6 @@ export default function FamiliesPage() {
     setWizardFamily({
       reference_name: fam.reference_name || '',
       primary_phone: formatPhoneBR(fam.primary_phone || ''),
-      email: fam.email || '',
       address: fam.address || '',
       bairro: fam.bairro || '',
       notes: fam.notes || '',
@@ -1008,29 +1010,16 @@ export default function FamiliesPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="fam_phone">Telefone Principal / WhatsApp</Label>
-                    <VoicePhoneInput
-                      id="fam_phone"
-                      placeholder="(11) 98765-4321"
-                      value={wizardFamily.primary_phone}
-                      onChange={(e) =>
-                        setWizardFamily({ ...wizardFamily, primary_phone: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="fam_email">E-mail da Família</Label>
-                    <Input
-                      id="fam_email"
-                      type="email"
-                      placeholder="familia@email.com"
-                      value={wizardFamily.email}
-                      onChange={(e) => setWizardFamily({ ...wizardFamily, email: e.target.value })}
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="fam_phone">Telefone Principal / WhatsApp</Label>
+                  <VoicePhoneInput
+                    id="fam_phone"
+                    placeholder="(11) 98765-4321"
+                    value={wizardFamily.primary_phone}
+                    onChange={(e) =>
+                      setWizardFamily({ ...wizardFamily, primary_phone: e.target.value })
+                    }
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1284,6 +1273,7 @@ export default function FamiliesPage() {
                             placeholder="dd/mm/aaaa"
                             enableVoice
                             className="h-10"
+                            inputClassName="h-10"
                           />
                         </div>
 
@@ -1399,8 +1389,7 @@ export default function FamiliesPage() {
                     {wizardFamily.reference_name || 'Nome não preenchido'}
                   </p>
                   <p className="text-muted-foreground">
-                    {wizardFamily.primary_phone || 'Sem telefone'} •{' '}
-                    {wizardFamily.email || 'Sem e-mail'}
+                    {wizardFamily.primary_phone || 'Sem telefone'}
                   </p>
                   <p className="text-muted-foreground">{wizardFamily.address || 'Sem endereço'}</p>
                   <p className="text-muted-foreground">
