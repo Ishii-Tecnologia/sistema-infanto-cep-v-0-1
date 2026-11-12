@@ -20,6 +20,12 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
+/**
+ * Retorna true quando o erro indica sessão expirada / não autenticado (401).
+ * Restrito ao status 401: status 0 (falha de rede) NÃO derruba a sessão.
+ * NOTA: esta exportação já foi removida acidentalmente várias vezes e quebra
+ * o build (usada por YearHolidaysPanel.tsx, Families.tsx, Library.tsx e Settings.tsx).
+ */
 export function isAuthExpiredError(error: unknown): boolean {
   return error instanceof ClientResponseError && error.status === 401
 }

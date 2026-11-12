@@ -916,17 +916,16 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Ano Letivo e Janelas de Feriados — painel movido de Configurações (fonte única de verdade) */}
-      {canConfigure && (
-        <YearHolidaysPanel
-          onDataChanged={() => {
-            loadYearData(selectedYearNum)
-            if (activeAnoLetivo) {
-              setCurrentAnoLetivo(activeAnoLetivo)
-            }
-          }}
-        />
-      )}
+      {/* Ano Letivo e Janelas de Feriados — painel movido de Configurações (fonte única de verdade).
+          Renderizado para todos os papéis: o componente se auto-restringe a leitura (readOnly) para Auxiliar. */}
+      <YearHolidaysPanel
+        onDataChanged={() => {
+          loadYearData(selectedYearNum)
+          if (activeAnoLetivo) {
+            setCurrentAnoLetivo(activeAnoLetivo)
+          }
+        }}
+      />
 
       {/* Modal: Definir Assunto da Aula (Professor e Administrador) */}
       <Dialog
