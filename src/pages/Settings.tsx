@@ -1666,14 +1666,11 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* Ano Letivo e Janelas de Feriados - EDITÁVEL E FONTE ÚNICA DE VERDADE */}
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-base font-bold flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-indigo-600" />
-                      Ano Letivo {selectedYearNum} e Janelas de Feriados
+            {/* Ano Letivo e Janelas de Feriados: movido para o modal de Calendário (src/pages/Calendar.tsx) */}
+          </div>
+        </TabsContent>
+      </Tabs>
+=======
                       {selectedAnoLetivoRecord?.replicado_de && (
                         <Badge
                           variant="outline"

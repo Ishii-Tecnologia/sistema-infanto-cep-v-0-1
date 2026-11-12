@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
+import YearHolidaysPanel from '@/components/YearHolidaysPanel'
 
 export default function CalendarPage() {
   const { toast } = useToast()
@@ -508,10 +509,10 @@ export default function CalendarPage() {
           </div>
           <div className="pt-2">
             <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs">
-              <Link to="/settings">
-                <Settings2 className="h-3.5 w-3.5 mr-1.5" />
-                Configurar em Ano Letivo {selectedYearNum}
-              </Link>
+              <a href="#ano-letivo">
+                <Sliders className="h-3.5 w-3.5 mr-1.5" />
+                Configurar Ano Letivo {selectedYearNum}
+              </a>
             </Button>
           </div>
         </Card>
@@ -778,19 +779,17 @@ export default function CalendarPage() {
                             Aula Agendada
                           </Badge>
                         )}
-                        {canConfigure && (
-                          <Button
-                            asChild
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                          >
-                            <Link to="/settings">
-                              <Settings2 className="h-3.5 w-3.5 mr-1 text-indigo-600" />
-                              Gerenciar em Configurações
-                            </Link>
-                          </Button>
-                        )}
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                        >
+                          <a href="#ano-letivo">
+                            <Sliders className="h-3.5 w-3.5 mr-1 text-indigo-600" />
+                            Ano Letivo e Janelas de Feriados
+                          </a>
+                        </Button>
                       </div>
                     </div>
 
@@ -917,6 +916,18 @@ export default function CalendarPage() {
         </div>
       )}
 
+      {/* Ano Letivo e Janelas de Feriados — painel movido de Configurações (fonte única de verdade) */}
+      {canConfigure && (
+        <YearHolidaysPanel
+          onDataChanged={() => {
+            loadYearData(selectedYearNum)
+            if (activeAnoLetivo) {
+              setCurrentAnoLetivo(activeAnoLetivo)
+            }
+          }}
+        />
+      )}
+
       {/* Modal: Definir Assunto da Aula (Professor e Administrador) */}
       <Dialog
         open={!!editingSabado}
@@ -996,7 +1007,7 @@ export default function CalendarPage() {
             </DialogTitle>
             <DialogDescription className="text-xs">
               Visualização pedagógica da atividade programada. Para editar temas, blocos ou sábados,
-              acesse a ficha de configuração em Operadores e Configurações.
+              utilize a seção Ano Letivo e Janelas de Feriados desta página.
             </DialogDescription>
           </DialogHeader>
 
@@ -1045,10 +1056,10 @@ export default function CalendarPage() {
               size="sm"
               className="text-xs border-indigo-200 text-indigo-700"
             >
-              <Link to="/settings">
-                <Settings2 className="h-3.5 w-3.5 mr-1" />
-                Ir para Configurações
-              </Link>
+              <a href="#ano-letivo">
+                <Sliders className="h-3.5 w-3.5 mr-1" />
+                Ir para Ano Letivo e Janelas
+              </a>
             </Button>
             <Button
               size="sm"

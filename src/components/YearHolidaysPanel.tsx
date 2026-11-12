@@ -50,7 +50,14 @@ import { isAuthExpiredError } from '@/lib/pocketbase/errors'
  * restrição de acesso (apenas Admin e Dirigente editam; demais papéis
  * visualizam somente leitura).
  */
-export default function YearHolidaysPanel({ onDataChanged }: { onDataChanged?: () => void }) {
+export default function YearHolidaysPanel({
+  onDataChanged,
+  readOnly: readOnlyProp = false,
+}: {
+  onDataChanged?: () => void
+  /** Força modo somente leitura (ex.: quando embutido em outro modal); papéis sem permissão já são tratados internamente */
+  readOnly?: boolean
+}) {
   const { toast } = useToast()
   const navigate = useNavigate()
   const { user: currentUser } = useAuth()
@@ -94,18 +101,18 @@ export default function YearHolidaysPanel({ onDataChanged }: { onDataChanged?: (
 
   // Guarda de permissão para Admin e Dirigente
   const canManage = currentUser?.role === 'admin' || currentUser?.role === 'dirigente'
- 
- // Auxiliar e outros papéis visualizam o painel apenas para consulta
- const readOnly = !canManage
 
- // Notifica o pai (Calendário) para recarregar os sábados/aulas do ano
- const notifyDataChanged = () => {
-   try {
-     onDataChanged?.()
-   } catch {
-     /* non-fatal */
-   }
- }
+  // Auxiliar e outros papéis visualizam o painel apenas para consulta
+  const readOnly = !canManage || readOnlyProp
+
+  // Notifica o pai (Calendário) para recarregar os sábados/aulas do ano
+  const notifyDataChanged = () => {
+    try {
+      onDataChanged?.()
+    } catch {
+      /* non-fatal */
+    }
+  }
 
   // Modal para criar novo ano letivo
   const [newYearModalOpen, setNewYearModalOpen] = useState(false)
@@ -221,6 +228,12 @@ export default function YearHolidaysPanel({ onDataChanged }: { onDataChanged?: (
       toast({
         title: 'Ano criado!',
         description: `Ano letivo ${newYearInput} criado no Sistema Infanto-CEP.`,
+      })
+
+      setSelectedYearNum(newYearInput)
+      setNewYearModalOpen(false)
+      await reloadSettings()
+      notifyDataChanged()
     } catch (err: any) {
       toast({
         title: 'Erro ao criar ano',
@@ -875,46 +888,52 @@ export default function YearHolidaysPanel({ onDataChanged }: { onDataChanged?: (
 
             {/* Seletor de Ano Letivo + Botão Novo Ano */}
             <div className="flex items-center gap-2">
-              <Select
-                value={String(selectedYearNum)}
-                onValueChange={(val) => setSelectedYearNum(parseInt(val, 10))}
-              >
-                <SelectTrigger className="w-[140px] h-9 text-xs font-semibold">
-                  <SelectValue placeholder="Ano Letivo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {anosLetivos.map((a) => (
-                    <SelectItem key={a.id} value={String(a.ano)}>
-                      {a.ano} {a.status === 'ativo' ? '• Ativo' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {canManage && (
+                <Select
+                  value={String(selectedYearNum)}
+                  onValueChange={(val) => setSelectedYearNum(parseInt(val, 10))}
+                >
+                  <SelectTrigger className="w-[140px] h-9 text-xs font-semibold">
+                    <SelectValue placeholder="Ano Letivo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {anosLetivos.map((a) => (
+                      <SelectItem key={a.id} value={String(a.ano)}>
+                        {a.ano} {a.status === 'ativo' ? '• Ativo' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setNewYearModalOpen(true)}
-                className="h-9 text-xs"
-                title="Cadastrar novo ano letivo"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Novo Ano
-              </Button>
+              {canManage && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setNewYearModalOpen(true)}
+                  className="h-9 text-xs"
+                  title="Cadastrar novo ano letivo"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Novo Ano
+                </Button>
+              )}
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleReplicateFromPreviousYear}
-                disabled={replicating || !selectedAnoLetivoRecord}
-                className="h-9 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                title="Replicar sábados e feriados do ano letivo anterior recalculando datas (domingos ajustados para sábados)"
-              >
-                <Copy className="h-3.5 w-3.5 mr-1" />
-                {replicating ? 'Replicando...' : 'Replicar do ano anterior'}
-              </Button>
+              {canManage && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReplicateFromPreviousYear}
+                  disabled={replicating || !selectedAnoLetivoRecord}
+                  className="h-9 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                  title="Replicar sábados e feriados do ano letivo anterior recalculando datas (domingos ajustados para sábados)"
+                >
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  {replicating ? 'Replicando...' : 'Replicar do ano anterior'}
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -955,6 +974,7 @@ export default function YearHolidaysPanel({ onDataChanged }: { onDataChanged?: (
               <DatePickerBR
                 value={yearForm.startDate}
                 onChange={(val) => setYearForm({ ...yearForm, startDate: val })}
+                disabled={readOnly}
               />
             </div>
 
@@ -970,6 +990,7 @@ export default function YearHolidaysPanel({ onDataChanged }: { onDataChanged?: (
               <DatePickerBR
                 value={yearForm.endDate || ''}
                 onChange={(val) => setYearForm({ ...yearForm, endDate: val })}
+                disabled={readOnly}
               />
             </div>
 
@@ -985,6 +1006,7 @@ export default function YearHolidaysPanel({ onDataChanged }: { onDataChanged?: (
               <DatePickerBR
                 value={yearForm.winterBreakStart || ''}
                 onChange={(val) => setYearForm({ ...yearForm, winterBreakStart: val })}
+                disabled={readOnly}
               />
             </div>
 
@@ -1000,6 +1022,7 @@ export default function YearHolidaysPanel({ onDataChanged }: { onDataChanged?: (
               <DatePickerBR
                 value={yearForm.winterBreakEnd || ''}
                 onChange={(val) => setYearForm({ ...yearForm, winterBreakEnd: val })}
+                disabled={readOnly}
               />
             </div>
 
@@ -1015,6 +1038,7 @@ export default function YearHolidaysPanel({ onDataChanged }: { onDataChanged?: (
               <DatePickerBR
                 value={yearForm.christmasDate || ''}
                 onChange={(val) => setYearForm({ ...yearForm, christmasDate: val })}
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -1093,70 +1117,74 @@ export default function YearHolidaysPanel({ onDataChanged }: { onDataChanged?: (
             </div>
 
             {/* Formulário para Adicionar Sábado com Recesso */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1 items-end">
-              <div className="sm:col-span-4 space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label className="text-[11px]">Data do Sábado de Recesso</Label>
-                  {newRecessDate && (
-                    <span className="text-[10px] text-indigo-600 font-mono">
-                      {formatDate(newRecessDate)}
-                    </span>
-                  )}
+            {canManage && (
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1 items-end">
+                <div className="sm:col-span-4 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px]">Data do Sábado de Recesso</Label>
+                    {newRecessDate && (
+                      <span className="text-[10px] text-indigo-600 font-mono">
+                        {formatDate(newRecessDate)}
+                      </span>
+                    )}
+                  </div>
+                  <DatePickerBR value={newRecessDate} onChange={(val) => setNewRecessDate(val)} />
                 </div>
-                <DatePickerBR value={newRecessDate} onChange={(val) => setNewRecessDate(val)} />
+                <div className="sm:col-span-6 space-y-1">
+                  <Label className="text-[11px]">Nome / Motivo do Recesso</Label>
+                  <Input
+                    placeholder="Ex: Sábado de Páscoa ou Recesso Municipal"
+                    value={newRecessName}
+                    onChange={(e) => setNewRecessName(e.target.value)}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddRecess}
+                    className="w-full text-xs h-9"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Adicionar
+                  </Button>
+                </div>
               </div>
-              <div className="sm:col-span-6 space-y-1">
-                <Label className="text-[11px]">Nome / Motivo do Recesso</Label>
-                <Input
-                  placeholder="Ex: Sábado de Páscoa ou Recesso Municipal"
-                  value={newRecessName}
-                  onChange={(e) => setNewRecessName(e.target.value)}
-                />
-              </div>
-              <div className="sm:col-span-2">
+            )}
+          </div>
+
+          {canManage && (
+            <div className="pt-3 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <Button
+                  onClick={handleSaveYearAndHolidays}
+                  disabled={savingYear || syncingCalendar}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto"
+                >
+                  {savingYear ? 'Salvando...' : 'Salvar Ano Letivo e Datas'}
+                </Button>
+
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  onClick={handleAddRecess}
-                  className="w-full text-xs h-9"
+                  onClick={handleSyncCalendarDates}
+                  disabled={savingYear || syncingCalendar}
+                  className="border-indigo-300 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 w-full sm:w-auto"
+                  title="Sincroniza as datas das aulas respeitando a data de início e os recessos configurados"
                 >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Adicionar
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 mr-1.5 ${syncingCalendar ? 'animate-spin' : ''}`}
+                  />
+                  {syncingCalendar ? 'Sincronizando...' : 'Sincronizar Calendário de Sábados'}
                 </Button>
               </div>
+
+              <p className="text-[11px] text-muted-foreground">
+                As datas salvas definem o cálculo de corte de idade (01/03) e a geração de sábados.
+              </p>
             </div>
-          </div>
-
-          <div className="pt-3 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-              <Button
-                onClick={handleSaveYearAndHolidays}
-                disabled={savingYear || syncingCalendar}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto"
-              >
-                {savingYear ? 'Salvando...' : 'Salvar Ano Letivo e Datas'}
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSyncCalendarDates}
-                disabled={savingYear || syncingCalendar}
-                className="border-indigo-300 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 w-full sm:w-auto"
-                title="Sincroniza as datas das aulas respeitando a data de início e os recessos configurados"
-              >
-                <RefreshCw
-                  className={`h-3.5 w-3.5 mr-1.5 ${syncingCalendar ? 'animate-spin' : ''}`}
-                />
-                {syncingCalendar ? 'Sincronizando...' : 'Sincronizar Calendário de Sábados'}
-              </Button>
-            </div>
-
-            <p className="text-[11px] text-muted-foreground">
-              As datas salvas definem o cálculo de corte de idade (01/03) e a geração de sábados.
-            </p>
-          </div>
+          )}
         </CardContent>
       </Card>
 
