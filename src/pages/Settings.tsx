@@ -1669,7 +1669,11 @@ export default function SettingsPage() {
             {/* Ano Letivo e Janelas de Feriados: movido para o modal de Calendário (src/pages/Calendar.tsx) */}
           </div>
         </TabsContent>
+                      {selectedAnoLetivoRecord?.replicado_de && (
+=======
       </Tabs>
+
+      {/* Modal: Novo Operador */}
 =======
                       {selectedAnoLetivoRecord?.replicado_de && (
                         <Badge
