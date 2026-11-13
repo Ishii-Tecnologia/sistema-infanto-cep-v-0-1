@@ -231,21 +231,24 @@ export default function FamiliesPage() {
   //   ATIVO (o VoicePhoneInput ancora o texto-base de forma lazy; um setValue
   //   externo em cima do ditado em curso conflitaria com o rascunho pendente).
   const famPhone = wizardFamily.primary_phone || ''
+  const famPhoneDigits = onlyDigits(famPhone)
   useEffect(() => {
-    if (!onlyDigits(famPhone)) return // telefone principal vazio: não apaga
+    if (!famPhoneDigits) return // telefone principal vazio: não apaga
     setWizardGuardians((prev) => {
       let changed = false
       const next = prev.map((g) => {
         if (g.phoneManuallyEdited) return g // editado manualmente: respeitado
         // Ditado em curso neste campo: não pisar no pipeline de voz.
         if (guardiansListeningRef.current.has(g.uid)) return g
-        if ((g.phone || '') === famPhone) return g // já igual
+        // Comparação por dígitos: máscara parcial ("(11) 9" vs "119") não conta
+        // como diferença — o valor propagado é sempre o da família, formatado.
+        if (onlyDigits(g.phone || '') === famPhoneDigits) return g
         changed = true
         return { ...g, phone: famPhone }
       })
       return changed ? next : prev
     })
-  }, [famPhone, wizardGuardiansVersion])
+  }, [famPhone, famPhoneDigits, wizardGuardiansVersion])
 
   const checkAuthAndHandleExpired = (err: unknown): boolean => {
     if (!pb.authStore.isValid || isAuthExpiredError(err)) {
@@ -326,8 +329,8 @@ export default function FamiliesPage() {
   // salvar. O ditado por voz do VoicePhoneInput continua funcionando sobre
   // esse valor pré-preenchido.
   const handleAddGuardian = () => {
-    setWizardGuardians([
-      ...wizardGuardians,
+    setWizardGuardians((prev) => [
+      ...prev,
       {
         ...emptyWizardGuardian('Pai'),
         phone: wizardFamily.primary_phone || '',
@@ -345,10 +348,12 @@ export default function FamiliesPage() {
     setWizardGuardians((prev) =>
       prev.map((g, i) => {
         if (i !== index) return g
-        const familyPhone = (wizardFamily.primary_phone || '').trim()
-        const newValue = (value || '').trim()
-        if (newValue === familyPhone) {
-          // Voltou a ser igual ao da família: volta a acompanhar a propagação.
+        const familyPhoneDigits = onlyDigits(wizardFamily.primary_phone || '')
+        const newValueDigits = onlyDigits(value || '')
+        // Comparação por dígitos (máscara irrelevante): igualou ao Telefone
+        // Principal -> volta a acompanhar a propagação; diferente (ou vazio) ->
+        // passa a ser respeitado e não é mais sobrescrito.
+        if (newValueDigits && newValueDigits === familyPhoneDigits) {
           return { ...g, phone: value, phoneManuallyEdited: false }
         }
         return { ...g, phone: value, phoneManuallyEdited: true }
@@ -499,6 +504,12 @@ export default function FamiliesPage() {
       bairro: fam.bairro || '',
       notes: fam.notes || '',
     })
+    // Propagação do Telefone Principal no modo edição: um responsável existente
+    // só é tratado como "editado manualmente" (não acompanha a propagação) se
+    // tiver um telefone PRÓPRIO diferente do Telefone Principal da família.
+    // Sem telefone ou com o mesmo número, ele volta a acompanhar a propagação
+    // viva — sem sobrescrever números diferentes gravados no banco.
+    const famPhoneDigits = onlyDigits(fam.primary_phone || '')
     setWizardGuardians(
       (fam.guardians || []).length > 0
         ? fam.guardians!.map((g) => ({
@@ -510,7 +521,8 @@ export default function FamiliesPage() {
             email: g.email || '',
             is_emergency_contact: !!g.is_emergency_contact,
             photo_url: g.photo_url || '',
-            phoneManuallyEdited: true,
+            phoneManuallyEdited:
+              !!onlyDigits(g.phone || '') && onlyDigits(g.phone || '') !== famPhoneDigits,
             uid: nextGuardianUid(),
           }))
         : [{ ...emptyWizardGuardian(), uid: nextGuardianUid() }],
