@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { familyService, childService } from '@/services/families'
 import { auditLogService } from '@/services/auditLogs'
 import { Family, Guardian, Child, ClassroomId } from '@/types'
@@ -52,7 +52,7 @@ import { ImageCaptureInput } from '@/components/ImageCaptureInput'
 import { DatePickerBR } from '@/components/DatePickerBR'
 import { VoiceTextInput } from '@/components/VoiceTextInput'
 import { VoicePhoneInput } from '@/components/VoicePhoneInput'
-import { formatPhoneBR } from '@/lib/phoneBR'
+import { formatPhoneBR, onlyDigits } from '@/lib/phoneBR'
 
 // Sugestões do campo "Grau de Parentesco" (digitação livre continua valendo)
 const RELATIONSHIP_SUGGESTIONS = [
@@ -77,6 +77,28 @@ import { getErrorMessage, isAuthExpiredError } from '@/lib/pocketbase/errors'
 import pb from '@/lib/pocketbase/client'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+
+// Responsável vazio do wizard — campos padrão (novos cards começam "Mãe"/contato
+// de emergência, "Pai" vem do botão "Adicionar Responsável")
+function emptyWizardGuardian(relationship = 'Mãe') {
+  return {
+    name: '',
+    relationship,
+    birth_date: '',
+    phone: '',
+    email: '',
+    is_emergency_contact: relationship !== 'Pai',
+    photo_url: '',
+  }
+}
+
+// Identidade local estável dos responsáveis no wizard (chave de card e da guarda
+// de microfone-ativo da propagação): nunca enviada ao banco
+let guardianUidSeq = 0
+function nextGuardianUid() {
+  guardianUidSeq += 1
+  return `g${guardianUidSeq}`
+}
 
 export default function FamiliesPage() {
   const navigate = useNavigate()
@@ -140,18 +162,31 @@ export default function FamiliesPage() {
       email: string
       is_emergency_contact: boolean
       photo_url: string
+      // Controle interno da propagação do Telefone Principal: true quando o
+      // usuário editou o telefone deste responsável manualmente (ou por voz)
+      // para um valor diferente do da família — passa a ser respeitado.
+      phoneManuallyEdited?: boolean
+      // Identidade local do responsável no wizard (estável entre edições):
+      // chave dos cards e da guarda de microfone-ativo da propagação. Nunca é
+      // enviado ao banco (o sanitizeGuardianPayload só escolhe campos válidos).
+      uid: string
     }>
-  >([
-    {
-      name: '',
-      relationship: 'Mãe',
-      birth_date: '',
-      phone: '',
-      email: '',
-      is_emergency_contact: true,
-      photo_url: '',
-    },
-  ])
+  >(() => [{ ...emptyWizardGuardian(), uid: nextGuardianUid() }])
+
+  // Bump quando o ARRAY de responsáveis muda de composição (adicionar/remove):
+  // reavalia a propagação do telefone também nesses momentos, sem depender da
+  // identidade do array no efeito (que dispararia em toda edição de campo).
+  const [wizardGuardiansVersion, setWizardGuardiansVersion] = useState(0)
+  const bumpGuardiansVersion = () => setWizardGuardiansVersion((v) => v + 1)
+
+  // Campos de telefone de responsáveis com o microfone ATIVO neste momento:
+  // a propagação pula esses campos (ditado em curso ancora o texto-base de
+  // forma lazy; setValue externo conflitaria com o rascunho pendente).
+  const guardiansListeningRef = useRef<Set<string>>(new Set())
+  const handleGuardianListeningChange = (uid: string, listening: boolean) => {
+    if (listening) guardiansListeningRef.current.add(uid)
+    else guardiansListeningRef.current.delete(uid)
+  }
 
   const [wizardChildren, setWizardChildren] = useState<
     Array<{
@@ -183,6 +218,34 @@ export default function FamiliesPage() {
   useEffect(() => {
     loadFamilies()
   }, [])
+
+  // PROPAGAÇÃO VIVA do "Telefone Principal / WhatsApp" (aba 1.Família) para os
+  // telefones dos responsáveis (aba 2): enquanto o usuário digita/dita o
+  // telefone principal, todo responsável que ainda NÃO editou manualmente o
+  // próprio telefone reflete automaticamente o número — inclusive responsáveis
+  // já adicionados antes de o telefone ser informado. Regras:
+  // - Telefone Principal vazio NUNCA limpa o telefone do responsável;
+  // - Telefone editado manualmente pelo usuário (phoneManuallyEdited) não é
+  //   sobrescrito — volta a acompanhar só se voltar a ficar igual ao da família;
+  // - Não propaga enquanto o microfone do próprio campo do responsável está
+  //   ATIVO (o VoicePhoneInput ancora o texto-base de forma lazy; um setValue
+  //   externo em cima do ditado em curso conflitaria com o rascunho pendente).
+  const famPhone = wizardFamily.primary_phone || ''
+  useEffect(() => {
+    if (!onlyDigits(famPhone)) return // telefone principal vazio: não apaga
+    setWizardGuardians((prev) => {
+      let changed = false
+      const next = prev.map((g) => {
+        if (g.phoneManuallyEdited) return g // editado manualmente: respeitado
+        // Ditado em curso neste campo: não pisar no pipeline de voz.
+        if (guardiansListeningRef.current.has(g.uid)) return g
+        if ((g.phone || '') === famPhone) return g // já igual
+        changed = true
+        return { ...g, phone: famPhone }
+      })
+      return changed ? next : prev
+    })
+  }, [famPhone, wizardGuardiansVersion])
 
   const checkAuthAndHandleExpired = (err: unknown): boolean => {
     if (!pb.authStore.isValid || isAuthExpiredError(err)) {
@@ -227,17 +290,8 @@ export default function FamiliesPage() {
       bairro: '',
       notes: '',
     })
-    setWizardGuardians([
-      {
-        name: '',
-        relationship: 'Mãe',
-        birth_date: '',
-        phone: '',
-        email: '',
-        is_emergency_contact: true,
-        photo_url: '',
-      },
-    ])
+    setWizardGuardians([{ ...emptyWizardGuardian(), uid: nextGuardianUid() }])
+    bumpGuardiansVersion()
     setWizardChildren([
       {
         name: '',
@@ -275,21 +329,37 @@ export default function FamiliesPage() {
     setWizardGuardians([
       ...wizardGuardians,
       {
-        name: '',
-        relationship: 'Pai',
-        birth_date: '',
+        ...emptyWizardGuardian('Pai'),
         phone: wizardFamily.primary_phone || '',
-        email: '',
-        is_emergency_contact: false,
-        photo_url: '',
-        id: undefined,
+        uid: nextGuardianUid(),
       },
     ])
+    bumpGuardiansVersion()
+  }
+
+  // Edição do telefone de UM responsável: quando o usuário digita/dita um valor
+  // DIFERENTE do Telefone Principal da família, o telefone dele passa a ser
+  // considerado "editado manualmente" e deixa de acompanhar a propagação
+  // automática (limpar o campo também conta — não volta a ser preenchido).
+  const handleGuardianPhoneChange = (index: number, value: string) => {
+    setWizardGuardians((prev) =>
+      prev.map((g, i) => {
+        if (i !== index) return g
+        const familyPhone = (wizardFamily.primary_phone || '').trim()
+        const newValue = (value || '').trim()
+        if (newValue === familyPhone) {
+          // Voltou a ser igual ao da família: volta a acompanhar a propagação.
+          return { ...g, phone: value, phoneManuallyEdited: false }
+        }
+        return { ...g, phone: value, phoneManuallyEdited: true }
+      }),
+    )
   }
 
   const handleRemoveGuardian = (index: number) => {
     if (wizardGuardians.length > 1) {
       setWizardGuardians(wizardGuardians.filter((_, i) => i !== index))
+      bumpGuardiansVersion()
     }
   }
 
@@ -440,20 +510,12 @@ export default function FamiliesPage() {
             email: g.email || '',
             is_emergency_contact: !!g.is_emergency_contact,
             photo_url: g.photo_url || '',
+            phoneManuallyEdited: true,
+            uid: nextGuardianUid(),
           }))
-        : [
-            {
-              id: undefined,
-              name: '',
-              relationship: 'Mãe',
-              birth_date: '',
-              phone: '',
-              email: '',
-              is_emergency_contact: true,
-              photo_url: '',
-            },
-          ],
+        : [{ ...emptyWizardGuardian(), uid: nextGuardianUid() }],
     )
+    bumpGuardiansVersion()
     setWizardChildren(
       (fam.children || []).length > 0
         ? fam.children!.map((c) => {
@@ -1062,7 +1124,7 @@ export default function FamiliesPage() {
               <div className="space-y-4">
                 {wizardGuardians.map((guardian, index) => (
                   <div
-                    key={index}
+                    key={guardian.uid}
                     className="p-3 border rounded-lg space-y-3 bg-slate-50/50 dark:bg-slate-900/50 relative"
                   >
                     <div className="flex items-center justify-between">
@@ -1129,11 +1191,10 @@ export default function FamiliesPage() {
                         <VoicePhoneInput
                           placeholder="(11) 99999-9999"
                           value={guardian.phone}
-                          onChange={(e) => {
-                            const updated = [...wizardGuardians]
-                            updated[index].phone = e.target.value
-                            setWizardGuardians(updated)
-                          }}
+                          onListeningChange={(listening) =>
+                            handleGuardianListeningChange(guardian.uid, listening)
+                          }
+                          onChange={(e) => handleGuardianPhoneChange(index, e.target.value)}
                         />
                       </div>
 
@@ -1402,7 +1463,7 @@ export default function FamiliesPage() {
                   <div className="space-y-1">
                     {wizardGuardians.map((g, i) => (
                       <div
-                        key={i}
+                        key={g.uid}
                         className="p-2 border rounded bg-white dark:bg-slate-900 flex justify-between items-center"
                       >
                         <div>

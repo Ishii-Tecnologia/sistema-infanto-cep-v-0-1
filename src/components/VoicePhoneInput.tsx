@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { VoiceMicButton } from '@/components/VoiceMicButton'
@@ -11,6 +11,10 @@ interface VoicePhoneInputProps extends Omit<
 > {
   value: string
   onChange: (e: { target: { value: string } }) => void
+  /** Avisado sempre que a escuta deste campo liga/desliga (inclusive quando
+   * outro campo assume o microfone). Usado pelo pai para não sobrescrever o
+   * valor por propagação externa enquanto o ditado está em curso. */
+  onListeningChange?: (listening: boolean) => void
 }
 
 /**
@@ -26,6 +30,7 @@ export function VoicePhoneInput({
   onChange,
   className,
   disabled,
+  onListeningChange,
   ...rest
 }: VoicePhoneInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -93,6 +98,14 @@ export function VoicePhoneInput({
       onChange({ target: { value: '' } })
     },
   })
+
+  // Notifica o pai sobre o estado da escuta (via ref: o callback pode mudar a
+  // cada render sem re-disparar o efeito).
+  const onListeningChangeRef = useRef(onListeningChange)
+  onListeningChangeRef.current = onListeningChange
+  useEffect(() => {
+    onListeningChangeRef.current?.(listening)
+  }, [listening])
 
   const handleToggle = () => {
     if (!listening) {
