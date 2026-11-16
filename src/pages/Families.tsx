@@ -135,6 +135,8 @@ export default function FamiliesPage() {
   const [deleting, setDeleting] = useState(false)
 
   const canDeleteFamily = hasRole(['admin', 'dirigente'])
+  // CSV (exportar/importar/modelo) fica visível apenas para Admin
+  const canManageCsv = hasRole(['admin'])
 
   // Dados do Wizard (sem e-mail da família: campo retirado da interface — a
   // coluna continua no banco; ao editar, o valor existente é preservado porque
@@ -621,7 +623,7 @@ export default function FamiliesPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <FamiliesCsvTools families={families} onImported={loadFamilies} />
+          {canManageCsv && <FamiliesCsvTools families={families} onImported={loadFamilies} />}
           <Button
             onClick={handleOpenWizard}
             className="bg-indigo-600 hover:bg-indigo-700 text-white"

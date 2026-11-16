@@ -21,8 +21,7 @@ export function extractFieldErrors(error: unknown): FieldErrors {
 }
 
 export function isAuthExpiredError(error: unknown): boolean {
-  if (!(error instanceof ClientResponseError)) return false
-  return error.status === 401
+  return error instanceof ClientResponseError && error.status === 401
 }
 
 export function getErrorMessage(error: unknown): string {
