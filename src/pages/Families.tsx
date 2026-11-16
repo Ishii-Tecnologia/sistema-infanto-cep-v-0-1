@@ -1352,9 +1352,14 @@ export default function FamiliesPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Nome da Criança *</Label>
+                      {/* Rótulos com linha de altura fixa (h-4) para que "Nome da
+                          Criança" e "Data de Nascimento" fiquem alinhados na
+                          mesma base, e os inputs abaixo também (ambos h-10). */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+                        <div className="space-y-1">
+                          <div className="h-4 flex items-center">
+                            <Label className="text-xs leading-none">Nome da Criança *</Label>
+                          </div>
                           <VoiceTextInput
                             placeholder="Nome completo do aluno"
                             className="h-10"
@@ -1367,11 +1372,11 @@ export default function FamiliesPage() {
                           />
                         </div>
 
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-xs">Data de Nascimento *</Label>
+                        <div className="space-y-1">
+                          <div className="h-4 flex items-center justify-between">
+                            <Label className="text-xs leading-none">Data de Nascimento *</Label>
                             {child.birth_date && (
-                              <span className="text-[10px] text-indigo-600 font-mono font-medium">
+                              <span className="text-[10px] text-indigo-600 font-mono font-medium leading-none">
                                 {formatDate(child.birth_date)}
                               </span>
                             )}
