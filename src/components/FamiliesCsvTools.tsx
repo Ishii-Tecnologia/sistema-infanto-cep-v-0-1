@@ -17,6 +17,7 @@ import { Download, FileDown, Upload, AlertTriangle, CheckCircle2, Loader2 } from
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { Family } from '@/types'
+import { useAcademic } from '@/contexts/AcademicContext'
 import {
   exportFamiliesCsv,
   downloadFamiliesCsvTemplate,
@@ -33,6 +34,8 @@ interface FamiliesCsvToolsProps {
 
 export function FamiliesCsvTools({ families, onImported }: FamiliesCsvToolsProps) {
   const { toast } = useToast()
+  // Mesmo classificador de sala do cadastro individual (idade na data de corte)
+  const { classifyChild } = useAcademic()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -72,7 +75,7 @@ export function FamiliesCsvTools({ families, onImported }: FamiliesCsvToolsProps
     setImporting(true)
     try {
       const text = await file.text()
-      const rows = parseFamiliesCsv(text)
+      const rows = parseFamiliesCsv(text, classifyChild)
       const summary = await applyFamiliesCsv(rows, families)
       setResult({ fileName: file.name, summary })
       onImported()
@@ -151,7 +154,8 @@ export function FamiliesCsvTools({ families, onImported }: FamiliesCsvToolsProps
               atualiza; não existe, cria.
               <br />• A criança é identificada por <strong>Nome + Data de Nascimento</strong>; o
               responsável, por <strong>Nome + Parentesco</strong>.
-              <br />• Datas em <strong>dd/mm/aaaa</strong>; sala como A, B, C ou D.
+              <br />• Datas em <strong>dd/mm/aaaa</strong>. A sala é definida pela idade na data de
+              nascimento, como no cadastro individual.
               <br />• <strong>Nada é apagado</strong>: registros que não estão no arquivo são
               mantidos.
             </DialogDescription>

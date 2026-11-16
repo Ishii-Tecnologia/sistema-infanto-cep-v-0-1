@@ -18,10 +18,14 @@
  * - Família: Nome de Referência da Família (case-insensitive, sem espaços
  *   extras). Se não existir, a família é criada.
  * - Criança: Nome da Criança + Data de Nascimento dentro da família
- *   (case-insensitive). Se não existir, é criada. Linha sem nome de criança
- *   atualiza apenas os dados da família/responsáveis.
- * - Responsável: Nome + Parentesco dentro da família (case-insensitive).
- *   Se não existir, é criado.
+ *   (case-insensitive); se não houver, o mesmo Nome dentro da família.
+ *   Se não existir, é criada. Linha sem nome de criança atualiza apenas os
+ *   dados da família/responsáveis.
+ * - Responsável: Nome + Parentesco dentro da família (case-insensitive); se
+ *   não houver, o mesmo Nome dentro da família. Se não existir, é criado.
+ * - A coluna "Sala" NÃO é lida na importação: a sala é calculada pela data de
+ *   nascimento (mesmo critério do cadastro individual). Ela existe apenas na
+ *   exportação.
  * - A importação NUNCA apaga registros que não estão no CSV.
  * - Uma linha sem Nome da Criança atualiza apenas os dados da família/responsáveis.
  */
@@ -54,6 +58,9 @@ export const CSV_HEADERS = [
   'Observações Médicas',
   'Autorização de Imagem',
 ] as const
+
+/** Cabeçalho aceito na importação: igual ao da exportação, sem a coluna "Sala". */
+export const CSV_IMPORT_HEADERS: string[] = CSV_HEADERS.filter((h) => h !== 'Sala')
 
 const SEP = ';'
 
@@ -124,14 +131,6 @@ export function csvDateToIso(value: string | undefined): string {
   return iso || ''
 }
 
-/** Sala: aceita "A".."D", "Sala A".."Sala D" ou vazio. */
-function parseClassroom(value: string | undefined): ClassroomId | '' {
-  const v = (value || '').trim().toUpperCase().replace(/\s+/g, ' ')
-  if (!v) return ''
-  const m = v.match(/^(?:SALA\s+)?([ABCD])$/)
-  return m ? (m[1] as ClassroomId) : ''
-}
-
 function classroomToLabel(classroom?: string): string {
   return classroom ? `Sala ${classroom}` : ''
 }
@@ -199,12 +198,14 @@ function formatRow(
 
 // ---------- Exportar ----------
 
-export function buildFamiliesCsv(families: Family[]): string {
-  const rows: string[][] = [[...CSV_HEADERS]]
+export function buildFamiliesCsv(families: Family[], includeClassroom = true): string {
+  const keep = (row: string[]) =>
+    includeClassroom ? row : row.filter((_, i) => CSV_HEADERS[i] !== 'Sala')
+  const rows: string[][] = [keep([...CSV_HEADERS])]
   for (const family of families) {
     const children = family.children && family.children.length > 0 ? family.children : [undefined]
     for (const child of children) {
-      rows.push(formatRow(family, undefined, child))
+      rows.push(keep(formatRow(family, undefined, child)))
     }
   }
   return rows.map((r) => r.map(csvCell).join(SEP)).join('\r\n')
@@ -222,11 +223,11 @@ export function downloadCsvFile(filename: string, content: string): void {
   URL.revokeObjectURL(url)
 }
 
-export function exportFamiliesCsv(families: Family[]): void {
+export function exportFamiliesCsv(families: Family[], includeClassroom = true): void {
   const now = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-  downloadCsvFile(`familias_${stamp}.csv`, buildFamiliesCsv(families))
+  downloadCsvFile(`familias_${stamp}.csv`, buildFamiliesCsv(families, includeClassroom))
 }
 
 // ---------- Modelo (template) ----------
@@ -275,7 +276,7 @@ export function downloadFamiliesCsvTemplate(): void {
       },
     ],
   }
-  exportFamiliesCsv([sample])
+  exportFamiliesCsv([sample], false)
 }
 
 // ---------- Importar ----------
@@ -326,14 +327,17 @@ interface ParsedRow {
  * Lança Error com mensagem amigável quando o arquivo em si é inválido
  * (cabeçalho errado, nenhuma linha de dados, etc.).
  */
-export function parseFamiliesCsv(raw: string): ParsedRow[] {
+export function parseFamiliesCsv(
+  raw: string,
+  classifyByBirthDate: (birthIso: string) => ClassroomId,
+): ParsedRow[] {
   const matrix = parseCsv(raw)
   if (matrix.length === 0) {
     throw new Error('O arquivo está vazio.')
   }
 
   const header = matrix[0].map((h) => h.trim())
-  const expected = [...CSV_HEADERS]
+  const expected = CSV_IMPORT_HEADERS
   const missing = expected.filter((h) => !header.includes(h))
   if (missing.length > 0) {
     throw new Error(
@@ -360,7 +364,7 @@ export function parseFamiliesCsv(raw: string): ParsedRow[] {
     g2Email: col('Responsável 2 - E-mail'),
     childName: col('Nome da Criança'),
     childBirth: col('Data de Nascimento da Criança'),
-    childClass: col('Sala'),
+
     childAllergies: col('Alergias'),
     childMedical: col('Observações Médicas'),
     childImage: col('Autorização de Imagem'),
@@ -401,21 +405,16 @@ export function parseFamiliesCsv(raw: string): ParsedRow[] {
     if (childName) {
       const birthRaw = at(idx.childBirth)
       const birthIso = csvDateToIso(birthRaw)
-      const classroom = parseClassroom(at(idx.childClass))
       if (!birthIso) {
         throw new Error(
           `Linha ${i + 1}: criança "${childName}" sem data de nascimento válida (use dd/mm/aaaa).`,
         )
       }
-      if (!classroom) {
-        throw new Error(
-          `Linha ${i + 1}: criança "${childName}" sem sala válida (use A, B, C ou D).`,
-        )
-      }
       child = {
         name: childName,
         birth_date: birthIso,
-        classroom,
+        // Sala calculada pela idade na data de corte (mesmo critério do cadastro)
+        classroom: classifyByBirthDate(birthIso),
         allergies: at(idx.childAllergies),
         medical_notes: at(idx.childMedical),
         image_authorized: parseSimNao(at(idx.childImage)),
@@ -505,12 +504,19 @@ export async function applyFamiliesCsv(
           .collection('children')
           .getFullList<Child>({ filter: `family_id = "${familyId}"` }))
 
-      // Responsáveis: casa por Nome + Parentesco; cria os que não existem
+      // Responsáveis: casa por Nome + Parentesco; se não houver, pelo Nome sozinho
+      // dentro da família (sem reaproveitar o mesmo registro duas vezes na linha).
+      // Cria os que não existem.
+      const usedGuardianIds = new Set<string>()
       for (const g of row.guardians) {
-        const gKey = `${normalizeKey(g.name)}||${normalizeKey(g.relationship)}`
-        const match = existingGuardians.find(
-          (e) => `${normalizeKey(e.name)}||${normalizeKey(e.relationship || '')}` === gKey,
-        )
+        const sameName = (e: Guardian) =>
+          !usedGuardianIds.has(e.id) && normalizeKey(e.name) === normalizeKey(g.name)
+        const match =
+          existingGuardians.find(
+            (e) =>
+              sameName(e) && normalizeKey(e.relationship || '') === normalizeKey(g.relationship),
+          ) ?? existingGuardians.find(sameName)
+        if (match) usedGuardianIds.add(match.id)
         const payload = {
           name: g.name,
           relationship: g.relationship,
@@ -529,10 +535,14 @@ export async function applyFamiliesCsv(
 
       // Crianças: casa por Nome + Data de Nascimento
       if (row.child) {
-        const childKey = `${normalizeKey(row.child.name)}||${row.child.birth_date.slice(0, 10)}`
-        const match = existingChildren.find(
-          (e) => `${normalizeKey(e.name)}||${(e.birth_date || '').slice(0, 10)}` === childKey,
-        )
+        // Casa por Nome + Nascimento; se não houver, pelo Nome sozinho dentro da família
+        const childName = normalizeKey(row.child.name)
+        const childBirth = row.child.birth_date.slice(0, 10)
+        const sameChildName = (e: Child) => normalizeKey(e.name) === childName
+        const match =
+          existingChildren.find(
+            (e) => sameChildName(e) && (e.birth_date || '').slice(0, 10) === childBirth,
+          ) ?? existingChildren.find(sameChildName)
         const payload = {
           name: row.child.name,
           birth_date: toBirthDatePayload(row.child.birth_date),
