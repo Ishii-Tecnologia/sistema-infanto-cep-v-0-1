@@ -36,24 +36,31 @@ function Calendar({
       }}
       classNames={{
         root: cn('w-fit', defaultClassNames.root),
-        months: cn('relative flex flex-col gap-4 md:flex-row', defaultClassNames.months),
-        month: cn('flex w-full flex-col gap-4', defaultClassNames.month),
-        nav: cn(
-          'absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1',
-          defaultClassNames.nav,
+        // Contêiner rolável do calendário: em telas baixas a lista de dias rola
+        // INTERNAMENTE neste frame (max-h + overflow) e o cabeçalho (linha do
+        // mês/ano + setas) fica fixo (sticky) no topo. O Nav do DayPicker é irmão
+        // do Month dentro de Months;sticky e altura 0 mantêm as setas sobrepostas
+        // à linha do caption (visual de linha única) e presas ao topo ao rolar.
+        months: cn(
+          'relative flex flex-col md:flex-row max-h-[min(60vh,17rem)] overflow-y-auto',
+          defaultClassNames.months,
         ),
+        month: cn('flex w-full flex-col gap-4', defaultClassNames.month),
+        nav: cn('sticky top-0 z-40 h-0', defaultClassNames.nav),
         button_previous: cn(
           buttonVariants({ variant: buttonVariant }),
-          'h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50',
+          'absolute left-0 top-0 h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50',
           defaultClassNames.button_previous,
         ),
         button_next: cn(
           buttonVariants({ variant: buttonVariant }),
-          'h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50',
+          'absolute right-0 top-0 h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50',
           defaultClassNames.button_next,
         ),
+        // Caption (mês/ano) sticky: preso ao topo do frame rolável; as setas do
+        // Nav (h-0, z-40) continuam renderizadas por cima desta linha (z-30).
         month_caption: cn(
-          'flex h-[--cell-size] w-full items-center justify-center px-[--cell-size]',
+          'sticky top-0 z-30 flex h-[--cell-size] w-full items-center justify-center bg-background px-[--cell-size]',
           defaultClassNames.month_caption,
         ),
         dropdowns: cn(
