@@ -21,7 +21,6 @@ export function extractFieldErrors(error: unknown): FieldErrors {
 }
 
 export function isAuthExpiredError(error: unknown): boolean {
-  // Sessão expirada / não autenticado: erro HTTP 401 do PocketBase.
   return error instanceof ClientResponseError && error.status === 401
 }
 

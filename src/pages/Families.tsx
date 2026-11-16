@@ -1089,81 +1089,16 @@ export default function FamiliesPage() {
 
           <div className="py-4">
             {/* ETAPA 1: CADASTRO — Família + Responsáveis em uma única ficha */}
-            {currentStep === 1 && (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="ref_name">Nome de Referência da Família *</Label>
-                  <VoiceTextInput
-                    id="ref_name"
-                    placeholder="Ex: Familia Silva Santos"
-                    value={wizardFamily.reference_name}
-                    onChange={(e) => {
-                      setWizardFamily({ ...wizardFamily, reference_name: e.target.value })
-                      // Edição manual (digitação ou ditado neste campo) congela
-                      // a sugestão automática — o valor editado é respeitado.
-                      setRefNameTouched(true)
-                    }}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Como a família será identificada nas listas e relatórios. Sugerido
-                    automaticamente como "Familia" + nome do Responsável #1 — edite à mão se
-                    preferir.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="fam_phone">Telefone Principal / WhatsApp</Label>
-                  <VoicePhoneInput
-                    id="fam_phone"
-                    placeholder="(11) 98765-4321"
-                    value={wizardFamily.primary_phone}
-                    onChange={(e) =>
-                      setWizardFamily({ ...wizardFamily, primary_phone: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="fam_address">Endereço Completo</Label>
-                    <VoiceTextInput
-                      id="fam_address"
-                      placeholder="Rua, número, complemento"
-                      value={wizardFamily.address}
-                      onChange={(e) =>
-                        setWizardFamily({ ...wizardFamily, address: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="fam_bairro">Bairro</Label>
-                    <VoiceTextInput
-                      id="fam_bairro"
-                      placeholder="Nome do bairro"
-                      value={wizardFamily.bairro}
-                      onChange={(e) => setWizardFamily({ ...wizardFamily, bairro: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="fam_notes">Observações Gerais</Label>
-                  <VoiceTextInput
-                    id="fam_notes"
-                    placeholder="Notas adicionais sobre a família..."
-                    value={wizardFamily.notes}
-                    onChange={(e) => setWizardFamily({ ...wizardFamily, notes: e.target.value })}
-                  />
-                </div>
-
-                {/* RESPONSÁVEIS — na mesma ficha da família (antiga etapa separada) */}
-                <div className="pt-3 border-t space-y-1">
+                {/* RESPONSÁVEIS — no TOPO da ficha (ordem de preenchimento: os dados
+                    do Responsável #1 alimentam a sugestão do Nome de Referência,
+                    que fica logo abaixo; nenhum campo foi removido) */}
+                <div className="space-y-1">
                   <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
                     Responsáveis
                   </h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Pelo menos um responsável é obrigatório — o Nome de Referência da Família, no
-                    topo da ficha, é sugerido a partir do nome do Responsável #1.
+                    Pelo menos um responsável é obrigatório — o Nome de Referência da Família,
+                    logo abaixo, é sugerido automaticamente a partir do nome do Responsável #1.
                   </p>
                 </div>
 
@@ -1308,6 +1243,78 @@ export default function FamiliesPage() {
                   <Plus className="h-3.5 w-3.5 mr-1" />
                   Adicionar Outro Responsável
                 </Button>
+
+                {/* DADOS DA FAMÍLIA — abaixo dos responsáveis (o Nome de
+                    Referência é sugerido a partir do Responsável #1, já
+                    preenchido acima; ordem de preenchimento apenas) */}
+                <div className="pt-3 border-t space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ref_name">Nome de Referência da Família *</Label>
+                    <VoiceTextInput
+                      id="ref_name"
+                      placeholder="Ex: Familia Silva Santos"
+                      value={wizardFamily.reference_name}
+                      onChange={(e) => {
+                        setWizardFamily({ ...wizardFamily, reference_name: e.target.value })
+                        // Edição manual (digitação ou ditado neste campo) congela
+                        // a sugestão automática — o valor editado é respeitado.
+                        setRefNameTouched(true)
+                      }}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Como a família será identificada nas listas e relatórios. Sugerido
+                      automaticamente como "Familia" + nome do Responsável #1 — edite à mão se
+                      preferir.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fam_phone">Telefone Principal / WhatsApp</Label>
+                    <VoicePhoneInput
+                      id="fam_phone"
+                      placeholder="(11) 98765-4321"
+                      value={wizardFamily.primary_phone}
+                      onChange={(e) =>
+                        setWizardFamily({ ...wizardFamily, primary_phone: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label htmlFor="fam_address">Endereço Completo</Label>
+                      <VoiceTextInput
+                        id="fam_address"
+                        placeholder="Rua, número, complemento"
+                        value={wizardFamily.address}
+                        onChange={(e) =>
+                          setWizardFamily({ ...wizardFamily, address: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="fam_bairro">Bairro</Label>
+                      <VoiceTextInput
+                        id="fam_bairro"
+                        placeholder="Nome do bairro"
+                        value={wizardFamily.bairro}
+                        onChange={(e) =>
+                          setWizardFamily({ ...wizardFamily, bairro: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fam_notes">Observações Gerais</Label>
+                    <VoiceTextInput
+                      id="fam_notes"
+                      placeholder="Notas adicionais sobre a família..."
+                      value={wizardFamily.notes}
+                      onChange={(e) => setWizardFamily({ ...wizardFamily, notes: e.target.value })}
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
