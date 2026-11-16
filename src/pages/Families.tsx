@@ -53,6 +53,7 @@ import { DatePickerBR } from '@/components/DatePickerBR'
 import { VoiceTextInput } from '@/components/VoiceTextInput'
 import { VoicePhoneInput } from '@/components/VoicePhoneInput'
 import { formatPhoneBR, onlyDigits } from '@/lib/phoneBR'
+import { FamiliesCsvTools } from '@/components/FamiliesCsvTools'
 
 // Sugestões do campo "Grau de Parentesco" (digitação livre continua valendo)
 const RELATIONSHIP_SUGGESTIONS = [
@@ -619,10 +620,16 @@ export default function FamiliesPage() {
           </p>
         </div>
 
-        <Button onClick={handleOpenWizard} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-          <UserPlus className="h-4 w-4 mr-2" />
-          Cadastrar Família (3 Etapas)
-        </Button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <FamiliesCsvTools families={families} onImported={loadFamilies} />
+          <Button
+            onClick={handleOpenWizard}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Cadastrar Família (3 Etapas)
+          </Button>
+        </div>
       </div>
 
       {/* Barra de Busca e Filtros */}

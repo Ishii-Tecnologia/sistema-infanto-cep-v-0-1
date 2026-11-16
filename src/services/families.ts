@@ -7,7 +7,7 @@ import { Family, Guardian, Child, ClassroomId } from '@/types'
  * helper converte para ISO antes de gravar no banco. Aceita também valores
  * que já vêm em ISO (YYYY-MM-DD, com ou sem hora). Retorna null se inválido.
  */
-function normalizeBirthDateIso(raw?: string | null): string | null {
+export function normalizeBirthDateIso(raw?: string | null): string | null {
   const clean = (raw || '').trim()
   if (!clean) return null
   if (/^\d{4}-\d{2}-\d{2}( .*)?$/.test(clean) || clean.includes('T')) {
@@ -22,7 +22,7 @@ function normalizeBirthDateIso(raw?: string | null): string | null {
 }
 
 /** Converte dd/mm/aaaa (ou ISO) para o formato gravado no banco (ISO c/ hora). */
-function toBirthDatePayload(value?: string | null): string {
+export function toBirthDatePayload(value?: string | null): string {
   const iso = normalizeBirthDateIso(value)
   if (!iso) return ''
   return iso.includes('T') || iso.includes(' ') ? iso : `${iso} 00:00:00.000Z`
