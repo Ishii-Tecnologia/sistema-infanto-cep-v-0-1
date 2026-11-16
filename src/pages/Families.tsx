@@ -1089,6 +1089,8 @@ export default function FamiliesPage() {
 
           <div className="py-4">
             {/* ETAPA 1: CADASTRO — Família + Responsáveis em uma única ficha */}
+            {currentStep === 1 && (
+              <div className="space-y-4">
                 {/* RESPONSÁVEIS — no TOPO da ficha (ordem de preenchimento: os dados
                     do Responsável #1 alimentam a sugestão do Nome de Referência,
                     que fica logo abaixo; nenhum campo foi removido) */}
@@ -1097,8 +1099,8 @@ export default function FamiliesPage() {
                     Responsáveis
                   </h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Pelo menos um responsável é obrigatório — o Nome de Referência da Família,
-                    logo abaixo, é sugerido automaticamente a partir do nome do Responsável #1.
+                    Pelo menos um responsável é obrigatório — o Nome de Referência da Família, logo
+                    abaixo, é sugerido automaticamente a partir do nome do Responsável #1.
                   </p>
                 </div>
 
