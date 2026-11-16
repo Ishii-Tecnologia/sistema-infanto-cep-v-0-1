@@ -152,6 +152,12 @@ export default function FamiliesPage() {
     notes: '',
   })
 
+  // Controle da sugestão automática do Nome de Referência da Família: enquanto
+  // o usuário NÃO edita o campo à mão, ele acompanha o nome do Responsável #1
+  // ("Familia " + nome). Depois de uma edição manual, o valor digitado (ou
+  // ditado) é respeitado e deixa de ser sobrescrito pela sugestão.
+  const [refNameTouched, setRefNameTouched] = useState(false)
+
   const [wizardGuardians, setWizardGuardians] = useState<
     Array<{
       id?: string
@@ -218,6 +224,20 @@ export default function FamiliesPage() {
   useEffect(() => {
     loadFamilies()
   }, [])
+
+  // Sugestão viva do Nome de Referência da Família: enquanto o usuário NÃO
+  // editou o campo à mão (refNameTouched), ele acompanha em tempo real o nome
+  // do Responsável #1, precedido da palavra "Familia" (ex.: "Familia João da
+  // Silva" — sem vírgula). Edição manual (digitação ou ditado no campo) congela
+  // a sugestão: o valor editado é respeitado e não é mais sobrescrito.
+  useEffect(() => {
+    if (refNameTouched) return
+    const g0Name = (wizardGuardians[0]?.name || '').trim()
+    const suggested = g0Name ? `Familia ${g0Name}` : ''
+    setWizardFamily((prev) =>
+      prev.reference_name === suggested ? prev : { ...prev, reference_name: suggested },
+    )
+  }, [wizardGuardians, refNameTouched])
 
   // PROPAGAÇÃO VIVA do "Telefone Principal / WhatsApp" (aba 1.Família) para os
   // telefones dos responsáveis (aba 2): enquanto o usuário digita/dita o
@@ -286,6 +306,7 @@ export default function FamiliesPage() {
   const handleOpenWizard = () => {
     setEditingFamily(null)
     setCurrentStep(1)
+    setRefNameTouched(false)
     setWizardFamily({
       reference_name: '',
       primary_phone: '',
@@ -509,6 +530,13 @@ export default function FamiliesPage() {
     // tiver um telefone PRÓPRIO diferente do Telefone Principal da família.
     // Sem telefone ou com o mesmo número, ele volta a acompanhar a propagação
     // viva — sem sobrescrever números diferentes gravados no banco.
+    // Sugestão do Nome de Referência no modo edição: se o valor gravado já é
+    // "Familia + nome do Responsável #1", o campo é considerado intacto e
+    // continua acompanhando o nome; se for outro valor, é editado à mão e
+    // respeitado (não é sobrescrito pela sugestão).
+    const g0Name = fam.guardians?.[0]?.name || ''
+    const suggestedRef = g0Name ? `Familia ${g0Name}` : ''
+    setRefNameTouched(!!suggestedRef && (fam.reference_name || '').trim() !== suggestedRef)
     const famPhoneDigits = onlyDigits(fam.primary_phone || '')
     setWizardGuardians(
       (fam.guardians || []).length > 0
@@ -593,7 +621,7 @@ export default function FamiliesPage() {
 
         <Button onClick={handleOpenWizard} className="bg-indigo-600 hover:bg-indigo-700 text-white">
           <UserPlus className="h-4 w-4 mr-2" />
-          Cadastrar Família (4 Etapas)
+          Cadastrar Família (3 Etapas)
         </Button>
       </div>
 
@@ -1026,15 +1054,15 @@ export default function FamiliesPage() {
                 variant="outline"
                 className="text-xs bg-indigo-50 text-indigo-700 border-indigo-200"
               >
-                Etapa {currentStep} de 4
+                Etapa {currentStep} de 3
               </Badge>
             </div>
             <DialogDescription className="text-xs">
               {editingFamily && 'Editando ficha existente — altere os campos e salve.'}
-              {currentStep === 1 && 'Etapa 1: Dados de referência e contato da família'}
-              {currentStep === 2 && 'Etapa 2: Responsáveis legais e contatos de emergência'}
-              {currentStep === 3 && 'Etapa 3: Crianças, data de nascimento e classificação de sala'}
-              {currentStep === 4 && 'Etapa 4: Revisão geral e confirmação do cadastro'}
+              {currentStep === 1 &&
+                'Etapa 1: Dados da família e responsáveis legais — tudo em uma única ficha'}
+              {currentStep === 2 && 'Etapa 2: Crianças, data de nascimento e classificação de sala'}
+              {currentStep === 3 && 'Etapa 3: Revisão geral e confirmação do cadastro'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1043,44 +1071,43 @@ export default function FamiliesPage() {
             <span
               className={currentStep === 1 ? 'text-indigo-600 font-bold' : 'text-muted-foreground'}
             >
-              1. Família
+              1. Cadastro
             </span>
             <span className="text-slate-300">›</span>
             <span
               className={currentStep === 2 ? 'text-indigo-600 font-bold' : 'text-muted-foreground'}
             >
-              2. Responsáveis
+              2. Crianças
             </span>
             <span className="text-slate-300">›</span>
             <span
               className={currentStep === 3 ? 'text-indigo-600 font-bold' : 'text-muted-foreground'}
             >
-              3. Crianças
-            </span>
-            <span className="text-slate-300">›</span>
-            <span
-              className={currentStep === 4 ? 'text-indigo-600 font-bold' : 'text-muted-foreground'}
-            >
-              4. Revisão
+              3. Revisão
             </span>
           </div>
 
           <div className="py-4">
-            {/* ETAPA 1: FAMÍLIA */}
+            {/* ETAPA 1: CADASTRO — Família + Responsáveis em uma única ficha */}
             {currentStep === 1 && (
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="ref_name">Nome de Referência da Família *</Label>
                   <VoiceTextInput
                     id="ref_name"
-                    placeholder="Ex: Família Silva Santos"
+                    placeholder="Ex: Familia Silva Santos"
                     value={wizardFamily.reference_name}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setWizardFamily({ ...wizardFamily, reference_name: e.target.value })
-                    }
+                      // Edição manual (digitação ou ditado neste campo) congela
+                      // a sugestão automática — o valor editado é respeitado.
+                      setRefNameTouched(true)
+                    }}
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Como a família será identificada nas listas e relatórios.
+                    Como a família será identificada nas listas e relatórios. Sugerido
+                    automaticamente como "Familia" + nome do Responsável #1 — edite à mão se
+                    preferir.
                   </p>
                 </div>
 
@@ -1128,12 +1155,18 @@ export default function FamiliesPage() {
                     onChange={(e) => setWizardFamily({ ...wizardFamily, notes: e.target.value })}
                   />
                 </div>
-              </div>
-            )}
 
-            {/* ETAPA 2: RESPONSÁVEIS */}
-            {currentStep === 2 && (
-              <div className="space-y-4">
+                {/* RESPONSÁVEIS — na mesma ficha da família (antiga etapa separada) */}
+                <div className="pt-3 border-t space-y-1">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                    Responsáveis
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Pelo menos um responsável é obrigatório — o Nome de Referência da Família, no
+                    topo da ficha, é sugerido a partir do nome do Responsável #1.
+                  </p>
+                </div>
+
                 {wizardGuardians.map((guardian, index) => (
                   <div
                     key={guardian.uid}
@@ -1163,8 +1196,11 @@ export default function FamiliesPage() {
                           value={guardian.name}
                           onChange={(e) => {
                             const updated = [...wizardGuardians]
-                            updated[index].name = e.target.value
+                            updated[index] = { ...updated[index], name: e.target.value }
                             setWizardGuardians(updated)
+                            // A sugestão viva do Nome de Referência ("Familia " + nome
+                            // do Responsável #1) é aplicada pelo efeito centralizado —
+                            // cobre digitação E ditado, e para quando refNameTouched.
                           }}
                         />
                       </div>
@@ -1275,8 +1311,8 @@ export default function FamiliesPage() {
               </div>
             )}
 
-            {/* ETAPA 3: CRIANÇAS COM FOTO E CLASSIFICAÇÃO AUTOMÁTICA */}
-            {currentStep === 3 && (
+            {/* ETAPA 2: CRIANÇAS COM FOTO E CLASSIFICAÇÃO AUTOMÁTICA */}
+            {currentStep === 2 && (
               <div className="space-y-4">
                 <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 p-2.5 rounded-lg text-xs text-amber-900 dark:text-amber-200">
                   <strong>Classificação Automática:</strong> A sala é calculada imediatamente a
@@ -1454,8 +1490,8 @@ export default function FamiliesPage() {
               </div>
             )}
 
-            {/* ETAPA 4: REVISÃO E CONFIRMAÇÃO */}
-            {currentStep === 4 && (
+            {/* ETAPA 3: REVISÃO E CONFIRMAÇÃO */}
+            {currentStep === 3 && (
               <div className="space-y-4 text-xs">
                 <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg space-y-1">
                   <p className="font-bold text-sm text-slate-900 dark:text-slate-100">
@@ -1559,7 +1595,7 @@ export default function FamiliesPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              {currentStep < 4 ? (
+              {currentStep < 3 ? (
                 <Button
                   type="button"
                   size="sm"
