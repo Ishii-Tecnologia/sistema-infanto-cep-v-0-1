@@ -596,13 +596,35 @@ export default function FamiliesPage() {
   }
 
   // Filtragem de famílias
-  const filteredFamilies = families.filter((f) => {
-    const searchLower = search.toLowerCase()
-    const matchName = f.reference_name.toLowerCase().includes(searchLower)
-    const matchPhone = (f.primary_phone || '').includes(search)
-    const matchChild = (f.children || []).some((c) => c.name.toLowerCase().includes(searchLower))
+  // Normaliza texto para a busca: minúsculas e sem acentos, assim "fernanda"
+  // encontra "Fernanda" e "Fernanda Oliveira" encontra "Fernanda Olivéria".
+  const normalizeSearchText = (text: string) =>
+    text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
 
-    const matchesSearch = matchName || matchPhone || matchChild
+  const filteredFamilies = families.filter((f) => {
+    // Busca por palavras: cada palavra digitada precisa aparecer em algum
+    // campo (nome de referência, responsável ou criança), em qualquer posição
+    // — início, meio ou sobrenome. A ordem das palavras é livre.
+    const searchTokens = normalizeSearchText(search).split(/\s+/).filter(Boolean)
+    const searchDigits = search.replace(/\D/g, '')
+
+    const textHaystacks = [
+      f.reference_name,
+      ...(f.guardians || []).map((g) => g.name),
+      ...(f.children || []).map((c) => c.name),
+    ].map(normalizeSearchText)
+
+    const matchName = searchTokens.every((token) =>
+      textHaystacks.some((haystack) => haystack.includes(token)),
+    )
+
+    const matchPhone =
+      searchDigits.length > 0 && (f.primary_phone || '').replace(/\D/g, '').includes(searchDigits)
+
+    const matchesSearch = matchName || matchPhone
 
     if (classroomFilter === 'all') return matchesSearch
     const hasClassroom = (f.children || []).some((c) => c.classroom === classroomFilter)
