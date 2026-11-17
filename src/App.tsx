@@ -10,6 +10,7 @@ import RoleRoute from './components/RoleRoute'
 import Index from './pages/Index'
 import Login from './pages/Login'
 import FamiliesPage from './pages/Families'
+import FestaNatalPage from './pages/FestaNatal'
 import CalendarPage from './pages/Calendar'
 import AttendancePage from './pages/Attendance'
 import AttendanceReportsPage from './pages/AttendanceReports'
@@ -46,6 +47,18 @@ const App = () => (
                 }
               >
                 <Route path="/familias" element={<FamiliesPage />} />
+              </Route>
+
+              {/* Festa de Natal (sacolinhas): mesmos papéis da busca de famílias */}
+              <Route
+                element={
+                  <RoleRoute
+                    allowedRoles={['admin', 'dirigente', 'professor', 'auxiliar']}
+                    rolesDescription="Admin, Dirigente, Professor, Auxiliar"
+                  />
+                }
+              >
+                <Route path="/festa-natal" element={<FestaNatalPage />} />
               </Route>
 
               {/* Calendário & Planos: Admin, Dirigente, Professor, Auxiliar */}

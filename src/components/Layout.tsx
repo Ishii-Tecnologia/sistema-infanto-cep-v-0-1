@@ -29,6 +29,7 @@ import {
   KeyRound,
   HelpCircle,
   BookOpen,
+  Gift,
 } from 'lucide-react'
 import { UserRole } from '@/types'
 
@@ -63,6 +64,13 @@ export default function Layout() {
       shortTitle: 'Famílias',
       path: '/familias',
       icon: Users,
+      roles: ['admin', 'dirigente', 'professor', 'auxiliar'] as UserRole[],
+    },
+    {
+      title: 'Festa de Natal',
+      shortTitle: 'Festa de Natal',
+      path: '/festa-natal',
+      icon: Gift,
       roles: ['admin', 'dirigente', 'professor', 'auxiliar'] as UserRole[],
     },
     {

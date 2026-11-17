@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-17T09:10:11.580Z",
+  "generatedAt": "2026-11-17T11:25:26.041Z",
   "collections": [
     {
       "name": "users",
@@ -1208,6 +1208,66 @@
         "CREATE INDEX idx_logs_exclusao_type ON logs_exclusao (record_type)",
         "CREATE INDEX idx_logs_exclusao_operator ON logs_exclusao (operator_name)"
       ]
+    },
+    {
+      "name": "natal_entregas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": null,
+        "delete": "@request.auth.id != '' && @request.auth.role = 'admin'"
+      },
+      "fields": [
+        {
+          "name": "family_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "families"
+        },
+        {
+          "name": "person_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "delivered_at",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "photo",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created_by",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_natal_entregas_family ON natal_entregas (family_id)"]
     }
   ]
 }

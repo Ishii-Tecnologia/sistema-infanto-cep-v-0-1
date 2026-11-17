@@ -1,0 +1,52 @@
+import pb from '@/lib/pocketbase/client'
+
+export interface NatalEntrega {
+  id: string
+  collectionId: string
+  collectionName?: string
+  family_id: string
+  person_name: string
+  delivered_at: string
+  photo?: string
+  created_by?: string
+  created?: string
+  updated?: string
+}
+
+/** Formata uma data/hora no padrão brasileiro dd/mm/aaaa HH:mm (fuso local). */
+export function formatNatalDateTime(value: Date | string): string {
+  const d = typeof value === 'string' ? new Date(value) : value
+  if (Number.isNaN(d.getTime())) return ''
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+export const natalEntregasService = {
+  async listByFamily(familyId: string): Promise<NatalEntrega[]> {
+    return pb.collection('natal_entregas').getFullList<NatalEntrega>({
+      filter: `family_id = "${familyId}"`,
+      sort: '-delivered_at',
+    })
+  },
+
+  async create(input: {
+    familyId: string
+    personName: string
+    deliveredAt: Date
+    photo: File | null
+  }): Promise<NatalEntrega> {
+    const body = new FormData()
+    body.append('family_id', input.familyId)
+    body.append('person_name', input.personName)
+    body.append('delivered_at', input.deliveredAt.toISOString())
+    const operatorId = pb.authStore.record?.id
+    if (operatorId) body.append('created_by', operatorId)
+    if (input.photo) body.append('photo', input.photo)
+    return pb.collection('natal_entregas').create<NatalEntrega>(body)
+  },
+
+  photoUrl(entrega: NatalEntrega, thumb?: string): string {
+    if (!entrega.photo) return ''
+    return pb.files.getURL(entrega, entrega.photo, thumb ? { thumb } : undefined)
+  },
+}
