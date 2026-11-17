@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-17T11:58:47.527Z",
+  "generatedAt": "2026-11-17T18:35:56.225Z",
   "collections": [
     {
       "name": "users",
@@ -1265,6 +1265,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "operator_name",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": ["CREATE INDEX idx_natal_entregas_family ON natal_entregas (family_id)"]

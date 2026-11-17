@@ -125,6 +125,7 @@ export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
                       <p className="text-sm font-semibold truncate">{e.person_name}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatNatalDateTime(e.delivered_at)}
+                        {e.operator_name ? ` — Operador: ${e.operator_name}` : ''}
                       </p>
                     </div>
                   </div>

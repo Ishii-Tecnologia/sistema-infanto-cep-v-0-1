@@ -20,6 +20,7 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
+/** True quando o erro é de autenticação expirada/inválida (HTTP 401). */
 export function isAuthExpiredError(error: unknown): boolean {
   return error instanceof ClientResponseError && error.status === 401
 }

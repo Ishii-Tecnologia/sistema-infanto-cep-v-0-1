@@ -9,6 +9,8 @@ export interface NatalEntrega {
   delivered_at: string
   photo?: string
   created_by?: string
+  /** Nome do operador logado que realizou a entrega (ausente em registros antigos). */
+  operator_name?: string
   created?: string
   updated?: string
 }
@@ -41,6 +43,8 @@ export const natalEntregasService = {
     body.append('delivered_at', input.deliveredAt.toISOString())
     const operatorId = pb.authStore.record?.id
     if (operatorId) body.append('created_by', operatorId)
+    const operatorName = pb.authStore.record?.name || pb.authStore.record?.email
+    if (operatorName) body.append('operator_name', String(operatorName))
     if (input.photo) body.append('photo', input.photo)
     return pb.collection('natal_entregas').create<NatalEntrega>(body)
   },
