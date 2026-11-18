@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { lessonService, attendanceService } from '@/services/lessons'
 import { childService } from '@/services/families'
+import { photoDisplayUrl } from '@/services/photos'
 import { Lesson, Child, ClassroomId, AttendanceStatus, Attendance } from '@/types'
 import { formatDate, getClassroomBadge } from '@/lib/academic'
 import { useAcademic } from '@/contexts/AcademicContext'
@@ -322,9 +323,9 @@ export default function AttendancePage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2.5">
                     <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-200 shrink-0">
-                      {child.photo_url ? (
+                      {photoDisplayUrl(child, 'photo_url') ? (
                         <img
-                          src={child.photo_url}
+                          src={photoDisplayUrl(child, 'photo_url')!}
                           alt={child.name}
                           className="h-full w-full object-cover"
                         />

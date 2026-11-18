@@ -91,7 +91,7 @@ export interface Guardian {
   is_emergency_contact?: boolean
   photo_url?: string
   /** Nome do arquivo de foto armazenado no backend (novo padrão, como em natal_entregas). */
-  photo?: string
+  photo?: string | File
   created?: string
   updated?: string
 }
@@ -104,7 +104,7 @@ export interface Child {
   classroom: ClassroomId
   photo_url?: string
   /** Nome do arquivo de foto armazenado no backend (novo padrão, como em natal_entregas). */
-  photo?: string
+  photo?: string | File
   clothing_size?: string
   shoe_size?: string
   allergies?: string

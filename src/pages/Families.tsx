@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { familyService, childService } from '@/services/families'
+import { photoDisplayUrl } from '@/services/photos'
 import { auditLogService } from '@/services/auditLogs'
 import { Family, Guardian, Child, ClassroomId } from '@/types'
 import { Pencil } from 'lucide-react'
@@ -91,6 +92,7 @@ function emptyWizardGuardian(relationship = 'Mãe') {
     email: '',
     is_emergency_contact: relationship !== 'Pai',
     photo_url: '',
+    photo: undefined as File | undefined,
   }
 }
 
@@ -172,6 +174,9 @@ export default function FamiliesPage() {
       email: string
       is_emergency_contact: boolean
       photo_url: string
+      // Foto nova como ARQUIVO (campo `photo`, padrão natal_entregas): undefined
+      // quando o responsável não recebeu foto nova nesta sessão do wizard
+      photo?: File
       // Controle interno da propagação do Telefone Principal: true quando o
       // usuário editou o telefone deste responsável manualmente (ou por voz)
       // para um valor diferente do da família — passa a ser respeitado.
@@ -210,20 +215,11 @@ export default function FamiliesPage() {
       medical_notes: string
       image_authorized: boolean
       photo_url: string
+      // Foto nova como ARQUIVO (campo `photo`, padrão natal_entregas): undefined
+      // quando a criança não recebeu foto nova nesta sessão do wizard
+      photo?: File
     }>
-  >([
-    {
-      name: '',
-      birth_date: '',
-      classroom: 'A',
-      clothing_size: '',
-      shoe_size: '',
-      allergies: '',
-      medical_notes: '',
-      image_authorized: true,
-      photo_url: '',
-    },
-  ])
+  >([emptyWizardChild()])
 
   useEffect(() => {
     loadFamilies()
@@ -320,19 +316,7 @@ export default function FamiliesPage() {
     })
     setWizardGuardians([{ ...emptyWizardGuardian(), uid: nextGuardianUid() }])
     bumpGuardiansVersion()
-    setWizardChildren([
-      {
-        name: '',
-        birth_date: '',
-        classroom: 'A',
-        clothing_size: '',
-        shoe_size: '',
-        allergies: '',
-        medical_notes: '',
-        image_authorized: true,
-        photo_url: '',
-      },
-    ])
+    setWizardChildren([emptyWizardChild()])
     setWizardOpen(true)
   }
 
@@ -394,21 +378,7 @@ export default function FamiliesPage() {
   }
 
   const handleAddChild = () => {
-    setWizardChildren([
-      ...wizardChildren,
-      {
-        name: '',
-        birth_date: '',
-        classroom: 'A',
-        clothing_size: '',
-        shoe_size: '',
-        allergies: '',
-        medical_notes: '',
-        image_authorized: true,
-        photo_url: '',
-        id: undefined,
-      },
-    ])
+    setWizardChildren([...wizardChildren, emptyWizardChild()])
   }
 
   const handleRemoveChild = (index: number) => {
@@ -576,22 +546,12 @@ export default function FamiliesPage() {
               medical_notes: c.medical_notes || '',
               image_authorized: c.image_authorized !== false,
               photo_url: c.photo_url || '',
+              // Foto existente (arquivo ou Base64) continua no registro;
+              // photo (File) só é definido quando o usuário trocar a foto.
+              photo: undefined as File | undefined,
             }
           })
-        : [
-            {
-              id: undefined,
-              name: '',
-              birth_date: '',
-              classroom: 'A',
-              clothing_size: '',
-              shoe_size: '',
-              allergies: '',
-              medical_notes: '',
-              image_authorized: true,
-              photo_url: '',
-            },
-          ],
+        : [emptyWizardChild()],
     )
     setWizardOpen(true)
   }
@@ -729,27 +689,30 @@ export default function FamiliesPage() {
                           <button
                             type="button"
                             onClick={(e) => {
-                              if (c.photo_url) {
+                              const photoSrc = photoDisplayUrl(c, 'photo_url')
+                              if (photoSrc) {
                                 e.stopPropagation()
                                 setLightboxImage({
-                                  src: c.photo_url,
+                                  src: photoSrc,
                                   title: c.name,
                                   description: `Sala ${c.classroom} • ${age} anos`,
                                 })
                               }
                             }}
                             className={`h-6 w-6 rounded-full overflow-hidden bg-slate-200 shrink-0 transition-transform ${
-                              c.photo_url
+                              photoDisplayUrl(c, 'photo_url')
                                 ? 'cursor-pointer hover:scale-110 hover:ring-2 hover:ring-indigo-500'
                                 : ''
                             }`}
                             title={
-                              c.photo_url ? `Clique para ampliar foto de ${c.name}` : undefined
+                              photoDisplayUrl(c, 'photo_url')
+                                ? `Clique para ampliar foto de ${c.name}`
+                                : undefined
                             }
                           >
-                            {c.photo_url ? (
+                            {photoDisplayUrl(c, 'photo_url') ? (
                               <img
-                                src={c.photo_url}
+                                src={photoDisplayUrl(c, 'photo_url')!}
                                 alt={c.name}
                                 className="h-full w-full object-cover"
                               />
@@ -851,10 +814,11 @@ export default function FamiliesPage() {
                         <button
                           type="button"
                           onClick={(e) => {
-                            if (g.photo_url) {
+                            const photoSrc = photoDisplayUrl(g, 'photo_url')
+                            if (photoSrc) {
                               e.stopPropagation()
                               setLightboxImage({
-                                src: g.photo_url,
+                                src: photoSrc,
                                 title: g.name,
                                 description: `${g.relationship}${
                                   g.phone ? ` • ${formatPhoneBR(g.phone)}` : ''
@@ -863,15 +827,19 @@ export default function FamiliesPage() {
                             }
                           }}
                           className={`h-10 w-10 rounded-full overflow-hidden bg-slate-200 shrink-0 transition-transform ${
-                            g.photo_url
+                            photoDisplayUrl(g, 'photo_url')
                               ? 'cursor-pointer hover:scale-105 hover:ring-2 hover:ring-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500'
                               : ''
                           }`}
-                          title={g.photo_url ? `Clique para ampliar foto de ${g.name}` : undefined}
+                          title={
+                            photoDisplayUrl(g, 'photo_url')
+                              ? `Clique para ampliar foto de ${g.name}`
+                              : undefined
+                          }
                         >
-                          {g.photo_url ? (
+                          {photoDisplayUrl(g, 'photo_url') ? (
                             <img
-                              src={g.photo_url}
+                              src={photoDisplayUrl(g, 'photo_url')!}
                               alt={g.name}
                               className="h-full w-full object-cover"
                             />
@@ -922,27 +890,30 @@ export default function FamiliesPage() {
                               <button
                                 type="button"
                                 onClick={(e) => {
-                                  if (c.photo_url) {
+                                  const photoSrc = photoDisplayUrl(c, 'photo_url')
+                                  if (photoSrc) {
                                     e.stopPropagation()
                                     setLightboxImage({
-                                      src: c.photo_url,
+                                      src: photoSrc,
                                       title: c.name,
                                       description: `${badge.name} • ${age} anos • Nasc: ${formatDate(c.birth_date)}`,
                                     })
                                   }
                                 }}
                                 className={`h-9 w-9 rounded-full overflow-hidden bg-slate-200 shrink-0 transition-transform ${
-                                  c.photo_url
+                                  photoDisplayUrl(c, 'photo_url')
                                     ? 'cursor-pointer hover:scale-105 hover:ring-2 hover:ring-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500'
                                     : ''
                                 }`}
                                 title={
-                                  c.photo_url ? `Clique para ampliar foto de ${c.name}` : undefined
+                                  photoDisplayUrl(c, 'photo_url')
+                                    ? `Clique para ampliar foto de ${c.name}`
+                                    : undefined
                                 }
                               >
-                                {c.photo_url ? (
+                                {photoDisplayUrl(c, 'photo_url') ? (
                                   <img
-                                    src={c.photo_url}
+                                    src={photoDisplayUrl(c, 'photo_url')!}
                                     alt={c.name}
                                     className="h-full w-full object-cover"
                                   />
@@ -1215,6 +1186,11 @@ export default function FamiliesPage() {
                             updated[index].photo_url = newPhoto
                             setWizardGuardians(updated)
                           }}
+                          onFileChange={(file) => {
+                            const updated = [...wizardGuardians]
+                            updated[index].photo = file ?? undefined
+                            setWizardGuardians(updated)
+                          }}
                         />
                       </div>
                     </div>
@@ -1468,6 +1444,11 @@ export default function FamiliesPage() {
                             onChange={(newPhoto) => {
                               const updated = [...wizardChildren]
                               updated[index].photo_url = newPhoto
+                              setWizardChildren(updated)
+                            }}
+                            onFileChange={(file) => {
+                              const updated = [...wizardChildren]
+                              updated[index].photo = file ?? undefined
                               setWizardChildren(updated)
                             }}
                           />

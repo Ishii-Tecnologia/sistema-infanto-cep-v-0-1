@@ -190,6 +190,125 @@ routerAdd(
   $apis.requireAuth('users'),
 )
 
+// Cron idempotente: converte pendências a cada 5 minutos. O handler roda em
+// VM própria — a lógica é autocontida (nada de escopo top-level) e usa $app.
+cronAdd('photo-backfill', '*/5 * * * *', () => {
+  try {
+    const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    const MAX_BYTES = 5 * 1024 * 1024
+    const EXT_BY_MIME = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+      'image/gif': 'gif',
+    }
+    const FILTER = 'photo_url ~ "data:image/" && photo = ""'
+
+    function base64ToBinaryString(b64) {
+      let out = ''
+      let buffer = 0
+      let bits = 0
+      for (let i = 0; i < b64.length; i++) {
+        const ch = b64[i]
+        if (ch === '=') break
+        const val = B64.indexOf(ch)
+        if (val === -1) continue
+        buffer = (buffer << 6) | val
+        bits += 6
+        if (bits >= 8) {
+          bits -= 8
+          out += String.fromCharCode((buffer >> bits) & 0xff)
+        }
+      }
+      return out
+    }
+
+    for (const collectionName of ['children', 'guardians']) {
+      let migrated = 0
+      let failed = 0
+      const skippedIds = new Set()
+      let page = 0
+
+      for (;;) {
+        const records = $app.findRecordsByFilter(collectionName, FILTER, '-updated', 50, page * 50)
+        page++
+        if (records.length === 0) break
+
+        let pendingOnPage = 0
+        for (const record of records) {
+          if (skippedIds.has(record.id)) {
+            pendingOnPage++
+            continue
+          }
+
+          const dataUrl = record.getString('photo_url') || ''
+          const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/)
+          if (!match) {
+            skippedIds.add(record.id)
+            continue
+          }
+
+          const mime = EXT_BY_MIME[match[1]] ? match[1] : 'image/jpeg'
+          let content = ''
+          try {
+            content = base64ToBinaryString(match[2])
+          } catch (err) {
+            console.error(
+              '[photo-backfill][cron] erro decodificando ' + collectionName + '/' + record.id,
+              err,
+            )
+          }
+          if (!content || content.length === 0) {
+            skippedIds.add(record.id)
+            continue
+          }
+          if (content.length > MAX_BYTES) {
+            skippedIds.add(record.id)
+            continue
+          }
+
+          try {
+            const stamp = Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+            const file = $filesystem.fileFromBytes(
+              content,
+              'foto_' + record.id + '_' + stamp + '.' + EXT_BY_MIME[mime],
+            )
+            record.set('photo', file)
+            record.set('photo_url', '')
+            $app.save(record)
+            migrated++
+          } catch (err) {
+            console.error(
+              '[photo-backfill][cron] falha ao gravar arquivo de ' +
+                collectionName +
+                '/' +
+                record.id,
+              err,
+            )
+            skippedIds.add(record.id)
+            failed++
+          }
+        }
+
+        if (pendingOnPage === records.length) break
+      }
+
+      if (migrated > 0 || failed > 0) {
+        console.log(
+          '[photo-backfill][cron] ' +
+            collectionName +
+            ': migradas=' +
+            migrated +
+            ' falhas=' +
+            failed,
+        )
+      }
+    }
+  } catch (err) {
+    console.error('[photo-backfill][cron] erro:', err)
+  }
+})
+
 onBootstrap((e) => {
   try {
     const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'

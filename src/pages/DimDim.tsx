@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { dimdimService } from '@/services/dimdim'
 import { auditLogService } from '@/services/auditLogs'
 import { childService } from '@/services/families'
+import { photoDisplayUrl } from '@/services/photos'
 import { Child, DimDimTransaction, DimDimTransactionType, DimDimCategory } from '@/types'
 import { formatDateTime, getClassroomBadge } from '@/lib/academic'
 import { useAcademic } from '@/contexts/AcademicContext'
@@ -383,9 +384,9 @@ export default function DimDimPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 shrink-0">
-                        {child.photo_url ? (
+                        {photoDisplayUrl(child, 'photo_url') ? (
                           <img
-                            src={child.photo_url}
+                            src={photoDisplayUrl(child, 'photo_url')!}
                             alt={child.name}
                             className="h-full w-full object-cover"
                           />

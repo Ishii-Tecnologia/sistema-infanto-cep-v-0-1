@@ -1,5 +1,6 @@
 import pb from '@/lib/pocketbase/client'
 import { Family, Guardian, Child, ClassroomId } from '@/types'
+import { dataUrlToFile, isBase64DataUrl } from '@/services/photos'
 
 /**
  * Normaliza a data de nascimento digitada/ditada para ISO (YYYY-MM-DD).
@@ -62,6 +63,54 @@ function sanitizeFamilyPayload(data: Partial<Family>): Record<string, any> {
  * Sanitiza payload para a coleção 'guardians' garantindo apenas campos válidos.
  * Especialmente importante: email vazio deve ser enviado como '' ou omitido, nunca null.
  */
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024
+
+/**
+ * Payload de foto para guardians/children, no padrão arquivo (natal_entregas):
+ * a imagem sai como ARQUIVO no campo `photo` (FormData). O Base64 em photo_url
+ * NÃO é mais gravado — ele é convertido em File aqui; uma URL de texto comum em
+ * photo_url (não Base64) segue como fallback legado, sem conversão.
+ * Retorna o FormData do payload (campos texto + arquivo photo) ou null quando
+ * nada precisa ser gravado.
+ */
+function buildPhotoFormData(
+  collection: 'children' | 'guardians',
+  data: Partial<Guardian> | Partial<Child>,
+): FormData | null {
+  const dataUrl = typeof data.photo_url === 'string' ? data.photo_url : ''
+  const fileFromDataUrl = isBase64DataUrl(dataUrl) ? dataUrlToFile(dataUrl) : null
+  const hasFile = data.photo instanceof File
+  if (!hasFile && !fileFromDataUrl) return null
+
+  const file = hasFile ? (data.photo as File) : fileFromDataUrl!
+  if (!file) return null
+  // PocketBase limita arquivos em 5 MB — acima disso descarta com aviso
+  // (photo_url Base64 original permanece intacta no registro para leitura).
+  if (file.size > PHOTO_MAX_BYTES) {
+    console.warn(
+      `[families] foto de ${collection} maior que 5 MB (${file.size} bytes) — upload ignorado`,
+    )
+    return null
+  }
+
+  const form = new FormData()
+  form.append('photo', file)
+  return form
+}
+
+/**
+ * Junta o FormData da foto com os campos texto do payload: todos os campos
+ * escalares viram entradas de string no mesmo FormData (multipart), que é o
+ * formato que o PocketBase aceita para create/update com arquivo.
+ */
+function mergeFormWithPayload(form: FormData, payload: Record<string, any>): FormData {
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined || value === null) continue
+    form.append(key, typeof value === 'boolean' ? String(value) : String(value))
+  }
+  return form
+}
+
 function sanitizeGuardianPayload(data: Partial<Guardian>): Record<string, any> {
   const payload: Record<string, any> = {}
 
@@ -87,7 +136,9 @@ function sanitizeGuardianPayload(data: Partial<Guardian>): Record<string, any> {
   if (data.is_emergency_contact !== undefined) {
     payload.is_emergency_contact = Boolean(data.is_emergency_contact)
   }
-  if (data.photo_url !== undefined) {
+  // photo_url Base64 NÃO é gravado (novo padrão: campo arquivo photo).
+  // Uma URL http(s) legada em photo_url continua sendo aceita.
+  if (data.photo_url !== undefined && !isBase64DataUrl(data.photo_url)) {
     payload.photo_url = (data.photo_url || '').trim()
   }
 
@@ -112,7 +163,9 @@ function sanitizeChildPayload(data: Partial<Child>): Record<string, any> {
   if (data.classroom !== undefined && data.classroom) {
     payload.classroom = data.classroom
   }
-  if (data.photo_url !== undefined) {
+  // photo_url Base64 NÃO é gravado (novo padrão: campo arquivo photo).
+  // Uma URL http(s) legada em photo_url continua sendo aceita.
+  if (data.photo_url !== undefined && !isBase64DataUrl(data.photo_url)) {
     payload.photo_url = (data.photo_url || '').trim()
   }
   if (data.clothing_size !== undefined) {
@@ -207,7 +260,13 @@ export const familyService = {
           ...g,
           family_id: family.id,
         })
-        const guard = await pb.collection('guardians').create<Guardian>(payload)
+        const photoForm = buildPhotoFormData('guardians', g)
+        const guard = photoForm
+          ? await pb.send('/api/collections/guardians/records', {
+              method: 'POST',
+              body: mergeFormWithPayload(photoForm, payload),
+            })
+          : await pb.collection('guardians').create<Guardian>(payload)
         createdGuardians.push(guard)
       }
     }
@@ -221,7 +280,13 @@ export const familyService = {
           birth_date: c.birth_date || new Date().toISOString(),
           active: true,
         })
-        const child = await pb.collection('children').create<Child>(payload)
+        const photoForm = buildPhotoFormData('children', c)
+        const child = photoForm
+          ? await pb.send('/api/collections/children/records', {
+              method: 'POST',
+              body: mergeFormWithPayload(photoForm, payload),
+            })
+          : await pb.collection('children').create<Child>(payload)
         createdChildren.push(child)
       }
     }
@@ -268,14 +333,25 @@ export const familyService = {
         is_emergency_contact: g.is_emergency_contact,
         photo_url: g.photo_url,
       })
+      const photoForm = buildPhotoFormData('guardians', g)
 
       if (g.id && existingGuardianIds.has(g.id)) {
         keptGuardianIds.add(g.id)
-        const updated = await pb.collection('guardians').update<Guardian>(g.id, payload)
+        const updated = photoForm
+          ? await pb.send(`/api/collections/guardians/records/${g.id}`, {
+              method: 'PATCH',
+              body: mergeFormWithPayload(photoForm, payload),
+            })
+          : await pb.collection('guardians').update<Guardian>(g.id, payload)
         updatedGuardians.push(updated)
       } else {
         payload.family_id = familyId
-        const created = await pb.collection('guardians').create<Guardian>(payload)
+        const created = photoForm
+          ? await pb.send('/api/collections/guardians/records', {
+              method: 'POST',
+              body: mergeFormWithPayload(photoForm, payload),
+            })
+          : await pb.collection('guardians').create<Guardian>(payload)
         updatedGuardians.push(created)
       }
     }
@@ -314,16 +390,27 @@ export const familyService = {
         image_authorized: c.image_authorized,
         active: c.active,
       })
+      const photoForm = buildPhotoFormData('children', c)
 
       if (c.id && existingChildIds.has(c.id)) {
         keptChildIds.add(c.id)
-        const updated = await pb.collection('children').update<Child>(c.id, payload)
+        const updated = photoForm
+          ? await pb.send(`/api/collections/children/records/${c.id}`, {
+              method: 'PATCH',
+              body: mergeFormWithPayload(photoForm, payload),
+            })
+          : await pb.collection('children').update<Child>(c.id, payload)
         updatedChildren.push(updated)
       } else {
         payload.family_id = familyId
         payload.dimdim_balance = c.dimdim_balance || 0
         payload.active = true
-        const created = await pb.collection('children').create<Child>(payload)
+        const created = photoForm
+          ? await pb.send('/api/collections/children/records', {
+              method: 'POST',
+              body: mergeFormWithPayload(photoForm, payload),
+            })
+          : await pb.collection('children').create<Child>(payload)
         updatedChildren.push(created)
       }
     }
@@ -426,12 +513,24 @@ export const familyService = {
 export const guardianService = {
   async create(data: Partial<Guardian>): Promise<Guardian> {
     const sanitized = sanitizeGuardianPayload(data)
-    return pb.collection('guardians').create<Guardian>(sanitized)
+    const photoForm = buildPhotoFormData('guardians', data)
+    return photoForm
+      ? pb.send('/api/collections/guardians/records', {
+          method: 'POST',
+          body: mergeFormWithPayload(photoForm, sanitized),
+        })
+      : pb.collection('guardians').create<Guardian>(sanitized)
   },
 
   async update(id: string, data: Partial<Guardian>): Promise<Guardian> {
     const sanitized = sanitizeGuardianPayload(data)
-    return pb.collection('guardians').update<Guardian>(id, sanitized)
+    const photoForm = buildPhotoFormData('guardians', data)
+    return photoForm
+      ? pb.send(`/api/collections/guardians/records/${id}`, {
+          method: 'PATCH',
+          body: mergeFormWithPayload(photoForm, sanitized),
+        })
+      : pb.collection('guardians').update<Guardian>(id, sanitized)
   },
 
   async delete(id: string): Promise<boolean> {
@@ -465,7 +564,13 @@ export const childService = {
 
   async update(id: string, data: Partial<Child>): Promise<Child> {
     const sanitized = sanitizeChildPayload(data)
-    return pb.collection('children').update<Child>(id, sanitized)
+    const photoForm = buildPhotoFormData('children', data)
+    return photoForm
+      ? pb.send(`/api/collections/children/records/${id}`, {
+          method: 'PATCH',
+          body: mergeFormWithPayload(photoForm, sanitized),
+        })
+      : pb.collection('children').update<Child>(id, sanitized)
   },
 
   async delete(id: string): Promise<boolean> {

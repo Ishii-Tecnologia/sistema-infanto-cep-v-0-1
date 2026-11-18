@@ -1,5 +1,6 @@
 import pb from '@/lib/pocketbase/client'
 import { Lesson, Child, ClassroomId, Attendance, AttendanceStatus } from '@/types'
+import { photoDisplayUrl } from '@/services/photos'
 
 export interface AttendanceReportFilter {
   classroomId: ClassroomId | 'ALL'
@@ -229,7 +230,7 @@ export const attendanceReportService = {
         childId: child.id,
         childName: child.name,
         classroom: child.classroom,
-        photoUrl: child.photo_url,
+        photoUrl: photoDisplayUrl(child, 'photo_url') || undefined,
         totalLessons,
         presents,
         absents,
