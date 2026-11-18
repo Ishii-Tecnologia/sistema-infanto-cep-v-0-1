@@ -230,7 +230,7 @@ export const attendanceReportService = {
         childId: child.id,
         childName: child.name,
         classroom: child.classroom,
-        photoUrl: photoDisplayUrl(child, 'photo_url') || undefined,
+        photoUrl: photoDisplayUrl(child) || undefined,
         totalLessons,
         presents,
         absents,

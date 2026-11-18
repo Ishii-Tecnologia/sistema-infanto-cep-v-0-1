@@ -96,6 +96,21 @@ function emptyWizardGuardian(relationship = 'Mãe') {
   }
 }
 
+function emptyWizardChild() {
+  return {
+    name: '',
+    birth_date: '',
+    classroom: 'A' as ClassroomId,
+    clothing_size: '',
+    shoe_size: '',
+    allergies: '',
+    medical_notes: '',
+    image_authorized: true,
+    photo_url: '',
+    photo: undefined as File | undefined,
+  }
+}
+
 // Identidade local estável dos responsáveis no wizard (chave de card e da guarda
 // de microfone-ativo da propagação): nunca enviada ao banco
 let guardianUidSeq = 0
@@ -689,7 +704,7 @@ export default function FamiliesPage() {
                           <button
                             type="button"
                             onClick={(e) => {
-                              const photoSrc = photoDisplayUrl(c, 'photo_url')
+                              const photoSrc = photoDisplayUrl(c)
                               if (photoSrc) {
                                 e.stopPropagation()
                                 setLightboxImage({
@@ -700,19 +715,19 @@ export default function FamiliesPage() {
                               }
                             }}
                             className={`h-6 w-6 rounded-full overflow-hidden bg-slate-200 shrink-0 transition-transform ${
-                              photoDisplayUrl(c, 'photo_url')
+                              photoDisplayUrl(c)
                                 ? 'cursor-pointer hover:scale-110 hover:ring-2 hover:ring-indigo-500'
                                 : ''
                             }`}
                             title={
-                              photoDisplayUrl(c, 'photo_url')
+                              photoDisplayUrl(c)
                                 ? `Clique para ampliar foto de ${c.name}`
                                 : undefined
                             }
                           >
-                            {photoDisplayUrl(c, 'photo_url') ? (
+                            {photoDisplayUrl(c) ? (
                               <img
-                                src={photoDisplayUrl(c, 'photo_url')!}
+                                src={photoDisplayUrl(c)!}
                                 alt={c.name}
                                 className="h-full w-full object-cover"
                               />
@@ -814,7 +829,7 @@ export default function FamiliesPage() {
                         <button
                           type="button"
                           onClick={(e) => {
-                            const photoSrc = photoDisplayUrl(g, 'photo_url')
+                            const photoSrc = photoDisplayUrl(g)
                             if (photoSrc) {
                               e.stopPropagation()
                               setLightboxImage({
@@ -827,19 +842,17 @@ export default function FamiliesPage() {
                             }
                           }}
                           className={`h-10 w-10 rounded-full overflow-hidden bg-slate-200 shrink-0 transition-transform ${
-                            photoDisplayUrl(g, 'photo_url')
+                            photoDisplayUrl(g)
                               ? 'cursor-pointer hover:scale-105 hover:ring-2 hover:ring-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500'
                               : ''
                           }`}
                           title={
-                            photoDisplayUrl(g, 'photo_url')
-                              ? `Clique para ampliar foto de ${g.name}`
-                              : undefined
+                            photoDisplayUrl(g) ? `Clique para ampliar foto de ${g.name}` : undefined
                           }
                         >
-                          {photoDisplayUrl(g, 'photo_url') ? (
+                          {photoDisplayUrl(g) ? (
                             <img
-                              src={photoDisplayUrl(g, 'photo_url')!}
+                              src={photoDisplayUrl(g)!}
                               alt={g.name}
                               className="h-full w-full object-cover"
                             />
@@ -890,7 +903,7 @@ export default function FamiliesPage() {
                               <button
                                 type="button"
                                 onClick={(e) => {
-                                  const photoSrc = photoDisplayUrl(c, 'photo_url')
+                                  const photoSrc = photoDisplayUrl(c)
                                   if (photoSrc) {
                                     e.stopPropagation()
                                     setLightboxImage({
@@ -901,19 +914,19 @@ export default function FamiliesPage() {
                                   }
                                 }}
                                 className={`h-9 w-9 rounded-full overflow-hidden bg-slate-200 shrink-0 transition-transform ${
-                                  photoDisplayUrl(c, 'photo_url')
+                                  photoDisplayUrl(c)
                                     ? 'cursor-pointer hover:scale-105 hover:ring-2 hover:ring-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500'
                                     : ''
                                 }`}
                                 title={
-                                  photoDisplayUrl(c, 'photo_url')
+                                  photoDisplayUrl(c)
                                     ? `Clique para ampliar foto de ${c.name}`
                                     : undefined
                                 }
                               >
-                                {photoDisplayUrl(c, 'photo_url') ? (
+                                {photoDisplayUrl(c) ? (
                                   <img
-                                    src={photoDisplayUrl(c, 'photo_url')!}
+                                    src={photoDisplayUrl(c)!}
                                     alt={c.name}
                                     className="h-full w-full object-cover"
                                   />

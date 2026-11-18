@@ -359,9 +359,9 @@ export function StudentsByClassroomReport({
                           <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
                             <div className="flex items-center space-x-2.5">
                               <div className="h-7 w-7 rounded-full overflow-hidden bg-slate-200 border shrink-0">
-                                {photoDisplayUrl(student, 'photo_url') ? (
+                                {photoDisplayUrl(student) ? (
                                   <img
-                                    src={photoDisplayUrl(student, 'photo_url')!}
+                                    src={photoDisplayUrl(student)!}
                                     alt={student.name}
                                     className="h-full w-full object-cover"
                                   />

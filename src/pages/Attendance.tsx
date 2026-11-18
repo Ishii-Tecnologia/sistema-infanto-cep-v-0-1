@@ -323,9 +323,9 @@ export default function AttendancePage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2.5">
                     <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-200 shrink-0">
-                      {photoDisplayUrl(child, 'photo_url') ? (
+                      {photoDisplayUrl(child) ? (
                         <img
-                          src={photoDisplayUrl(child, 'photo_url')!}
+                          src={photoDisplayUrl(child)!}
                           alt={child.name}
                           className="h-full w-full object-cover"
                         />

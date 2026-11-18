@@ -17,11 +17,12 @@
 // dentro de cada callback.
 //
 // Nota de runtime (por que as tentativas anteriores não convertiam nada):
-// $filesystem.fileFromBytes espera conteúdo como string/bytes Go; um Uint8Array
-// JS NÃO é exportado para []byte do Go e fazia cada save falhar (erro por
-// registro, sem efeito no banco). Aqui o Base64 é decodificado em uma STRING
-// binária (byte a byte), formato aceito pela API oficial
-// ($filesystem.fileFromBytes("conteudo", "nome.ext")).
+// $filesystem.fileFromBytes aceita string | number[] (ver jsvm
+// _filesystem.fileFromBytes). Passar o Base64 decodificado como STRING binária
+// faz a ponte JS->Go aplicar UTF-8 nos bytes > 0x7F — o arquivo chega
+// corrompido e o PocketBase rejeita ("mime type must be one of: image/jpeg,
+// ..."). O conteúdo é decodificado em ARRAY DE BYTES (Uint8Array), que a ponte
+// exporta 1:1 para []byte do Go.
 
 routerAdd(
   'POST',
@@ -46,23 +47,31 @@ routerAdd(
     }
     const FILTER = 'photo_url ~ "data:image/" && photo = ""'
 
-    function base64ToBinaryString(b64) {
-      let out = ''
-      let buffer = 0
-      let bits = 0
-      for (let i = 0; i < b64.length; i++) {
-        const ch = b64[i]
-        if (ch === '=') break
-        const val = B64.indexOf(ch)
-        if (val === -1) continue
-        buffer = (buffer << 6) | val
-        bits += 6
-        if (bits >= 8) {
-          bits -= 8
-          out += String.fromCharCode((buffer >> bits) & 0xff)
+    function base64ToByteArray(b64) {
+      // IMPORTANTE: a ponte JSVM (goja) só exporta para []byte do Go um ARRAY
+      // SIMPLES de números ("number[]"); Uint8Array não é exportado como []byte.
+      const byteArray = []
+      let byteIndex = 0
+      let charIndex = 0
+      while (charIndex < b64.length) {
+        const enc1 = B64.indexOf(b64.charAt(charIndex++))
+        const enc2 = B64.indexOf(b64.charAt(charIndex++))
+        const enc3 = B64.indexOf(b64.charAt(charIndex++))
+        const enc4 = B64.indexOf(b64.charAt(charIndex++))
+        if (enc1 === -1 || enc2 === -1 || enc3 === -1 || enc4 === -1) continue
+        const bits24 = (enc1 << 18) | (enc2 << 12) | (enc3 << 6) | enc4
+        const byte1 = (bits24 >> 16) & 0xff
+        const byte2 = (bits24 >> 8) & 0xff
+        const byte3 = bits24 & 0xff
+        byteArray[byteIndex++] = byte1
+        if (enc3 !== -1 && enc3 !== 64) {
+          byteArray[byteIndex++] = byte2
+          if (enc4 !== -1 && enc4 !== 64) {
+            byteArray[byteIndex++] = byte3
+          }
         }
       }
-      return out
+      return byteArray.slice(0, byteIndex)
     }
 
     function backfillCollection(app, collectionName, dryRun) {
@@ -97,9 +106,9 @@ routerAdd(
           }
 
           const mime = EXT_BY_MIME[match[1]] ? match[1] : 'image/jpeg'
-          let content = ''
+          let content = null
           try {
-            content = base64ToBinaryString(match[2])
+            content = base64ToByteArray(match[2])
           } catch (err) {
             console.error(
               '[photo-backfill] erro decodificando ' + collectionName + '/' + record.id,
@@ -204,23 +213,29 @@ cronAdd('photo-backfill', '*/5 * * * *', () => {
     }
     const FILTER = 'photo_url ~ "data:image/" && photo = ""'
 
-    function base64ToBinaryString(b64) {
-      let out = ''
-      let buffer = 0
-      let bits = 0
-      for (let i = 0; i < b64.length; i++) {
-        const ch = b64[i]
-        if (ch === '=') break
-        const val = B64.indexOf(ch)
-        if (val === -1) continue
-        buffer = (buffer << 6) | val
-        bits += 6
-        if (bits >= 8) {
-          bits -= 8
-          out += String.fromCharCode((buffer >> bits) & 0xff)
+    function base64ToByteArray(b64) {
+      const byteArray = new Uint8Array(Math.ceil(b64.length * 0.75))
+      let byteIndex = 0
+      let charIndex = 0
+      while (charIndex < b64.length) {
+        const enc1 = B64.indexOf(b64.charAt(charIndex++))
+        const enc2 = B64.indexOf(b64.charAt(charIndex++))
+        const enc3 = B64.indexOf(b64.charAt(charIndex++))
+        const enc4 = B64.indexOf(b64.charAt(charIndex++))
+        if (enc1 === -1 || enc2 === -1 || enc3 === -1 || enc4 === -1) continue
+        const bits24 = (enc1 << 18) | (enc2 << 12) | (enc3 << 6) | enc4
+        const byte1 = (bits24 >> 16) & 0xff
+        const byte2 = (bits24 >> 8) & 0xff
+        const byte3 = bits24 & 0xff
+        byteArray[byteIndex++] = byte1
+        if (enc3 !== -1 && enc3 !== 64) {
+          byteArray[byteIndex++] = byte2
+          if (enc4 !== -1 && enc4 !== 64) {
+            byteArray[byteIndex++] = byte3
+          }
         }
       }
-      return out
+      return byteArray.slice(0, byteIndex)
     }
 
     for (const collectionName of ['children', 'guardians']) {
@@ -249,9 +264,9 @@ cronAdd('photo-backfill', '*/5 * * * *', () => {
           }
 
           const mime = EXT_BY_MIME[match[1]] ? match[1] : 'image/jpeg'
-          let content = ''
+          let content = null
           try {
-            content = base64ToBinaryString(match[2])
+            content = base64ToByteArray(match[2])
           } catch (err) {
             console.error(
               '[photo-backfill][cron] erro decodificando ' + collectionName + '/' + record.id,
@@ -321,23 +336,29 @@ onBootstrap((e) => {
     }
     const FILTER = 'photo_url ~ "data:image/" && photo = ""'
 
-    function base64ToBinaryString(b64) {
-      let out = ''
-      let buffer = 0
-      let bits = 0
-      for (let i = 0; i < b64.length; i++) {
-        const ch = b64[i]
-        if (ch === '=') break
-        const val = B64.indexOf(ch)
-        if (val === -1) continue
-        buffer = (buffer << 6) | val
-        bits += 6
-        if (bits >= 8) {
-          bits -= 8
-          out += String.fromCharCode((buffer >> bits) & 0xff)
+    function base64ToByteArray(b64) {
+      const byteArray = new Uint8Array(Math.ceil(b64.length * 0.75))
+      let byteIndex = 0
+      let charIndex = 0
+      while (charIndex < b64.length) {
+        const enc1 = B64.indexOf(b64.charAt(charIndex++))
+        const enc2 = B64.indexOf(b64.charAt(charIndex++))
+        const enc3 = B64.indexOf(b64.charAt(charIndex++))
+        const enc4 = B64.indexOf(b64.charAt(charIndex++))
+        if (enc1 === -1 || enc2 === -1 || enc3 === -1 || enc4 === -1) continue
+        const bits24 = (enc1 << 18) | (enc2 << 12) | (enc3 << 6) | enc4
+        const byte1 = (bits24 >> 16) & 0xff
+        const byte2 = (bits24 >> 8) & 0xff
+        const byte3 = bits24 & 0xff
+        byteArray[byteIndex++] = byte1
+        if (enc3 !== -1 && enc3 !== 64) {
+          byteArray[byteIndex++] = byte2
+          if (enc4 !== -1 && enc4 !== 64) {
+            byteArray[byteIndex++] = byte3
+          }
         }
       }
-      return out
+      return byteArray.slice(0, byteIndex)
     }
 
     function backfillCollection(app, collectionName) {
@@ -374,9 +395,9 @@ onBootstrap((e) => {
           }
 
           const mime = EXT_BY_MIME[match[1]] ? match[1] : 'image/jpeg'
-          let content = ''
+          let content = null
           try {
-            content = base64ToBinaryString(match[2])
+            content = base64ToByteArray(match[2])
           } catch (err) {
             console.error(
               '[photo-backfill] erro decodificando ' + collectionName + '/' + record.id,

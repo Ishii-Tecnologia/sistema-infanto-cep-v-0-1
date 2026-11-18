@@ -12,14 +12,20 @@ export interface PhotoCarrier {
   id: string
   collectionId?: string
   collectionName?: string
-  photo?: string
+  /** Nome do arquivo gravado no backend (string) ou File ainda não enviado (wizard). */
+  photo?: string | File
   photo_url?: string
 }
 
-/** URL da foto de um registro: arquivo novo (padrão Natal) ou Base64 residual. */
+/**
+ * URL da foto de um registro: arquivo novo (padrão Natal) ou Base64 residual.
+ * `thumb` deve ser um tamanho configurado no campo (ex.: '100x100', '300x300');
+ * qualquer outro valor é ignorado (evita URL de thumb inválida).
+ */
 export function photoDisplayUrl(record: PhotoCarrier, thumb?: string): string {
-  if (record.photo) {
-    return pb.files.getURL(record, record.photo, thumb ? { thumb } : undefined)
+  if (record.photo && typeof record.photo === 'string') {
+    const validThumb = thumb && /^\d+x\d+$/.test(thumb) ? thumb : undefined
+    return pb.files.getURL(record, record.photo, validThumb ? { thumb: validThumb } : undefined)
   }
   return record.photo_url || ''
 }
