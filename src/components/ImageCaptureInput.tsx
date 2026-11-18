@@ -15,10 +15,13 @@ import {
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { ImageLightbox } from '@/components/ImageLightbox'
+import { dataUrlToFile } from '@/services/photos'
 
 interface ImageCaptureInputProps {
   value: string
   onChange: (value: string) => void
+  /** Quando presente, entrega o ARQUIVO original (redimensionado) para upload no campo `photo`. */
+  onFileChange?: (file: File | null) => void
   label?: string
   description?: string
   placeholder?: string
@@ -29,11 +32,13 @@ interface ImageCaptureInputProps {
 }
 
 /**
- * Converte um arquivo ou blob de imagem para uma string Base64 (data:image/jpeg;base64,...),
- * redimensionando proporcionalmente para no máximo 1200px de largura/altura com compressão leve,
- * garantindo economia de armazenamento no PocketBase sem perda perceptível de qualidade.
+ * Converte um arquivo ou blob de imagem, redimensionando proporcionalmente para
+ * no máximo 1200px de largura/altura com compressão leve. Retorna TANTO o File
+ * (para upload no campo de arquivo `photo`) quanto a data URL Base64 (preview e
+ * fallback no campo antigo photo_url), garantindo economia de armazenamento no
+ * PocketBase sem perda perceptível de qualidade.
  */
-function processImageFile(file: File | Blob): Promise<string> {
+function processImageFile(file: File | Blob): Promise<{ file: File; dataUrl: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onerror = () => reject(new Error('Erro ao ler o arquivo de imagem.'))
@@ -62,14 +67,14 @@ function processImageFile(file: File | Blob): Promise<string> {
         canvas.height = height
         const ctx = canvas.getContext('2d')
         if (!ctx) {
-          resolve(dataUrl)
+          resolve({ file: toFile(file, dataUrl), dataUrl })
           return
         }
 
         ctx.drawImage(img, 0, 0, width, height)
         // Sempre codifica em JPEG 0.80 para fotos com excelente fidelidade visual e payload enxuto
         const compressed = canvas.toDataURL('image/jpeg', 0.8)
-        resolve(compressed)
+        resolve({ file: dataUrlToFile(compressed) || toFile(file, dataUrl), dataUrl: compressed })
       }
       img.src = dataUrl
     }
@@ -77,9 +82,20 @@ function processImageFile(file: File | Blob): Promise<string> {
   })
 }
 
+/** Empacota um Blob arbitrário em File com nome estável e extensão inferida. */
+function toFile(blob: File | Blob, dataUrl: string): File {
+  const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg'
+  const name =
+    typeof (blob as File).name === 'string' && (blob as File).name
+      ? (blob as File).name
+      : `foto_importada.${ext}`
+  return new File([blob], name, { type: blob.type || 'image/jpeg' })
+}
+
 export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
   value,
   onChange,
+  onFileChange,
   label = 'Foto / Imagem',
   description,
   placeholder = 'https://... ou cole/capture uma imagem',
@@ -115,8 +131,9 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
           const file = items[i].getAsFile()
           if (file) {
             try {
-              const base64 = await processImageFile(file)
-              onChange(base64)
+              const { file: processed, dataUrl } = await processImageFile(file)
+              onChange(dataUrl)
+              onFileChange?.(processed)
             } catch (err: any) {
               toast({
                 title: 'Erro ao colar imagem',
@@ -148,8 +165,9 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
     if (!file) return
 
     try {
-      const base64 = await processImageFile(file)
-      onChange(base64)
+      const { file: processed, dataUrl } = await processImageFile(file)
+      onChange(dataUrl)
+      onFileChange?.(processed)
       toast({
         title: 'Foto carregada!',
         description: 'Imagem pronta para salvar.',
@@ -248,8 +266,11 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
     if (!ctx) return
 
     ctx.drawImage(video, 0, 0, w, h)
-    const base64 = canvas.toDataURL('image/jpeg', 0.8)
-    onChange(base64)
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+    onChange(dataUrl)
+    onFileChange?.(
+      dataUrlToFile(dataUrl) || new File([], 'foto_camera.jpg', { type: 'image/jpeg' }),
+    )
 
     // Fecha webcam
     closeWebcam()
@@ -275,6 +296,7 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
 
   const handleRemoveImage = () => {
     onChange('')
+    onFileChange?.(null)
   }
 
   return (
@@ -486,7 +508,12 @@ export const ImageCaptureInput: React.FC<ImageCaptureInputProps> = ({
                 value={
                   value.startsWith('data:image/') ? '[Foto capturada / imagem importada]' : value
                 }
-                onChange={(e) => onChange(e.target.value)}
+                onChange={(e) => {
+                  const typed = e.target.value
+                  onChange(typed)
+                  // URL digitada manualmente substitui qualquer arquivo capturado
+                  if (!typed.startsWith('data:image/')) onFileChange?.(null)
+                }}
                 readOnly={value.startsWith('data:image/')}
                 className="text-xs h-8 pr-8 text-slate-700 dark:text-slate-300"
               />

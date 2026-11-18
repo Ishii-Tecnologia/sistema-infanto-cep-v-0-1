@@ -58,7 +58,8 @@ function fileNameFor(ext: string): string {
   return `foto_${stamp}.${ext}`
 }
 
-async function dataUrlToFile(dataUrl: string): Promise<File | null> {
+/** Converte uma data URL Base64 em File (para upload no campo `photo`). */
+export function dataUrlToFile(dataUrl: string): File | null {
   const blob = dataUrlToBlob(dataUrl)
   if (!blob) return null
   const ext =
