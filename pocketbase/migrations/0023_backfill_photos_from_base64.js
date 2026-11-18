@@ -3,6 +3,13 @@
 // banco vazio: só atua em registros cujo photo_url é uma data URL e que
 // ainda não possuem arquivo em photo. Nenhuma foto é descartada — em caso
 // de Base64 inválido ou maior que 5 MB o original é mantido em photo_url.
+//
+// IMPORTANTE: em ambientes onde o global $filesystem não está disponível no
+// runtime de migração (como neste backend), a conversão é feita pelo
+// próprio cliente web (src/services/photos.ts -> migrateRecordPhoto/
+// migrateAllPhotos), que grava o arquivo via multipart e depois limpa
+// photo_url. Esta migração nunca apaga nem sobrescreve fotos: se não puder
+// converter, preserva photo_url intacta e registra o motivo no log.
 
 const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
@@ -34,41 +41,70 @@ const EXT_BY_MIME = {
   'image/gif': 'gif',
 }
 
+const hasFilesystem = typeof $filesystem !== 'undefined'
+
 function migrateCollection(app, collectionName) {
+  if (!hasFilesystem) {
+    console.log(
+      '[0023 backfill photos] ' +
+        collectionName +
+        ': $filesystem indisponível neste runtime — conversão deixada para o cliente (migrateAllPhotos), photo_url preservada',
+    )
+    return
+  }
+
   const pageSize = 100
-  let offset = 0
+  const skippedIds = new Set()
   let migrated = 0
   let skippedInvalid = 0
   let skippedTooLarge = 0
 
   for (;;) {
     // Registros com Base64 pendente; os já migrados (photo preenchido) saem
-    // naturalmente do filtro, mantendo a paginação estável.
+    // naturalmente do filtro. Registros inválidos são marcados em skippedIds
+    // e contornados via offset, mantendo a paginação estável.
     const records = app.findRecordsByFilter(
       collectionName,
       'photo_url ~ "data:image/" && photo = ""',
       '-updated',
       pageSize,
-      offset,
+      migrated + skippedInvalid + skippedTooLarge,
     )
 
     if (records.length === 0) break
 
+    let pendingOnPage = 0
     for (const record of records) {
+      if (skippedIds.has(record.id)) {
+        pendingOnPage++
+        continue
+      }
+
       const dataUrl = record.getString('photo_url') || ''
-      const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s)
+      const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/)
       if (!match) {
+        skippedIds.add(record.id)
         skippedInvalid++
         continue
       }
 
       const mime = EXT_BY_MIME[match[1]] ? match[1] : 'image/jpeg'
-      const bytes = base64ToBytes(match[2])
-      if (bytes.length === 0) {
+      let bytes = []
+      try {
+        bytes = base64ToBytes(match[2])
+      } catch (err) {
+        console.error(
+          '[0023 backfill photos] erro decodificando ' + collectionName + '/' + record.id,
+          err,
+        )
+      }
+      if (!bytes || bytes.length === 0) {
+        skippedIds.add(record.id)
         skippedInvalid++
         continue
       }
       if (bytes.length > MAX_BYTES) {
+        skippedIds.add(record.id)
         skippedTooLarge++
         continue
       }
@@ -81,12 +117,10 @@ function migrateCollection(app, collectionName) {
       migrated++
     }
 
+    // Página sem nada novo para processar (só registros inválidos já vistos):
+    // terminou o trabalho possível.
+    if (pendingOnPage === records.length) break
     if (records.length < pageSize) break
-    // Registros migrados saíram do filtro; avance apenas o restante pendente.
-    offset += records.filter((r) =>
-      (r.getString('photo_url') || '').startsWith('data:image/'),
-    ).length
-    if (offset < 0) offset = 0
   }
 
   console.log(
