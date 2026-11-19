@@ -33,11 +33,19 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
   if (!src) return null
 
   return (
+    // Radix (Dialog) aplica pointer-events: none no <body> enquanto um modal está
+    // aberto. Como este lightbox pode ser renderizado FORA do portal do Dialog
+    // (ex.: página de Famílias), ele herdaria pointer-events: none e nenhum clique
+    // funcionaria (nem no botão "x"). pointer-events-auto reativa os cliques.
     <div
       role="dialog"
       aria-modal="true"
       aria-label={title || alt || 'Visualização ampliada da foto'}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-sm animate-in fade-in-0 duration-200 select-none"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-sm animate-in fade-in-0 duration-200 select-none pointer-events-auto"
+      // Clique fora (no fundo escuro) também fecha o painel
+      onClick={onClose}
+      // Não deixar o clique escapar para o Dialog por baixo (evita fechá-lo sem querer)
+      onPointerDown={(e) => e.stopPropagation()}
     >
       {/* Botão de Fechar no topo direito com dica visual 'ESC para fechar' */}
       <div className="absolute top-4 right-4 z-[102] flex items-center gap-2">
@@ -56,7 +64,10 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
       </div>
 
       {/* Container da imagem */}
-      <div className="relative max-w-4xl max-h-[88vh] flex flex-col items-center justify-center z-[101]">
+      <div
+        className="relative max-w-4xl max-h-[88vh] flex flex-col items-center justify-center z-[101]"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="relative rounded-2xl overflow-hidden bg-black/40 border border-white/15 shadow-2xl flex items-center justify-center max-w-full max-h-[82vh]">
           <img
             src={src}
