@@ -221,17 +221,33 @@ export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
                   (p) => p.name === e.person_name,
                 )
                 const age = ageLabelFromBirthDate(person?.birth_date)
+                const fullUrl = url ? natalEntregasService.photoUrl(e) : ''
                 return (
                   <div
                     key={e.id}
                     className="flex items-center gap-3 rounded-md border p-2 bg-white dark:bg-slate-900"
                   >
                     {url ? (
-                      <img
-                        src={url}
-                        alt={`Foto de ${e.person_name}`}
-                        className="h-16 w-16 rounded object-cover shrink-0"
-                      />
+                      <button
+                        type="button"
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          setLightboxImage({
+                            src: fullUrl,
+                            title: e.person_name,
+                            description: formatNatalDateTime(e.delivered_at),
+                          })
+                        }}
+                        className="h-16 w-16 rounded shrink-0 overflow-hidden cursor-pointer transition-transform hover:scale-105 hover:ring-2 hover:ring-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                        title={`Clique para ampliar foto de ${e.person_name}`}
+                        aria-label={`Ampliar foto de ${e.person_name}`}
+                      >
+                        <img
+                          src={url}
+                          alt={`Foto de ${e.person_name}`}
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
                     ) : (
                       <div className="h-16 w-16 rounded bg-slate-100 shrink-0" />
                     )}

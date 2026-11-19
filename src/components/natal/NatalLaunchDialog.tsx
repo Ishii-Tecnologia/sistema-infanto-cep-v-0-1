@@ -3,6 +3,7 @@ import { Camera, Image as ImageIcon, Gift } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { VoiceTextInput } from '@/components/VoiceTextInput'
 import {
   Dialog,
   DialogContent,
@@ -106,7 +107,7 @@ export function NatalLaunchDialog({ family, onClose, onSaved }: NatalLaunchDialo
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="natal-person">Quem está recebendo a sacolinha</Label>
-            <Input
+            <VoiceTextInput
               id="natal-person"
               value={personName}
               onChange={(e) => {
