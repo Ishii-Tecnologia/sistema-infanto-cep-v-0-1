@@ -267,7 +267,7 @@ export default function Layout() {
             {/* Lado Esquerdo: Identidade Institucional CEP com ícone do app */}
             <NavLink
               to="/"
-              className="flex items-center space-x-2.5 shrink-0 hover:opacity-95 transition-opacity"
+              className="flex items-center space-x-2.5 min-w-0 sm:shrink-0 hover:opacity-95 transition-opacity"
               title="Página Inicial - CEP-Coligação Espírita Progressista"
             >
               <div className="h-9 w-9 rounded-lg bg-sky-800/80 p-1.5 flex items-center justify-center shadow-inner border border-sky-600/50 shrink-0">
@@ -281,6 +281,12 @@ export default function Layout() {
                 <h1 className="font-bold text-xs sm:text-sm leading-tight text-white tracking-tight">
                   CEP-Coligação Espírita Progressista
                 </h1>
+                <p
+                  className="italic text-[10px] sm:text-[11px] text-white/80 leading-tight truncate"
+                  title="E conhecereis a verdade, e a verdade vos libertará"
+                >
+                  E conhecereis a verdade, e a verdade vos libertará
+                </p>
                 <p className="text-[10px] sm:text-[11px] text-sky-200/90 leading-tight hidden xs:block">
                   Educação Espírita Infantil & Juventude
                 </p>
