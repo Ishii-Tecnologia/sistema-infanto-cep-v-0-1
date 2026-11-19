@@ -11,6 +11,7 @@ import {
   Camera,
   KeyRound,
   Sparkles,
+  Gift,
 } from 'lucide-react'
 import { UserRole } from '@/types'
 
@@ -158,6 +159,96 @@ export const MANUAL_MODULES: ManualModule[] = [
     ],
   },
   {
+    id: 'festa_natal',
+    title: 'Festa de Natal — Entrega das Sacolinhas',
+    shortTitle: 'Festa de Natal',
+    badge: 'Entregas de Natal',
+    icon: Gift,
+    colorClass: {
+      bg: 'bg-rose-50 dark:bg-rose-950/40',
+      text: 'text-rose-700 dark:text-rose-300',
+      border: 'border-rose-200 dark:border-rose-800',
+      accent: 'bg-rose-600',
+    },
+    roles: ['admin', 'dirigente', 'professor', 'auxiliar'],
+    summary:
+      'Registro das entregas das sacolinhas de Natal no dia da festa: busca rápida da família, ficha com fotos, lançamento com dita por voz, foto do momento e histórico por família.',
+    steps: [
+      {
+        title: 'Abrindo a tela de busca de famílias',
+        description:
+          'No menu principal, clique em "Festa de Natal". A tela "Festa de Natal — Buscar Família" abre diretamente, com o campo de busca já com o cursor piscando (foco automático) e as famílias exibidas em cartões, mostrando nome de referência, telefone, quantidade de crianças e os nomes dos responsáveis.',
+      },
+      {
+        title: 'Busca inteligente de família',
+        description:
+          'Digite no campo de busca e a lista é filtrada na hora. A busca encontra a família pelo Nome de Referência, pelos nomes dos responsáveis ou pelos nomes das crianças. Ela ignora acentos e maiúsculas/minúsculas (ex.: "maria silva" encontra "Maria da Silva") e aceita nome completo ou parte do nome.',
+        tips: [
+          'Cada cartão mostra também o telefone da família para contato rápido no dia da festa.',
+        ],
+      },
+      {
+        title: 'A ficha da família: Responsáveis e Crianças',
+        description:
+          'Ao escolher uma família, abre a ficha com dois quadros lado a lado: "Responsáveis" (foto redonda, nome e parentesco, como Mãe, Pai, Avó — sem idade) e "Crianças" (foto redonda antes do nome e idade ao lado do nome, ex.: "João — 7 anos").',
+      },
+      {
+        title: 'Ampliação de fotos na ficha',
+        description:
+          'Clicar em qualquer foto — dos responsáveis, das crianças e também das fotos dos lançamentos — abre a imagem ampliada em um painel de visualização, com o nome da pessoa e uma descrição (parentesco, sala e idade ou data/hora do lançamento). O painel fecha pelo "x" no canto, clicando fora da imagem ou apertando a tecla ESC.',
+      },
+      {
+        title: 'Lançando a sacolinha: "Lançar Sacolinha"',
+        description:
+          'O botão rosa "Lançar Sacolinha" abre o formulário de registro. O campo "Quem está recebendo a sacolinha" já vem sugerido com o nome do primeiro responsável cadastrado da família — basta trocar se outra pessoa (por exemplo, uma criança ou outro responsável) estiver recebendo. Ao lado do campo há o ícone de microfone para DITAR o nome em vez de digitar, com o mesmo mecanismo de voz do cadastro de famílias (só um microfone ativo por vez no sistema).',
+        tips: ['A sugestão do responsável permanece até você alterar o campo manualmente.'],
+      },
+      {
+        title: 'Data, hora e foto do momento',
+        description:
+          'A data e a hora locais são preenchidas automaticamente no momento em que o lançamento é feito — não é preciso digitar nada. Para guardar a foto do momento, use o ícone de câmera ("Tirar foto"), que abre a câmera do celular; também é possível escolher uma imagem da galeria. Antes de gravar, a foto aparece em pré-visualização.',
+        tips: [
+          'Conferiu tudo? Clique em "Salvar lançamento" — a sacolinha entra imediatamente no histórico da família.',
+        ],
+      },
+      {
+        title: 'Histórico "Lançamentos desta família"',
+        description:
+          'Cada lançamento gravado aparece na ficha, na seção "Lançamentos desta família", mostrando a foto de quem recebeu, o nome, a data e a hora e o NOME DO OPERADOR que fez o registro — assim fica claro quem atendeu cada família na festa.',
+      },
+      {
+        title: 'Exclusão de lançamento (somente Administrador)',
+        description:
+          'Abaixo da data de cada lançamento existe o ícone de lixeira para corrigir um registro feito por engano. Ele aparece e funciona SOMENTE para o operador com perfil Administrador, pede confirmação antes de apagar (o lançamento é removido em definitivo) e os demais perfis nem visualizam o ícone. O próprio banco de dados também só aceita a exclusão de um administrador.',
+        tips: [
+          'Dirigentes, professores e auxiliares conseguem lançar e consultar, mas não excluir.',
+        ],
+      },
+      {
+        title: 'Ao fechar a ficha, a busca atualiza',
+        description:
+          'Ao fechar a ficha da família, a tela de busca recarrega as famílias automaticamente, garantindo que a lista esteja sempre em dia com os últimos lançamentos.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Posso lançar a sacolinha de uma criança em vez do responsável?',
+        answer:
+          'Sim. O nome sugerido é o do primeiro responsável, mas o campo é livre: digite ou dite o nome de quem está efetivamente recebendo a sacolinha, seja criança ou outro responsável da família.',
+      },
+      {
+        question: 'Por que a data e a hora não podem ser alteradas no lançamento?',
+        answer:
+          'Para garantir um histórico fiel da festa, a data e a hora são registradas automaticamente no instante do lançamento e não podem ser editadas. Correções de lançamentos feitos por engano ficam a cargo do Administrador, pela lixeira do lançamento.',
+      },
+      {
+        question: 'Onde consulto todas as entregas do dia/ano?',
+        answer:
+          'No menu "Relatórios", na aba "Entregas da Sacolinha de Natal", com o resumo completo por família, responsável, quem pegou, data e hora.',
+      },
+    ],
+  },
+  {
     id: 'calendario',
     title: 'Calendário Letivo e Planos Pedagógicos',
     shortTitle: 'Calendário',
@@ -260,7 +351,7 @@ export const MANUAL_MODULES: ManualModule[] = [
   },
   {
     id: 'relatorios',
-    title: 'Relatórios: Frequência, Aniversários e Tamanhos',
+    title: 'Relatórios: Frequência, Aniversários, Tamanhos e Sacolinha',
     shortTitle: 'Relatórios',
     badge: 'Estatísticas & Listagens',
     icon: BarChart3,
@@ -283,6 +374,16 @@ export const MANUAL_MODULES: ManualModule[] = [
         title: 'Relatório de Tamanhos de Roupa e Calçado',
         description:
           'Exibe o tamanho de roupa e calçado de cada aluno por sala, com filtros rápidos por sala específica e destaque de alunos sem informação (filtro para exibir quem está sem roupa, sem calçado ou sem ambos), agilizando a arrecadação de uniformes e campanhas de final de ano.',
+      },
+      {
+        title: 'Entregas da Sacolinha de Natal',
+        description:
+          'Aba dedicada aos lançamentos feitos na Festa de Natal, acessada pelo botão "Entregas da Sacolinha de Natal" na barra de relatórios. A tabela mostra as colunas # (numeração), Família, Responsável (primeiro responsável cadastrado), Quem pegou a sacolinha e Data e hora, com badge de total de entregas e famílias no topo.',
+        tips: [
+          'O filtro "Ano Letivo" é exclusivo desta aba: as opções vêm dos lançamentos existentes e incluem "Todos os Anos".',
+          'A lista vem ordenada pelo nome da família; clicar no cabeçalho "Família" inverte entre A-Z e Z-A, e dentro da mesma família a ordem é por data e hora do lançamento.',
+          'Este relatório é somente leitura: para corrigir ou excluir um lançamento, use a lixeira na ficha da família na Festa de Natal (exclusivo do Administrador).',
+        ],
       },
       {
         title: 'Logs de Exclusão e Auditoria (Exclusivo Administrador)',
