@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Family, Guardian, Child } from '@/types'
 import { formatPhoneBR } from '@/lib/phoneBR'
+import { getClassroomBadge } from '@/lib/academic'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { natalEntregasService, formatNatalDateTime, NatalEntrega } from '@/services/natalEntregas'
@@ -163,12 +164,40 @@ export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
                   <p className="text-xs text-muted-foreground">Nenhuma criança cadastrada.</p>
                 )}
                 {(family.children || []).map((c) => {
+                  const photoSrc = photoDisplayUrl(c)
                   const age = ageLabelFromBirthDate(c.birth_date)
+                  const sala = getClassroomBadge(c.classroom).rawName
                   return (
-                    <p key={c.id} className="text-xs font-medium">
-                      {c.name}
-                      {age ? ` — ${age}` : ''}
-                    </p>
+                    <div key={c.id} className="flex items-center gap-2 py-0.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openPhotoLightbox(c, [sala, age].filter(Boolean).join(' • ') || undefined)
+                        }}
+                        className={`h-8 w-8 rounded-full overflow-hidden bg-slate-200 shrink-0 transition-transform ${
+                          photoSrc
+                            ? 'cursor-pointer hover:scale-105 hover:ring-2 hover:ring-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500'
+                            : 'cursor-default'
+                        }`}
+                        title={photoSrc ? `Clique para ampliar foto de ${c.name}` : undefined}
+                        aria-label={
+                          photoSrc ? `Ampliar foto de ${c.name}` : `Sem foto de ${c.name}`
+                        }
+                      >
+                        {photoSrc ? (
+                          <img src={photoSrc} alt={c.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-[10px] flex items-center justify-center h-full text-slate-600 font-bold">
+                            {c.name.charAt(0)}
+                          </span>
+                        )}
+                      </button>
+                      <p className="text-xs font-medium min-w-0">
+                        {c.name}
+                        {age ? ` — ${age}` : ''}
+                      </p>
+                    </div>
                   )
                 })}
               </div>
