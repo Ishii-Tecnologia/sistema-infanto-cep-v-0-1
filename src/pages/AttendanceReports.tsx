@@ -56,12 +56,17 @@ import {
   Shirt,
   FileText,
   ShieldAlert,
+  Gift,
 } from 'lucide-react'
 import { ChildAttendanceDetailModal } from '@/components/ChildAttendanceDetailModal'
 import { StudentsByClassroomReport } from '@/components/reports/StudentsByClassroomReport'
 import { StudentSizesReport } from '@/components/reports/StudentSizesReport'
 import { DeletionLogsReport } from '@/components/reports/DeletionLogsReport'
+import { NatalSacolinhaReport } from '@/components/reports/NatalSacolinhaReport'
 import { SortableTableHead, SortDirection } from '@/components/reports/SortableTableHead'
+import { natalEntregasService, NatalEntrega } from '@/services/natalEntregas'
+import { familyService } from '@/services/families'
+import { Family } from '@/types'
 import { useToast } from '@/hooks/use-toast'
 
 const MONTH_NAMES = [
@@ -77,11 +82,16 @@ const MONTH_NAMES = [
   { value: 12, label: 'Dezembro' },
 ]
 
-export type ReportCategory = 'attendance' | 'students_birthday' | 'student_sizes' | 'deletion_logs'
+export type ReportCategory =
+  | 'attendance'
+  | 'students_birthday'
+  | 'student_sizes'
+  | 'deletion_logs'
+  | 'natal_sacolinha'
 
 export default function AttendanceReportsPage() {
   const { toast } = useToast()
-  const { classrooms, schoolYear, loading: academicLoading } = useAcademic()
+  const { classrooms, schoolYear, anosLetivos, loading: academicLoading } = useAcademic()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
 
@@ -117,6 +127,17 @@ export default function AttendanceReportsPage() {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [onlyLowAttendance, setOnlyLowAttendance] = useState<boolean>(false)
   const [sizeMissingFilter, setSizeMissingFilter] = useState<SizeMissingFilter>('all')
+
+  // Dados do relatório de Entregas da Sacolinha de Natal
+  const [natalEntregas, setNatalEntregas] = useState<NatalEntrega[]>([])
+  const [natalFamilies, setNatalFamilies] = useState<Family[]>([])
+  const [natalLoading, setNatalLoading] = useState(false)
+  const [selectedNatalYear, setSelectedNatalYear] = useState<number | null>(null)
+
+  // Sincroniza o seletor de ano letivo da Sacolinha com o ano ativo
+  useEffect(() => {
+    if (schoolYear.year) setSelectedNatalYear(schoolYear.year)
+  }, [schoolYear.year])
 
   // Estados de ordenação para as duas tabelas de Frequência (Crianças e Aulas)
   const [childrenSortKey, setChildrenSortKey] = useState<string>('childName')
@@ -186,6 +207,70 @@ export default function AttendanceReportsPage() {
       fetchData()
     }
   }, [schoolYear.year, academicLoading])
+
+  // ========================================================
+  // 0. Dados: Entregas da Sacolinha de Natal (natal_entregas)
+  // ========================================================
+  const fetchNatal = async () => {
+    try {
+      setNatalLoading(true)
+      const [entregas, familias] = await Promise.all([
+        natalEntregasService.listAll(),
+        familyService.getAll(),
+      ])
+      setNatalEntregas(entregas)
+      setNatalFamilies(familias)
+    } catch (err: any) {
+      console.error('Erro ao carregar entregas da sacolinha:', err)
+      toast({
+        title: 'Sistema Infanto-CEP',
+        description: 'Não foi possível carregar as entregas da sacolinha.',
+        variant: 'destructive',
+      })
+    } finally {
+      setNatalLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!academicLoading) {
+      fetchNatal()
+    }
+  }, [academicLoading])
+
+  const natalFiltered = useMemo(() => {
+    if (!selectedNatalYear) return natalEntregas
+    return natalEntregas.filter((e) => {
+      const d = new Date(e.delivered_at)
+      return !Number.isNaN(d.getTime()) && d.getFullYear() === selectedNatalYear
+    })
+  }, [natalEntregas, selectedNatalYear])
+
+  const natalFamilyNameById = useMemo(
+    () =>
+      new Map(natalFamilies.map((f) => [f.id, f.reference_name || `Família ${f.id.slice(0, 6)}`])),
+    [natalFamilies],
+  )
+
+  // Responsável principal/primeiro responsável por família
+  const natalGuardianNameByFamilyId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const f of natalFamilies) {
+      const g = (f.guardians || [])[0]
+      if (g?.name?.trim()) map.set(f.id, g.name.trim())
+    }
+    return map
+  }, [natalFamilies])
+
+  const natalYears = useMemo(() => {
+    const fromAnos = anosLetivos.map((a) => a.ano)
+    const fromEntregas = natalEntregas
+      .map((e) => new Date(e.delivered_at).getFullYear())
+      .filter((y) => !Number.isNaN(y))
+    return Array.from(new Set([...fromAnos, ...fromEntregas, new Date().getFullYear()]))
+      .filter((y) => y > 2000)
+      .sort((a, b) => b - a)
+  }, [anosLetivos, natalEntregas])
 
   // ========================================================
   // 1. Processamento: Relatório de Frequência
@@ -369,6 +454,8 @@ export default function AttendanceReportsPage() {
         return 'Relatório de Tamanhos para Calçado e Roupa dos Alunos'
       case 'deletion_logs':
         return 'Logs de Exclusão e Auditoria'
+      case 'natal_sacolinha':
+        return 'Entregas da Sacolinha de Natal'
       case 'attendance':
       default:
         return 'Relatório de Frequência e Assiduidade'
@@ -534,6 +621,22 @@ export default function AttendanceReportsPage() {
           <span>Tamanhos de Roupa e Calçado</span>
         </Button>
 
+        {/* Relatório de Entregas da Sacolinha de Natal */}
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => setReportCategory('natal_sacolinha')}
+          className={`text-xs h-9 font-semibold flex items-center gap-2 border transition-colors ${
+            reportCategory === 'natal_sacolinha'
+              ? 'bg-rose-100/90 hover:bg-rose-200/90 text-rose-950 border-rose-300 dark:bg-rose-900/50 dark:hover:bg-rose-900/70 dark:text-rose-100 dark:border-rose-700 shadow-xs ring-1 ring-rose-400/40'
+              : 'bg-rose-50/70 hover:bg-rose-100/90 text-rose-900 hover:text-rose-950 border-rose-200 hover:border-rose-300 dark:bg-rose-950/30 dark:hover:bg-rose-950/50 dark:text-rose-200 dark:border-rose-800'
+          }`}
+        >
+          <Gift className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+          <span>Entregas da Sacolinha de Natal</span>
+        </Button>
+
         {/* Relatório de Logs de Exclusão: EXCLUSIVO para Administrador */}
         {isAdmin && (
           <Button
@@ -567,11 +670,40 @@ export default function AttendanceReportsPage() {
                 ? 'Selecione a sala e a janela de datas que deseja consolidar.'
                 : reportCategory === 'students_birthday'
                   ? 'Filtre pela turma/sala desejada ou veja todas as salas agrupadas com as datas de nascimento e aniversário.'
-                  : 'Selecione a turma/sala e filtre alunos com dados completos ou com informações faltantes de roupa e calçado.'}
+                  : reportCategory === 'natal_sacolinha'
+                    ? 'Selecione o ano letivo para ver as entregas da sacolinha daquele ano.'
+                    : 'Selecione a turma/sala e filtre alunos com dados completos ou com informações faltantes de roupa e calçado.'}
             </CardDescription>
           </CardHeader>
 
           <CardContent className="p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 0. Ano Letivo (Sacolinha de Natal) */}
+            {reportCategory === 'natal_sacolinha' && (
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Ano Letivo
+                </Label>
+                <Select
+                  value={selectedNatalYear ? String(selectedNatalYear) : 'ALL'}
+                  onValueChange={(val) => setSelectedNatalYear(val === 'ALL' ? null : Number(val))}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Selecione o ano" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL" className="text-xs font-bold text-sky-700">
+                      Todos os Anos
+                    </SelectItem>
+                    {natalYears.map((y) => (
+                      <SelectItem key={y} value={String(y)} className="text-xs">
+                        {y}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* 1. Seleção de Sala (comum a todos os relatórios) */}
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -1359,6 +1491,18 @@ export default function AttendanceReportsPage() {
           TIPO 4: RELATÓRIO DE LOGS DE EXCLUSÃO (SOMENTE ADMINISTRADOR)
           -------------------------------------------------------- */}
       {reportCategory === 'deletion_logs' && isAdmin && <DeletionLogsReport />}
+
+      {/* --------------------------------------------------------
+          TIPO 5: ENTREGAS DA SACOLINHA DE NATAL
+          -------------------------------------------------------- */}
+      {reportCategory === 'natal_sacolinha' && (
+        <NatalSacolinhaReport
+          entregas={natalFiltered}
+          familyNameById={natalFamilyNameById}
+          guardianNameByFamilyId={natalGuardianNameByFamilyId}
+          loading={natalLoading}
+        />
+      )}
 
       {/* ========================================================
           RODAPÉ DE IMPRESSÃO LIMPO COM ASSINATURA INSTITUCIONAL

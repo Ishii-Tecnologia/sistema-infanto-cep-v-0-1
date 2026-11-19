@@ -24,6 +24,13 @@ export function formatNatalDateTime(value: Date | string): string {
 }
 
 export const natalEntregasService = {
+  /** Todos os lançamentos de todos as famílias (para o relatório da sacolinha). */
+  async listAll(): Promise<NatalEntrega[]> {
+    return pb.collection('natal_entregas').getFullList<NatalEntrega>({
+      sort: '-delivered_at',
+    })
+  },
+
   async listByFamily(familyId: string): Promise<NatalEntrega[]> {
     return pb.collection('natal_entregas').getFullList<NatalEntrega>({
       filter: `family_id = "${familyId}"`,
