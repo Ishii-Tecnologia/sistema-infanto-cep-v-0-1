@@ -118,17 +118,13 @@ export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
                 )}
                 {(family.guardians || []).map((g) => {
                   const photoSrc = photoDisplayUrl(g)
-                  const age = ageLabelFromBirthDate(g.birth_date)
                   return (
                     <div key={g.id} className="flex items-center gap-2 py-0.5">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
-                          openPhotoLightbox(
-                            g,
-                            [g.relationship, age].filter(Boolean).join(' • ') || undefined,
-                          )
+                          openPhotoLightbox(g, g.relationship || undefined)
                         }}
                         className={`h-8 w-8 rounded-full overflow-hidden bg-slate-200 shrink-0 transition-transform ${
                           photoSrc
@@ -150,7 +146,6 @@ export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
                       </button>
                       <p className="text-xs font-medium min-w-0">
                         {g.name} {g.relationship ? `(${g.relationship})` : ''}
-                        {age ? ` — ${age}` : ''}
                       </p>
                     </div>
                   )
