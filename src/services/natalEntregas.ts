@@ -49,6 +49,11 @@ export const natalEntregasService = {
     return pb.collection('natal_entregas').create<NatalEntrega>(body)
   },
 
+  /** Exclui um lançamento (a regra de API permite somente o perfil admin). */
+  async remove(id: string): Promise<void> {
+    await pb.collection('natal_entregas').delete(id)
+  },
+
   photoUrl(entrega: NatalEntrega, thumb?: string): string {
     if (!entrega.photo) return ''
     return pb.files.getURL(entrega, entrega.photo, thumb ? { thumb } : undefined)

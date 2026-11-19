@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Gift, Phone } from 'lucide-react'
+import { Gift, Phone, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -13,6 +14,7 @@ import { formatPhoneBR } from '@/lib/phoneBR'
 import { getClassroomBadge } from '@/lib/academic'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { useAuth } from '@/contexts/AuthContext'
 import { natalEntregasService, formatNatalDateTime, NatalEntrega } from '@/services/natalEntregas'
 import { photoDisplayUrl } from '@/services/photos'
 import { ImageLightbox } from '@/components/ImageLightbox'
@@ -62,7 +64,31 @@ export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
     title?: string
     description?: string
   } | null>(null)
+  const [entregaToDelete, setEntregaToDelete] = useState<NatalEntrega | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const { hasRole } = useAuth()
+  const canDeleteEntrega = hasRole(['admin'])
   const familyId = family?.id
+
+  /** Exclui o lançamento confirmado e remove a linha da lista local. */
+  const handleConfirmDelete = async () => {
+    if (!entregaToDelete) return
+    setDeleting(true)
+    try {
+      await natalEntregasService.remove(entregaToDelete.id)
+      setEntregas((prev) => prev.filter((x) => x.id !== entregaToDelete.id))
+      toast({ title: 'Sistema Infanto-CEP', description: 'Lançamento excluído.' })
+      setEntregaToDelete(null)
+    } catch (err) {
+      toast({
+        title: 'Sistema Infanto-CEP',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const loadEntregas = async (id: string) => {
     try {
@@ -79,6 +105,7 @@ export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
   useEffect(() => {
     setLaunchOpen(false)
     setLightboxImage(null)
+    setEntregaToDelete(null)
     if (familyId) loadEntregas(familyId)
     else setEntregas([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -260,11 +287,60 @@ export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
                         {formatNatalDateTime(e.delivered_at)}
                         {e.operator_name ? ` — Operador: ${e.operator_name}` : ''}
                       </p>
+                      {canDeleteEntrega && (
+                        <button
+                          type="button"
+                          onClick={() => setEntregaToDelete(e)}
+                          className="mt-1 text-rose-600 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 rounded p-0.5"
+                          title={`Excluir lançamento de ${e.person_name}`}
+                          aria-label={`Excluir lançamento de ${e.person_name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
               })}
             </div>
+
+            <Dialog
+              open={!!entregaToDelete}
+              onOpenChange={(o) => {
+                if (!o && !deleting) setEntregaToDelete(null)
+              }}
+            >
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Excluir lançamento?</DialogTitle>
+                  <DialogDescription>
+                    O lançamento de <strong>{entregaToDelete?.person_name}</strong> será excluído
+                    permanentemente desta família.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="flex items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEntregaToDelete(null)}
+                    disabled={deleting}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleConfirmDelete}
+                    disabled={deleting}
+                    className="bg-rose-600 hover:bg-rose-700 text-white"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    {deleting ? 'Excluindo...' : 'Sim, Excluir'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {launchOpen && (
               <NatalLaunchDialog
