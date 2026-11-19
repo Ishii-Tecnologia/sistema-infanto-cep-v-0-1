@@ -20,6 +20,12 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
+/**
+ * true quando o erro indica sessão expirada (401 do PocketBase).
+ * REGRESSÃO CONHECIDA: esta função já sumiu ~20 vezes quebrando o build
+ * (usada por Families.tsx, Library.tsx e YearHolidaysPanel.tsx) — restaurá-la
+ * sempre com esta assinatura.
+ */
 export function isAuthExpiredError(error: unknown): boolean {
   return error instanceof ClientResponseError && error.status === 401
 }
