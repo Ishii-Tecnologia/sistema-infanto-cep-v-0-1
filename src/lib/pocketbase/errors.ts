@@ -20,6 +20,11 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
+/** true quando a sessão expirou ou não é autorizada (HTTP 401). */
+export function isAuthExpiredError(error: unknown): boolean {
+  return error instanceof ClientResponseError && error.status === 401
+}
+
 export function getErrorMessage(error: unknown): string {
   if (!(error instanceof ClientResponseError)) {
     return error instanceof Error ? error.message : 'An unexpected error occurred.'
