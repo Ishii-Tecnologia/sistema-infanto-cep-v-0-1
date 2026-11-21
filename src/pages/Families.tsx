@@ -76,7 +76,11 @@ const RELATIONSHIP_SUGGESTIONS = [
   'Outro',
 ]
 import { ImageLightbox } from '@/components/ImageLightbox'
-import { getErrorMessage, isAuthExpiredError } from '@/lib/pocketbase/errors'
+import {
+  getErrorMessage,
+  getFriendlyDeleteErrorMessage,
+  isAuthExpiredError,
+} from '@/lib/pocketbase/errors'
 import pb from '@/lib/pocketbase/client'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
@@ -496,7 +500,7 @@ export default function FamiliesPage() {
       if (checkAuthAndHandleExpired(err)) return
       toast({
         title: 'Erro ao excluir família',
-        description: getErrorMessage(err),
+        description: getFriendlyDeleteErrorMessage(err),
         variant: 'destructive',
       })
     } finally {
