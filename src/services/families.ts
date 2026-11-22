@@ -1,6 +1,12 @@
 import pb from '@/lib/pocketbase/client'
 import { Family, Guardian, Child, ClassroomId } from '@/types'
 import { dataUrlToFile, isBase64DataUrl } from '@/services/photos'
+import {
+  getClassroomScope,
+  ClassroomScope,
+  familyInScope,
+  classroomScopeToChildFilter,
+} from '@/services/classroomScope'
 
 /**
  * Normaliza a data de nascimento digitada/ditada para ISO (YYYY-MM-DD).
@@ -194,16 +200,22 @@ function sanitizeChildPayload(data: Partial<Child>): Record<string, any> {
 }
 
 export const familyService = {
-  async getAll(): Promise<Family[]> {
+  async getAll(scope?: ClassroomScope): Promise<Family[]> {
+    const scopeValue = scope ?? getClassroomScope(pb.authStore.record as any)
+    const childFilter = classroomScopeToChildFilter(scopeValue)
+
+    const childrenPromise = pb.collection('children').getFullList<Child>({
+      sort: 'name',
+      ...(childFilter ? { filter: childFilter } : {}),
+    })
+
     const families = await pb.collection('families').getFullList<Family>({
       sort: 'reference_name',
     })
 
     const [guardians, children] = await Promise.all([
       pb.collection('guardians').getFullList<Guardian>(),
-      pb.collection('children').getFullList<Child>({
-        sort: 'name',
-      }),
+      childrenPromise,
     ])
 
     const guardianMap = new Map<string, Guardian[]>()
@@ -220,11 +232,13 @@ export const familyService = {
       childMap.set(c.family_id, list)
     }
 
-    return families.map((f) => ({
-      ...f,
-      guardians: guardianMap.get(f.id) || [],
-      children: childMap.get(f.id) || [],
-    }))
+    return families
+      .filter((f) => familyInScope(scopeValue, childMap.get(f.id)))
+      .map((f) => ({
+        ...f,
+        guardians: guardianMap.get(f.id) || [],
+        children: childMap.get(f.id) || [],
+      }))
   },
 
   async getById(id: string): Promise<Family> {
@@ -547,8 +561,12 @@ export const childService = {
     }
     return pb.collection('children').create<Child>(sanitized)
   },
-  async getAll(classroom?: ClassroomId): Promise<Child[]> {
-    const filter = classroom ? `classroom = "${classroom}"` : ''
+  async getAll(classroom?: ClassroomId, scope?: ClassroomScope): Promise<Child[]> {
+    const scopeValue = scope ?? getClassroomScope(pb.authStore.record as any)
+    // Professor com sala: mesmo que chamem com outra sala, trava na dele.
+    const effective = scopeValue && scopeValue !== 'all' ? scopeValue : classroom
+    let filter = effective ? `classroom = "${effective}"` : ''
+    if (scopeValue === null) filter = 'id = ""'
     return pb.collection('children').getFullList<Child>({
       filter,
       sort: 'name',

@@ -60,6 +60,9 @@ export const settingsService = {
       role: data.role || 'auxiliar',
       active: data.active !== false,
     }
+    if (data.assigned_classroom !== undefined) {
+      payload.assigned_classroom = data.assigned_classroom || ''
+    }
     return pb.collection('users').create<User>(payload)
   },
 
@@ -68,6 +71,8 @@ export const settingsService = {
     if (data.name !== undefined) payload.name = (data.name || '').trim()
     if (data.role !== undefined) payload.role = data.role
     if (data.active !== undefined) payload.active = Boolean(data.active)
+    if (data.assigned_classroom !== undefined)
+      payload.assigned_classroom = data.assigned_classroom || ''
     if (data.email !== undefined && data.email.trim()) {
       payload.email = data.email.trim().toLowerCase()
     }

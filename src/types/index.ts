@@ -7,6 +7,8 @@ export interface User {
   role: UserRole
   active: boolean
   avatar?: string
+  /** Sala alocada quando o papel é professor (escopo de acesso às famílias/alunos). */
+  assigned_classroom?: ClassroomId | ''
   created?: string
   updated?: string
 }

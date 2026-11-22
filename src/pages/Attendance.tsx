@@ -30,13 +30,20 @@ import {
   Smartphone,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { getClassroomScope, ClassroomScope } from '@/services/classroomScope'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function AttendancePage() {
   const { toast } = useToast()
+  const { user } = useAuth()
   const { classrooms, schoolYear, loading: academicLoading } = useAcademic()
+  // Escopo de sala do operador: professor fica fixo na sua sala (null = sem sala, vê nada).
+  const classroomScope: ClassroomScope = getClassroomScope(user)
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [selectedLessonId, setSelectedLessonId] = useState<string>('')
-  const [selectedClassroom, setSelectedClassroom] = useState<ClassroomId>('A')
+  const [selectedClassroom, setSelectedClassroom] = useState<ClassroomId>(
+    classroomScope && classroomScope !== 'all' ? classroomScope : 'A',
+  )
   const [children, setChildren] = useState<Child[]>([])
   const [attendances, setAttendances] = useState<
     Record<string, { status: AttendanceStatus; justification: string; notes: string }>
@@ -79,7 +86,7 @@ export default function AttendancePage() {
     try {
       setLoading(true)
       const [classChildren, existingAttendances] = await Promise.all([
-        childService.getAll(selectedClassroom),
+        childService.getAll(selectedClassroom, classroomScope),
         attendanceService.getByLessonAndClassroom(selectedLessonId, selectedClassroom),
       ])
 
@@ -234,21 +241,29 @@ export default function AttendancePage() {
 
           <div className="space-y-1">
             <Label className="text-xs font-semibold">Turma / Sala</Label>
-            <Select
-              value={selectedClassroom}
-              onValueChange={(val) => setSelectedClassroom(val as ClassroomId)}
-            >
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Selecione a sala" />
-              </SelectTrigger>
-              <SelectContent>
-                {classrooms.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name} ({c.minAge} a {c.maxAge} anos)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {classroomScope === 'all' ? (
+              <Select
+                value={selectedClassroom}
+                onValueChange={(val) => setSelectedClassroom(val as ClassroomId)}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Selecione a sala" />
+                </SelectTrigger>
+                <SelectContent>
+                  {classrooms.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} ({c.minAge} a {c.maxAge} anos)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="h-9 flex items-center px-3 rounded-md border border-sky-200 dark:border-sky-900/60 bg-sky-50 dark:bg-sky-950/40 text-xs font-semibold text-sky-800 dark:text-sky-300">
+                {classroomScope
+                  ? `Sala ${classroomScope} (sua sala)`
+                  : 'Sem sala alocada — procure a direção'}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

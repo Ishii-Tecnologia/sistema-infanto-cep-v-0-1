@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { settingsService } from '@/services/settings'
 import { auditLogService } from '@/services/auditLogs'
-import { User, UserRole } from '@/types'
+import { User, UserRole, ClassroomId, CLASSROOMS } from '@/types'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -42,19 +42,33 @@ export default function SettingsPage() {
 
   // Modal de Novo Operador
   const [userModalOpen, setUserModalOpen] = useState(false)
-  const emptyUserForm: { name: string; email: string; role: UserRole; password: string } = {
+  const emptyUserForm: {
+    name: string
+    email: string
+    role: UserRole
+    password: string
+    assigned_classroom: ClassroomId | ''
+  } = {
     name: '',
     email: '',
     role: 'professor',
     password: '',
+    assigned_classroom: '',
   }
   const [userForm, setUserForm] = useState<{
     name: string
     email: string
     role: UserRole
     password: string
+    assigned_classroom: ClassroomId | ''
   }>(emptyUserForm)
   const [userConfirmPassword, setUserConfirmPassword] = useState('')
+
+  // Modal de Edição da Sala do Professor
+  const [classroomModalOpen, setClassroomModalOpen] = useState(false)
+  const [classroomEditingUser, setClassroomEditingUser] = useState<User | null>(null)
+  const [classroomValue, setClassroomValue] = useState<ClassroomId | ''>('')
+  const [savingClassroom, setSavingClassroom] = useState(false)
 
   // Abre o modal de criação sempre com o formulário limpo
   const openCreateUserModal = () => {
@@ -171,7 +185,10 @@ export default function SettingsPage() {
     }
 
     try {
-      await settingsService.createUser(userForm)
+      await settingsService.createUser({
+        ...userForm,
+        assigned_classroom: userForm.assigned_classroom,
+      })
       toast({
         title: 'Operador criado com sucesso!',
         description: 'Novo acesso registrado no Sistema Infanto-CEP.',
@@ -186,6 +203,33 @@ export default function SettingsPage() {
         description: getErrorMessage(err),
         variant: 'destructive',
       })
+    }
+  }
+
+  const handleSaveClassroom = async () => {
+    if (!classroomEditingUser) return
+    try {
+      setSavingClassroom(true)
+      await settingsService.updateUser(classroomEditingUser.id, {
+        assigned_classroom: classroomValue || '',
+      })
+      toast({
+        title: 'Sala atualizada!',
+        description: classroomValue
+          ? `${classroomEditingUser.name} ficou alocado à Sala ${classroomValue}.`
+          : `${classroomEditingUser.name} ficou sem sala alocada.`,
+      })
+      setClassroomModalOpen(false)
+      setClassroomEditingUser(null)
+      loadData()
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao atualizar sala',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingClassroom(false)
     }
   }
 
@@ -479,6 +523,20 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
+                    {/* Linha da sala alocada (professor) */}
+                    {(u.role === 'professor' || u.assigned_classroom) && (
+                      <div className="flex items-center justify-between py-2 text-xs">
+                        <span className="text-slate-500 dark:text-slate-400">Sala alocada:</span>
+                        {u.assigned_classroom ? (
+                          <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200 dark:border-sky-900 font-semibold text-[11px]">
+                            Sala {u.assigned_classroom}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground italic">Sem sala</span>
+                        )}
+                      </div>
+                    )}
+
                     {/* Grupo de ações com layout responsivo e alinhado */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
                       <Button
@@ -495,6 +553,21 @@ export default function SettingsPage() {
                       >
                         <KeyRound className="h-3.5 w-3.5 mr-1 shrink-0" />
                         <span className="truncate">Senha</span>
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setClassroomEditingUser(u)
+                          setClassroomValue((u.assigned_classroom as ClassroomId) || '')
+                          setClassroomModalOpen(true)
+                        }}
+                        className="h-8 text-xs text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-900/50 hover:bg-sky-50 dark:hover:bg-sky-950/40 font-medium px-2"
+                        title="Definir sala alocada (professor)"
+                      >
+                        <Sliders className="h-3.5 w-3.5 mr-1 shrink-0" />
+                        <span className="truncate">Sala</span>
                       </Button>
 
                       <Button
@@ -921,6 +994,37 @@ export default function SettingsPage() {
               </Select>
             </div>
 
+            {userForm.role === 'professor' && (
+              <div className="space-y-1">
+                <Label>Sala Alocada</Label>
+                <Select
+                  value={userForm.assigned_classroom}
+                  onValueChange={(val) =>
+                    setUserForm({
+                      ...userForm,
+                      assigned_classroom: (val || '') as ClassroomId | '',
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sem sala" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Sem sala</SelectItem>
+                    {CLASSROOMS.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  O professor verá apenas as famílias e alunos desta sala. "Sem sala" deixa o acesso
+                  vazio até a alocação ser definida.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-1">
               <Label>Senha Inicial</Label>
               <Input
@@ -962,6 +1066,56 @@ export default function SettingsPage() {
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               Cadastrar Operador
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Definir Sala do Professor */}
+      <Dialog open={classroomModalOpen} onOpenChange={setClassroomModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sala Alocada do Professor</DialogTitle>
+            <DialogDescription className="text-xs">
+              Defina em qual sala <strong>{classroomEditingUser?.name}</strong> atua. Ele(a) verá
+              apenas as famílias e alunos desta sala.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-1 text-xs">
+            <Label>Sala</Label>
+            <Select
+              value={classroomValue}
+              onValueChange={(val) => setClassroomValue((val || '') as ClassroomId | '')}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sem sala" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Sem sala</SelectItem>
+                {CLASSROOMS.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              "Sem sala" deixa o acesso vazio até a alocação ser definida.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setClassroomModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveClassroom}
+              disabled={savingClassroom}
+              className="bg-sky-600 hover:bg-sky-700 text-white"
+            >
+              {savingClassroom ? 'Salvando...' : 'Salvar Sala'}
             </Button>
           </DialogFooter>
         </DialogContent>

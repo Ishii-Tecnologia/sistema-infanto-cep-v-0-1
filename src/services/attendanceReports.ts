@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { getClassroomScope, classroomScopeToChildFilter } from '@/services/classroomScope'
 import { Lesson, Child, ClassroomId, Attendance, AttendanceStatus } from '@/types'
 import { photoDisplayUrl } from '@/services/photos'
 
@@ -78,13 +79,16 @@ export const attendanceReportService = {
     attendances: Attendance[]
   }> {
     const filter = year ? `year = ${year}` : ''
+    const scope = getClassroomScope(pb.authStore.record as any)
+    const scopeFilter = classroomScopeToChildFilter(scope)
+    const childFilter = ['active = true', scopeFilter].filter(Boolean).join(' && ')
     const [lessons, children, attendances] = await Promise.all([
       pb.collection('lessons').getFullList<Lesson>({
         filter,
         sort: 'date',
       }),
       pb.collection('children').getFullList<Child>({
-        filter: 'active = true',
+        filter: childFilter,
         sort: 'name',
         expand: 'family_id',
       }),

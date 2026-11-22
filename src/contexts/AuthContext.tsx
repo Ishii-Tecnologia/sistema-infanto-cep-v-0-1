@@ -39,6 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: rec.role || 'professor',
         active: rec.active !== false,
         avatar: rec.avatar,
+        assigned_classroom: (rec.assigned_classroom as User['assigned_classroom']) || '',
       }
       setOriginalUser(baseUser)
       setUser(baseUser)

@@ -1,4 +1,5 @@
 import pb from '@/lib/pocketbase/client'
+import { getClassroomScope, classroomScopeToChildFilter } from '@/services/classroomScope'
 import { Child, ClassroomId } from '@/types'
 
 export interface StudentsByClassroomReportItem {
@@ -43,8 +44,11 @@ export const generalReportsService = {
    * para relatórios de aniversários e de tamanhos de roupas e calçados.
    */
   async loadActiveChildren(): Promise<Child[]> {
+    const scope = getClassroomScope(pb.authStore.record as any)
+    const scopeFilter = classroomScopeToChildFilter(scope)
+    const filter = ['active = true', scopeFilter].filter(Boolean).join(' && ')
     return pb.collection('children').getFullList<Child>({
-      filter: 'active = true',
+      filter,
       sort: 'classroom,name',
       expand: 'family_id',
     })
