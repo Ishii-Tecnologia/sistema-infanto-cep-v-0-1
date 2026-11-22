@@ -27,6 +27,19 @@ export function isAuthExpiredError(error: unknown): boolean {
   )
 }
 
+export function getFriendlyDeleteErrorMessage(error: unknown): string {
+  if (error instanceof ClientResponseError) {
+    const raw = `${error.response?.message || ''} ${error.message || ''}`.toLowerCase()
+    if (
+      error.status === 400 &&
+      (raw.includes('failed to delete record') || raw.includes('required relation reference'))
+    ) {
+      return 'Não foi possível excluir: este registro ainda possui registros vinculados (alunos, lançamentos ou empréstimos). Exclua os registros dependentes antes de tentar novamente.'
+    }
+  }
+  return getErrorMessage(error)
+}
+
 export function getErrorMessage(error: unknown): string {
   if (!(error instanceof ClientResponseError)) {
     return error instanceof Error ? error.message : 'An unexpected error occurred.'
