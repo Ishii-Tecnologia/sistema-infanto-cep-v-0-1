@@ -219,6 +219,62 @@ export interface BookLoan {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Biblioteca Didática
+// ---------------------------------------------------------------------------
+
+export interface DidacticBook {
+  id: string
+  title: string
+  author?: string
+  category?: string
+  synopsis?: string
+  total_copies: number
+  available_copies: number
+  created?: string
+  updated?: string
+}
+
+export type DidacticRequestStatus = 'pendente' | 'aprovada' | 'recusada' | 'devolvida'
+
+export interface DidacticRequest {
+  id: string
+  book_id: string
+  requester: string
+  quantity: number
+  use_date: string
+  notes?: string
+  status: DidacticRequestStatus
+  decision_note?: string
+  decided_at?: string
+  loan_id?: string
+  created?: string
+  updated?: string
+  expand?: {
+    book_id?: DidacticBook
+    requester?: User
+  }
+}
+
+export interface DidacticLoan {
+  id: string
+  request_id: string
+  book_id: string
+  requester: string
+  quantity: number
+  loan_date: string
+  due_date: string
+  return_date?: string
+  status: 'ativo' | 'devolvido'
+  created?: string
+  updated?: string
+  expand?: {
+    book_id?: DidacticBook
+    requester?: User
+    request_id?: DidacticRequest
+  }
+}
+
 export type DimDimTransactionType = 'credit' | 'debit' | 'reversal'
 export type DimDimCategory = 'presenca' | 'tarefa' | 'comportamento' | 'premiacao' | 'outros'
 

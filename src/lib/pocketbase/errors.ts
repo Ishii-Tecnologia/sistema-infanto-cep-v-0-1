@@ -21,23 +21,19 @@ export function extractFieldErrors(error: unknown): FieldErrors {
 }
 
 export function isAuthExpiredError(error: unknown): boolean {
-  return (
-    error instanceof ClientResponseError &&
-    (error.status === 401 || (error as { response?: { code?: number } }).response?.code === 401)
-  )
+  if (!(error instanceof ClientResponseError)) return false
+  return error.status === 401
 }
 
 export function getFriendlyDeleteErrorMessage(error: unknown): string {
-  if (error instanceof ClientResponseError) {
-    const raw = `${error.response?.message || ''} ${error.message || ''}`.toLowerCase()
-    if (
-      error.status === 400 &&
-      (raw.includes('failed to delete record') || raw.includes('required relation reference'))
-    ) {
-      return 'Não foi possível excluir: este registro ainda possui registros vinculados (alunos, lançamentos ou empréstimos). Exclua os registros dependentes antes de tentar novamente.'
-    }
+  if (isAuthExpiredError(error)) {
+    return 'Sua sessão expirou. Faça login novamente para excluir registros.'
   }
-  return getErrorMessage(error)
+  const msg = getErrorMessage(error)
+  if (/failed to delete|relation reference/i.test(msg)) {
+    return 'Este registro possui dados vinculados (crianças, empréstimos ou lançamentos) e não pode ser excluído. Remova primeiro os dados dependentes.'
+  }
+  return msg
 }
 
 export function getErrorMessage(error: unknown): string {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-22T05:44:48.598Z",
+  "generatedAt": "2026-11-22T06:37:41.955Z",
   "collections": [
     {
       "name": "users",
@@ -1293,6 +1293,243 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_natal_entregas_family ON natal_entregas (family_id)"]
+    },
+    {
+      "name": "didactic_books",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'bibliotecario')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'bibliotecario') && @request.body.total_copies = 0 && @request.body.available_copies = 0",
+        "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'bibliotecario')"
+      },
+      "fields": [
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "author",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "synopsis",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "total_copies",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "available_copies",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": ["CREATE INDEX idx_didactic_books_title ON didactic_books (title)"]
+    },
+    {
+      "name": "didactic_requests",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'professor' || @request.auth.role = 'auxiliar' || @request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'bibliotecario') && requester = @request.auth.id && status = 'pendente'",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'bibliotecario') && @request.body.requester = '' && @request.body.book_id = '' && @request.body.quantity = 0 && @request.body.use_date = '' && @request.body.notes = '' && @request.body.decided_at = '' && @request.body.loan_id = ''",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "book_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "didactic_books"
+        },
+        {
+          "name": "requester",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "quantity",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "use_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "notes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["pendente", "aprovada", "recusada", "devolvida"]
+        },
+        {
+          "name": "decision_note",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "decided_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "loan_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_didactic_requests_book ON didactic_requests (book_id)",
+        "CREATE INDEX idx_didactic_requests_requester ON didactic_requests (requester)",
+        "CREATE INDEX idx_didactic_requests_status ON didactic_requests (status)"
+      ]
+    },
+    {
+      "name": "didactic_loans",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": null,
+        "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'bibliotecario')",
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "request_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "didactic_requests"
+        },
+        {
+          "name": "book_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "didactic_books"
+        },
+        {
+          "name": "requester",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "quantity",
+          "type": "number",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "loan_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "due_date",
+          "type": "date",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "return_date",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": ["ativo", "devolvido"]
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_didactic_loans_request ON didactic_loans (request_id)",
+        "CREATE INDEX idx_didactic_loans_book ON didactic_loans (book_id)",
+        "CREATE INDEX idx_didactic_loans_status ON didactic_loans (status)"
+      ]
     }
   ]
 }
