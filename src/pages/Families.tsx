@@ -159,9 +159,9 @@ export default function FamiliesPage() {
   // CSV (exportar/importar/modelo) fica visível apenas para Admin
   const canManageCsv = hasRole(['admin'])
 
-  // Dados do Wizard (sem e-mail da família: campo retirado da interface — a
-  // coluna continua no banco; ao editar, o valor existente é preservado porque
-  // a chave não é enviada no payload)
+  // Dados do Wizard (a família não tem mais campo de e-mail: o campo foi
+  // retirado da interface na v0.0.172 e a coluna foi removida do banco na
+  // migração 0029)
   const [wizardFamily, setWizardFamily] = useState<{
     reference_name: string
     primary_phone: string
@@ -794,12 +794,6 @@ export default function FamiliesPage() {
                     <span className="text-muted-foreground block">Telefone Principal:</span>
                     <strong className="text-slate-800 dark:text-slate-200">
                       {formatPhoneBR(selectedFamily.primary_phone || '') || 'Não informado'}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block">E-mail:</span>
-                    <strong className="text-slate-800 dark:text-slate-200">
-                      {selectedFamily.email || 'Não informado'}
                     </strong>
                   </div>
                   <div>

@@ -19,7 +19,6 @@ export function familyMatchesSearch(family: Family, query: string): boolean {
 
   const names = [
     family.reference_name,
-    family.email,
     family.address,
     family.bairro,
     ...(family.guardians || []).map((g) => g.name),

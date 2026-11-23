@@ -9,7 +9,7 @@
  * - Colunas de responsáveis são fixas: os 2 primeiros responsáveis têm colunas
  *   próprias (Responsável 1..2); a partir do 3º, os extras vão na coluna
  *   "Responsáveis Extras" como blocos "Nome | Parentesco | Nascimento |
- *   Telefone | E-mail" separados por " // " (apenas no export/informativo —
+ *   Telefone" separados por " // " (apenas no export/informativo —
  *   na importação eles não são gravados).
  * - Datas: dd/mm/aaaa (vazio quando não informado).
  * - Booleanos: "Sim" / "Não" (Autorização de Imagem).
@@ -23,6 +23,10 @@
  *   dados da família/responsáveis.
  * - Responsável: Nome + Parentesco dentro da família (case-insensitive); se
  *   não houver, o mesmo Nome dentro da família. Se não existir, é criado.
+ * - E-mail não existe mais (nem da família nem dos responsáveis): a coluna foi
+ *   removida do sistema e do banco (migração 0029). CSVs antigos com a coluna
+ *   "Responsável N - E-mail" ainda importam: a coluna extra é simplesmente
+ *   ignorada (a importação valida apenas que as colunas esperadas existem).
  * - A coluna "Sala" NÃO é lida na importação: a sala é calculada pela data de
  *   nascimento (mesmo critério do cadastro individual). Ela existe apenas na
  *   exportação.
@@ -44,12 +48,10 @@ export const CSV_HEADERS = [
   'Responsável 1 - Parentesco',
   'Responsável 1 - Nascimento',
   'Responsável 1 - Telefone',
-  'Responsável 1 - E-mail',
   'Responsável 2 - Nome',
   'Responsável 2 - Parentesco',
   'Responsável 2 - Nascimento',
   'Responsável 2 - Telefone',
-  'Responsável 2 - E-mail',
   'Responsáveis Extras (informativo)',
   'Nome da Criança',
   'Data de Nascimento da Criança',
@@ -159,7 +161,7 @@ function formatRow(
       (g) =>
         `${g.name || '(sem nome)'} | ${g.relationship || ''} | ${isoToBrDate(g.birth_date)} | ${
           g.phone || ''
-        } | ${g.email || ''}`,
+        }`,
     )
     .join(' // ')
 
@@ -173,12 +175,10 @@ function formatRow(
     g1?.relationship || '',
     isoToBrDate(g1?.birth_date),
     g1?.phone || '',
-    g1?.email || '',
     g2?.name || '',
     g2?.relationship || '',
     isoToBrDate(g2?.birth_date),
     g2?.phone || '',
-    g2?.email || '',
     extrasText,
   ]
 
@@ -237,7 +237,6 @@ export function downloadFamiliesCsvTemplate(): void {
     id: 'exemplo',
     reference_name: 'Familia Maria Silva',
     primary_phone: '(11) 98888-7777',
-    email: '',
     address: 'Rua das Flores, 123',
     bairro: 'Centro',
     notes: 'Chegam juntos, preferem contato por WhatsApp.',
@@ -249,7 +248,6 @@ export function downloadFamiliesCsvTemplate(): void {
         relationship: 'Mãe',
         birth_date: '1985-03-10T00:00:00.000Z',
         phone: '(11) 98888-7777',
-        email: 'maria@email.com',
         is_emergency_contact: true,
       },
       {
@@ -259,7 +257,6 @@ export function downloadFamiliesCsvTemplate(): void {
         relationship: 'Pai',
         birth_date: '1983-07-22T00:00:00.000Z',
         phone: '(11) 97777-6666',
-        email: 'joao@email.com',
         is_emergency_contact: false,
       },
     ],
@@ -310,7 +307,6 @@ interface ParsedRow {
     relationship: string
     birth_date: string
     phone: string
-    email: string
   }>
   child: {
     name: string
@@ -356,12 +352,10 @@ export function parseFamiliesCsv(
     g1Rel: col('Responsável 1 - Parentesco'),
     g1Birth: col('Responsável 1 - Nascimento'),
     g1Phone: col('Responsável 1 - Telefone'),
-    g1Email: col('Responsável 1 - E-mail'),
     g2Name: col('Responsável 2 - Nome'),
     g2Rel: col('Responsável 2 - Parentesco'),
     g2Birth: col('Responsável 2 - Nascimento'),
     g2Phone: col('Responsável 2 - Telefone'),
-    g2Email: col('Responsável 2 - E-mail'),
     childName: col('Nome da Criança'),
     childBirth: col('Data de Nascimento da Criança'),
 
@@ -390,14 +384,12 @@ export function parseFamiliesCsv(
       relationship: at(idx.g1Rel),
       birth_date: csvDateToIso(at(idx.g1Birth)),
       phone: at(idx.g1Phone),
-      email: at(idx.g1Email),
     }
     const g2 = {
       name: at(idx.g2Name),
       relationship: at(idx.g2Rel),
       birth_date: csvDateToIso(at(idx.g2Birth)),
       phone: at(idx.g2Phone),
-      email: at(idx.g2Email),
     }
 
     const childName = at(idx.childName)
@@ -522,7 +514,6 @@ export async function applyFamiliesCsv(
           relationship: g.relationship,
           birth_date: toBirthDatePayload(g.birth_date),
           phone: g.phone,
-          email: g.email,
         }
         if (match) {
           await pb.collection('guardians').update(match.id, payload)

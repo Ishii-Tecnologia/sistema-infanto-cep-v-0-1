@@ -20,34 +20,47 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
-export function isAuthExpiredError(error: unknown): boolean {
-  return (
-    error instanceof ClientResponseError && (error.status === 401 || error.response?.code === 401)
-  )
-}
-
-export function getFriendlyDeleteErrorMessage(error: unknown): string {
-  if (!(error instanceof ClientResponseError)) {
-    return error instanceof Error ? error.message : 'Erro desconhecido ao excluir o registro.'
-  }
-  if (error.status === 400) {
-    // Típico de exclusão bloqueada por vínculos: regra ON DELETE ou
-    // integridade referencial impedindo a remoção do registro.
-    return 'Não foi possível excluir: este registro ainda possui dependências vinculadas (alunos, lançamentos ou outros dados relacionados). Remova ou ajuste as dependências antes de tentar novamente.'
-  }
-  if (error.status === 403) {
-    return 'Você não tem permissão para excluir este registro.'
-  }
-  if (error.status === 404) {
-    return 'Registro não encontrado — ele já pode ter sido excluído por outro usuário.'
-  }
-  return getErrorMessage(error)
-}
-
 export function getErrorMessage(error: unknown): string {
   if (!(error instanceof ClientResponseError)) {
     return error instanceof Error ? error.message : 'An unexpected error occurred.'
   }
   const msgs = Object.values(extractFieldErrors(error))
   return msgs.length > 0 ? msgs.join(' ') : error.message || 'An unexpected error occurred.'
+}
+
+/** true quando o erro indica sessão expirada / não autenticado (HTTP 401). */
+export function isAuthExpiredError(error: unknown): boolean {
+  return (
+    error instanceof ClientResponseError &&
+    (error.status === 401 ||
+      // PocketBase pode reportar 400 com "The request requires valid record
+      // authorization token" quando o token já não é mais aceito.
+      (error.status === 400 &&
+        typeof error.response?.message === 'string' &&
+        /authorization token/i.test(error.response.message)))
+  )
+}
+
+/**
+ * Mensagem amigável para falhas de exclusão (uso em toasts). Cobre os casos
+ * comuns: restrição de chave (registro referenciado por outros) e permissão.
+ */
+export function getFriendlyDeleteErrorMessage(error: unknown): string {
+  if (error instanceof ClientResponseError) {
+    if (isAuthExpiredError(error)) {
+      return 'Sua sessão expirou. Entre novamente para continuar.'
+    }
+    if (error.status === 404) {
+      return 'O registro não foi encontrado — pode já ter sido excluído por outro operador.'
+    }
+    if (error.status === 403) {
+      return 'Você não tem permissão para excluir este registro.'
+    }
+    if (error.status === 400) {
+      const detail = Object.values(extractFieldErrors(error))[0]
+      if (detail) return detail
+      return 'Não foi possível excluir: verifique se este registro não está em uso por outros cadastros.'
+    }
+  }
+  return getErrorMessage(error)
 }

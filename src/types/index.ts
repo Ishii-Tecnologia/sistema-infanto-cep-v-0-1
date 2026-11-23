@@ -72,7 +72,6 @@ export interface Family {
   id: string
   reference_name: string
   primary_phone?: string
-  email?: string
   address?: string
   bairro?: string
   notes?: string
@@ -89,7 +88,6 @@ export interface Guardian {
   relationship?: string
   birth_date?: string
   phone?: string
-  email?: string
   is_emergency_contact?: boolean
   photo_url?: string
   /** Nome do arquivo de foto armazenado no backend (novo padrão, como em natal_entregas). */

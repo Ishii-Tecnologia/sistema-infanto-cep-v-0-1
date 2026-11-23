@@ -48,10 +48,6 @@ function sanitizeFamilyPayload(data: Partial<Family>): Record<string, any> {
   if (data.primary_phone !== undefined) {
     payload.primary_phone = (data.primary_phone || '').trim()
   }
-  if (data.email !== undefined) {
-    const trimmed = (data.email || '').trim()
-    payload.email = trimmed === '' ? '' : trimmed
-  }
   if (data.address !== undefined) {
     payload.address = (data.address || '').trim()
   }
@@ -67,7 +63,7 @@ function sanitizeFamilyPayload(data: Partial<Family>): Record<string, any> {
 
 /**
  * Sanitiza payload para a coleção 'guardians' garantindo apenas campos válidos.
- * Especialmente importante: email vazio deve ser enviado como '' ou omitido, nunca null.
+ * Campos inválidos/extra são simplesmente ignorados.
  */
 const PHOTO_MAX_BYTES = 5 * 1024 * 1024
 
@@ -131,10 +127,6 @@ function sanitizeGuardianPayload(data: Partial<Guardian>): Record<string, any> {
   }
   if (data.phone !== undefined) {
     payload.phone = (data.phone || '').trim()
-  }
-  if (data.email !== undefined) {
-    const trimmed = (data.email || '').trim()
-    payload.email = trimmed === '' ? '' : trimmed
   }
   if (data.birth_date !== undefined) {
     payload.birth_date = toBirthDatePayload(data.birth_date)
@@ -343,7 +335,6 @@ export const familyService = {
         relationship: g.relationship,
         birth_date: g.birth_date,
         phone: g.phone,
-        email: g.email,
         is_emergency_contact: g.is_emergency_contact,
         photo_url: g.photo_url,
       })
