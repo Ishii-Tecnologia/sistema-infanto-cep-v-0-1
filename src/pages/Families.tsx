@@ -595,7 +595,9 @@ export default function FamiliesPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          {canManageCsv && <FamiliesCsvTools families={families} onImported={loadFamilies} />}
+          {canManageCsv && (
+            <FamiliesCsvTools families={families} searchText={search} onImported={loadFamilies} />
+          )}
           <Button
             onClick={handleOpenWizard}
             className="bg-indigo-600 hover:bg-indigo-700 text-white"

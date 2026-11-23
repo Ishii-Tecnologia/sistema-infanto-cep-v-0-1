@@ -37,6 +37,7 @@
 import pb from '@/lib/pocketbase/client'
 import { Family, Guardian, Child, ClassroomId } from '@/types'
 import { toBirthDatePayload, normalizeBirthDateIso } from '@/services/families'
+import { normalizeSearchText } from '@/lib/familySearch'
 
 export const CSV_HEADERS = [
   'Nome de Referência da Família',
@@ -291,6 +292,66 @@ export interface CsvImportResult {
   childrenCreated: number
   childrenUpdated: number
   errors: CsvImportError[]
+}
+
+export interface CsvSearchFilterResult {
+  rows: ParsedRow[]
+  /** Famílias (grupos de linhas do mesmo Nome de Referência) descartadas. */
+  ignoredFamilies: number
+  /** Linhas do arquivo que pertenciam às famílias descartadas. */
+  ignoredLines: number
+}
+
+/**
+ * Quando a busca da tela /familias está preenchida no momento da importação,
+ * mantém SOMENTE as famílias cujo conteúdo casa com o filtro; as demais linhas
+ * do CSV são ignoradas (nada é criado nem atualizado). O critério é o mesmo da
+ * busca da tela (normalizeSearchText: ignora acentos e maiúsculas), testado
+ * contra o Nome de Referência da família e os nomes de responsáveis/crianças
+ * presentes nas linhas dela no CSV.
+ */
+export function filterRowsBySearchText(rows: ParsedRow[], query: string): CsvSearchFilterResult {
+  const tokens = normalizeSearchText(query).split(/\s+/).filter(Boolean)
+  if (tokens.length === 0) return { rows, ignoredFamilies: 0, ignoredLines: 0 }
+
+  // Agrupa as linhas por família (chave = Nome de Referência normalizado),
+  // preservando a ordem do arquivo — assim a decisão é por FAMÍLIA, e não por
+  // linha (os responsáveis podem estar só na primeira linha da família).
+  const groups = new Map<string, ParsedRow[]>()
+  const order: string[] = []
+  for (const row of rows) {
+    const key = normalizeKey(row.family.reference_name)
+    let group = groups.get(key)
+    if (!group) {
+      group = []
+      groups.set(key, group)
+      order.push(key)
+    }
+    group.push(row)
+  }
+
+  const kept: ParsedRow[] = []
+  let ignoredFamilies = 0
+  let ignoredLines = 0
+  for (const key of order) {
+    const group = groups.get(key)!
+    const haystack = normalizeSearchText(
+      [
+        group[0].family.reference_name,
+        ...group.flatMap((r) => r.guardians.map((g) => g.name)),
+        ...group.flatMap((r) => (r.child ? [r.child.name] : [])),
+      ]
+        .filter(Boolean)
+        .join(' '),
+    )
+    if (tokens.every((t) => haystack.includes(t))) {
+      kept.push(...group)
+    } else {
+      ignoredFamilies++
+      ignoredLines += group.length
+    }
+  }
+  return { rows: kept, ignoredFamilies, ignoredLines }
 }
 
 interface ParsedRow {

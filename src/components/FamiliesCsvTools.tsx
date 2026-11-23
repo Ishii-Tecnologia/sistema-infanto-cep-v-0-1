@@ -22,17 +22,20 @@ import {
   exportFamiliesCsv,
   downloadFamiliesCsvTemplate,
   parseFamiliesCsv,
+  filterRowsBySearchText,
   applyFamiliesCsv,
   CsvImportResult,
 } from '@/services/familiesCsv'
 
 interface FamiliesCsvToolsProps {
   families: Family[]
+  /** Busca/filtro de texto da tela: quando preenchido, o CSV importa somente as famílias que casam com ele. */
+  searchText: string
   /** Recarrega a lista de famílias após uma importação bem-sucedida. */
   onImported: () => void
 }
 
-export function FamiliesCsvTools({ families, onImported }: FamiliesCsvToolsProps) {
+export function FamiliesCsvTools({ families, searchText, onImported }: FamiliesCsvToolsProps) {
   const { toast } = useToast()
   // Mesmo classificador de sala do cadastro individual (idade na data de corte)
   const { classifyChild } = useAcademic()
@@ -43,6 +46,8 @@ export function FamiliesCsvTools({ families, onImported }: FamiliesCsvToolsProps
   const [result, setResult] = useState<{
     fileName: string
     summary: CsvImportResult
+    ignoredFamilies: number
+    ignoredLines: number
   } | null>(null)
 
   const handleExport = () => {
@@ -76,18 +81,55 @@ export function FamiliesCsvTools({ families, onImported }: FamiliesCsvToolsProps
     try {
       const text = await file.text()
       const rows = parseFamiliesCsv(text, classifyChild)
-      const summary = await applyFamiliesCsv(rows, families)
-      setResult({ fileName: file.name, summary })
+      const filterActive = searchText.trim().length > 0
+      const filtered = filterRowsBySearchText(rows, searchText)
+      if (filtered.rows.length === 0) {
+        setResult({
+          fileName: file.name,
+          summary: {
+            familiesCreated: 0,
+            familiesUpdated: 0,
+            guardiansCreated: 0,
+            guardiansUpdated: 0,
+            childrenCreated: 0,
+            childrenUpdated: 0,
+            errors: [],
+          },
+          ignoredFamilies: filtered.ignoredFamilies,
+          ignoredLines: filtered.ignoredLines,
+        })
+        toast({
+          title: 'Nada importado',
+          description: `O filtro "${searchText.trim()}" não casa com nenhuma família do arquivo — ${filtered.ignoredFamilies} família(s) ignorada(s). Limpe a busca da tela para importar tudo.`,
+          variant: 'destructive',
+        })
+        return
+      }
+      const summary = await applyFamiliesCsv(filtered.rows, families)
+      setResult({
+        fileName: file.name,
+        summary,
+        ignoredFamilies: filtered.ignoredFamilies,
+        ignoredLines: filtered.ignoredLines,
+      })
       onImported()
       if (summary.errors.length === 0) {
         toast({
           title: 'Importação concluída',
-          description: `Resumo: ${summary.familiesCreated} família(s) criada(s), ${summary.familiesUpdated} atualizada(s), ${summary.childrenCreated} criança(s) criada(s), ${summary.childrenUpdated} atualizada(s).`,
+          description: `Resumo: ${summary.familiesCreated} família(s) criada(s), ${summary.familiesUpdated} atualizada(s), ${summary.childrenCreated} criança(s) criada(s), ${summary.childrenUpdated} atualizada(s).${
+            filterActive
+              ? ` ${filtered.ignoredFamilies} família(s) ignorada(s) pelo filtro da tela.`
+              : ''
+          }`,
         })
       } else {
         toast({
           title: 'Importação concluída com erros',
-          description: `${summary.errors.length} linha(s) com problema. Veja o detalhe na janela aberta.`,
+          description: `${summary.errors.length} linha(s) com problema. Veja o detalhe na janela aberta.${
+            filterActive
+              ? ` ${filtered.ignoredFamilies} família(s) ignorada(s) pelo filtro da tela.`
+              : ''
+          }`,
           variant: 'destructive',
         })
       }
@@ -158,6 +200,13 @@ export function FamiliesCsvTools({ families, onImported }: FamiliesCsvToolsProps
               nascimento, como no cadastro individual.
               <br />• <strong>Nada é apagado</strong>: registros que não estão no arquivo são
               mantidos.
+              {searchText.trim() && (
+                <>
+                  <br />• <strong>Filtro ativo</strong>: a busca "{searchText.trim()}" está
+                  preenchida — somente as famílias que casam com ela serão importadas; as demais
+                  linhas do arquivo serão ignoradas.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -235,6 +284,12 @@ export function FamiliesCsvTools({ families, onImported }: FamiliesCsvToolsProps
                   <span className="font-semibold">{result.summary.childrenUpdated}</span> criança(s)
                   atualizada(s)
                 </div>
+                {result.ignoredFamilies > 0 && (
+                  <div className="rounded-md border p-2">
+                    <span className="font-semibold">{result.ignoredFamilies}</span> família(s)
+                    ignorada(s) pelo filtro ({result.ignoredLines} linha(s) do arquivo)
+                  </div>
+                )}
               </div>
 
               {totalErrors > 0 && (
