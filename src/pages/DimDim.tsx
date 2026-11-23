@@ -331,7 +331,7 @@ export default function DimDimPage() {
               • Tarefa / Colaboração: <strong>+5 DimDim</strong>
             </p>
             <p>
-              • Feirinha / Premiação: <strong>-20 DimDim</strong>
+              • Mau comportamento: <strong>-20 DimDim</strong>
             </p>
           </CardContent>
         </Card>
@@ -453,7 +453,7 @@ export default function DimDimPage() {
                             childId: child.id,
                             type: 'debit',
                             amount: 10,
-                            reason: 'Troca na feirinha de prêmios',
+                            reason: 'Mau comportamento',
                             category: 'premiacao',
                           })
                           setTxOpen(true)
