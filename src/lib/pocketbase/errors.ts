@@ -21,19 +21,27 @@ export function extractFieldErrors(error: unknown): FieldErrors {
 }
 
 export function isAuthExpiredError(error: unknown): boolean {
-  if (!(error instanceof ClientResponseError)) return false
-  return error.status === 401
+  return (
+    error instanceof ClientResponseError && (error.status === 401 || error.response?.code === 401)
+  )
 }
 
 export function getFriendlyDeleteErrorMessage(error: unknown): string {
-  if (isAuthExpiredError(error)) {
-    return 'Sua sessão expirou. Faça login novamente para excluir registros.'
+  if (!(error instanceof ClientResponseError)) {
+    return error instanceof Error ? error.message : 'Erro desconhecido ao excluir o registro.'
   }
-  const msg = getErrorMessage(error)
-  if (/failed to delete|relation reference/i.test(msg)) {
-    return 'Este registro possui dados vinculados (crianças, empréstimos ou lançamentos) e não pode ser excluído. Remova primeiro os dados dependentes.'
+  if (error.status === 400) {
+    // Típico de exclusão bloqueada por vínculos: regra ON DELETE ou
+    // integridade referencial impedindo a remoção do registro.
+    return 'Não foi possível excluir: este registro ainda possui dependências vinculadas (alunos, lançamentos ou outros dados relacionados). Remova ou ajuste as dependências antes de tentar novamente.'
   }
-  return msg
+  if (error.status === 403) {
+    return 'Você não tem permissão para excluir este registro.'
+  }
+  if (error.status === 404) {
+    return 'Registro não encontrado — ele já pode ter sido excluído por outro usuário.'
+  }
+  return getErrorMessage(error)
 }
 
 export function getErrorMessage(error: unknown): string {

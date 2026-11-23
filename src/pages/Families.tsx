@@ -93,7 +93,6 @@ function emptyWizardGuardian(relationship = 'Mãe') {
     relationship,
     birth_date: '',
     phone: '',
-    email: '',
     is_emergency_contact: relationship !== 'Pai',
     photo_url: '',
     photo: undefined as File | undefined,
@@ -190,7 +189,6 @@ export default function FamiliesPage() {
       relationship: string
       birth_date?: string
       phone: string
-      email: string
       is_emergency_contact: boolean
       photo_url: string
       // Foto nova como ARQUIVO (campo `photo`, padrão natal_entregas): undefined
@@ -539,7 +537,6 @@ export default function FamiliesPage() {
             relationship: g.relationship || '',
             birth_date: (g.birth_date || '').slice(0, 10),
             phone: formatPhoneBR(g.phone || ''),
-            email: g.email || '',
             is_emergency_contact: !!g.is_emergency_contact,
             photo_url: g.photo_url || '',
             phoneManuallyEdited:
@@ -1173,20 +1170,6 @@ export default function FamiliesPage() {
                             handleGuardianListeningChange(guardian.uid, listening)
                           }
                           onChange={(e) => handleGuardianPhoneChange(index, e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-1 sm:col-span-2">
-                        <Label className="text-xs">E-mail</Label>
-                        <Input
-                          type="email"
-                          placeholder="email@exemplo.com"
-                          value={guardian.email}
-                          onChange={(e) => {
-                            const updated = [...wizardGuardians]
-                            updated[index].email = e.target.value
-                            setWizardGuardians(updated)
-                          }}
                         />
                       </div>
 
