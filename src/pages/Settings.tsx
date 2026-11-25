@@ -765,7 +765,9 @@ export default function SettingsPage() {
                           Sala {room.id}
                         </Badge>
                         <span className="text-[11px] text-muted-foreground">
-                          Faixa: {room.minAge} a {room.maxAge} anos
+                          {room.maxAge === 99
+                            ? `Acima de ${room.minAge} anos`
+                            : `Faixa: ${room.minAge} a ${room.maxAge} anos`}
                         </span>
                       </div>
 
@@ -869,7 +871,9 @@ export default function SettingsPage() {
                               {room.name || `Sala ${room.id}`}
                             </Badge>
                             <span className="text-[11px] text-muted-foreground font-medium">
-                              ({room.minAge}-{room.maxAge} anos)
+                              {room.maxAge === 99
+                                ? `(Acima de ${room.minAge} anos)`
+                                : `(${room.minAge}-${room.maxAge} anos)`}
                             </span>
                           </div>
                           <span className="text-[10px] text-indigo-700 dark:text-indigo-300 font-mono">

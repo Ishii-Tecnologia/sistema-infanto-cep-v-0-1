@@ -98,6 +98,9 @@ export interface Guardian {
   photo?: string | File
   created?: string
   updated?: string
+  expand?: {
+    family_id?: Family
+  }
 }
 
 export interface Child {
