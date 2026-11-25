@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -149,6 +150,12 @@ export default function FamiliesPage() {
   const [editingFamily, setEditingFamily] = useState<Family | null>(null)
   const [currentStep, setCurrentStep] = useState(1)
   const [saving, setSaving] = useState(false)
+
+  // Valor do checkbox "Cadastro Cesta Básica" da ficha: reflete o registro
+  // aberto (recarregado após salvar) e grava no banco via saveFamilyFields.
+  const [cestaBasica, setCestaBasica] = useState(false)
+  const [cestaBasicaSaving, setCestaBasicaSaving] = useState(false)
+  const classroomFilterActive = classroomFilter !== 'all'
 
   // Estado da Exclusão de Família
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -581,6 +588,58 @@ export default function FamiliesPage() {
     return matchesSearch && hasClassroom
   })
 
+  // Alunos em DESTAQUE quando o filtro de sala está aplicado: apenas as
+  // crianças da sala indicada aparecem na ficha (card e modal), para o usuário
+  // ver rapidamente quais crianças daquela sala estão em cada família.
+  const childrenInFilteredClassroom = (fam: Family) =>
+    (fam.children || []).filter((c) => c.classroom === classroomFilter)
+
+  // Checkbox "Cadastro Cesta Básica" da ficha: o valor exibido segue a família
+  // aberta; ao alternar, grava imediatamente no banco (saveFamilyFields) e
+  // recarrega a lista ao final para a ficha refletir o valor gravado.
+  const handleToggleCestaBasica = async (checked: boolean) => {
+    if (!selectedFamily) return
+    if (!pb.authStore.isValid) {
+      checkAuthAndHandleExpired(new Error('Sessão expirada'))
+      return
+    }
+    setCestaBasica(checked)
+    setCestaBasicaSaving(true)
+    try {
+      const updated = await familyService.saveFamilyFields(selectedFamily.id, {
+        cesta_basica: checked,
+      })
+      setFamilies((prev) =>
+        prev.map((f) => (f.id === updated.id ? { ...f, cesta_basica: checked } : f)),
+      )
+      setSelectedFamily((prev) =>
+        prev && prev.id === updated.id ? { ...prev, cesta_basica: checked } : prev,
+      )
+      toast({
+        title: checked ? 'Cadastro Cesta Básica marcado' : 'Cadastro Cesta Básica desmarcado',
+        description: `A família "${updated.reference_name}" foi atualizada no Sistema Infanto-CEP.`,
+      })
+    } catch (err) {
+      setCestaBasica(!checked) // reverte o clique em caso de falha
+      if (checkAuthAndHandleExpired(err)) return
+      toast({
+        title: 'Erro ao salvar Cesta Básica',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
+    } finally {
+      setCestaBasicaSaving(false)
+    }
+  }
+
+  // A ficha (modal) segue a família selecionada: sincroniza o checkbox com o
+  // valor gravado no banco ao abrir, ao reabrir e após recarregar a lista.
+  useEffect(() => {
+    if (selectedFamily) {
+      setCestaBasica(selectedFamily.cesta_basica === true)
+    }
+  }, [selectedFamily?.id, selectedFamily?.cesta_basica])
+
   return (
     <div className="space-y-6">
       {/* Cabeçalho da página */}
@@ -689,19 +748,29 @@ export default function FamiliesPage() {
                 </div>
               </div>
 
-              {/* Crianças */}
+              {/* Crianças — em destaque quando o filtro de sala está aplicado */}
               <div>
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase mb-1">
-                  Crianças Matriculadas
+                  {classroomFilterActive
+                    ? `Alunos da Sala ${classroomFilter}`
+                    : 'Crianças Matriculadas'}
                 </p>
                 <div className="space-y-1.5">
-                  {(fam.children || []).map((c) => {
+                  {(classroomFilterActive
+                    ? childrenInFilteredClassroom(fam)
+                    : fam.children || []
+                  ).map((c) => {
                     const badge = getClassroomBadge(c.classroom, classrooms)
                     const age = calculateAge(c.birth_date)
+                    const isFilteredChild = classroomFilterActive
                     return (
                       <div
                         key={c.id}
-                        className="flex items-center justify-between p-1.5 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xs"
+                        className={`flex items-center justify-between p-1.5 rounded-md text-xs border ${
+                          isFilteredChild
+                            ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-700 ring-1 ring-indigo-200 dark:ring-indigo-800'
+                            : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                        }`}
                       >
                         <div className="flex items-center space-x-2">
                           <button
@@ -881,19 +950,43 @@ export default function FamiliesPage() {
                   </div>
                 </div>
 
+                {/* Checkbox: Cadastro Cesta Básica (persistido no banco) */}
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none py-1">
+                  <Checkbox
+                    checked={cestaBasica}
+                    disabled={cestaBasicaSaving}
+                    onCheckedChange={(v) => handleToggleCestaBasica(v === true)}
+                  />
+                  Cadastro Cesta Básica
+                  {cestaBasicaSaving && (
+                    <span className="text-[11px] text-muted-foreground font-normal">
+                      salvando...
+                    </span>
+                  )}
+                </label>
+
                 {/* Crianças e observações médicas */}
                 <div>
                   <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">
-                    Crianças Matriculadas
+                    {classroomFilterActive
+                      ? `Alunos da Sala ${classroomFilter}`
+                      : 'Crianças Matriculadas'}
                   </h4>
                   <div className="space-y-3">
-                    {(selectedFamily.children || []).map((c) => {
+                    {(classroomFilterActive
+                      ? childrenInFilteredClassroom(selectedFamily)
+                      : selectedFamily.children || []
+                    ).map((c) => {
                       const badge = getClassroomBadge(c.classroom, classrooms)
                       const age = calculateAge(c.birth_date)
                       return (
                         <div
                           key={c.id}
-                          className="p-3.5 border rounded-xl bg-white dark:bg-slate-900 space-y-2 text-xs"
+                          className={`p-3.5 border rounded-xl space-y-2 text-xs ${
+                            classroomFilterActive
+                              ? 'bg-indigo-50/60 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-700 ring-1 ring-indigo-200 dark:ring-indigo-800'
+                              : 'bg-white dark:bg-slate-900'
+                          }`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2.5">

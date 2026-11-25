@@ -1,66 +1,60 @@
 import { ClientResponseError } from 'pocketbase'
 
-export type FieldErrors = Record<string, string>
-
 /**
- * TRUE quando o erro representa sessão expirada (HTTP 401). Usada pelas telas
- * para decidir entre mostrar o erro comum ou deslogar e voltar ao login.
- * ASSINATURA FIXA: (error: unknown) => boolean — não remover (regressão
- * recorrente que já quebrou o build várias vezes; famílias, biblioteca,
- * configurações e painel de feriados dependem dela).
+ * true quando o erro representa uma sessão expirada / não autenticada (401).
+ * Usado por Families.tsx, Library.tsx, Settings.tsx e outros — NUNCA remover
+ * desta export: sua ausência já quebrou o build repetidamente no passado.
  */
 export function isAuthExpiredError(error: unknown): boolean {
-  return error instanceof ClientResponseError && error.status === 401
+  if (!error) return false
+  if (error instanceof ClientResponseError) return error.status === 401
+  const anyErr = error as { status?: unknown; response?: unknown }
+  if (typeof anyErr?.status === 'number') return anyErr.status === 401
+  return false
 }
 
 /**
- * Mensagem amigável para falhas de EXCLUSÃO (família e dependentes em
- * cascata). Distingue violação de regra/relação do PocketBase de um erro
- * genérico de rede/servidor.
+ * Extrai a mensagem de erro mais amigável possível de qualquer erro:
+ * ClientResponseError (mensagem da API), Error genérico ou fallback.
+ */
+export function getErrorMessage(error: unknown): string {
+  if (isAuthExpiredError(error)) {
+    return 'Sua sessão expirou. Faça login novamente para continuar.'
+  }
+  if (error instanceof ClientResponseError) {
+    return error.response?.message || error.message || 'Erro inesperado. Tente novamente.'
+  }
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  return 'Erro inesperado. Tente novamente.'
+}
+
+/**
+ * Mensagem amigável para falhas de exclusão (famílias, livros, etc.),
+ * cobrindo os casos mais comuns de bloqueio por vínculos no banco.
  */
 export function getFriendlyDeleteErrorMessage(error: unknown): string {
+  if (isAuthExpiredError(error)) {
+    return 'Sua sessão expirou. Faça login novamente para continuar.'
+  }
   if (error instanceof ClientResponseError) {
-    if (error.status === 400) {
-      return (
-        (error.response as { message?: string } | undefined)?.message ||
-        'Não foi possível excluir: existem registros vinculados a este cadastro.'
-      )
-    }
     if (error.status === 403) {
       return 'Você não tem permissão para excluir este registro.'
     }
     if (error.status === 404) {
-      return 'Registro não encontrado — ele já pode ter sido excluído por outro operador.'
+      return 'Este registro já não existe mais — a lista será atualizada.'
     }
-    if (isAuthExpiredError(error)) {
-      return 'Sua sessão expirou. Faça login novamente e tente excluir de novo.'
+    if (error.status === 400) {
+      return (
+        error.response?.message ||
+        'Não foi possível excluir: este registro ainda possui vínculos com outros cadastros.'
+      )
     }
+    return error.response?.message || `Erro ao excluir (código ${error.status}).`
   }
-  return getErrorMessage(error)
-}
-
-export function extractFieldErrors(error: unknown): FieldErrors {
-  if (!(error instanceof ClientResponseError)) return {}
-  const data = error.response?.data
-  if (!data || typeof data !== 'object') return {}
-  const errors: FieldErrors = {}
-  for (const [field, detail] of Object.entries(data)) {
-    if (
-      detail &&
-      typeof detail === 'object' &&
-      'message' in detail &&
-      typeof (detail as { message: unknown }).message === 'string'
-    ) {
-      errors[field] = (detail as { message: string }).message
-    }
+  if (error instanceof Error && error.message) {
+    return error.message
   }
-  return errors
-}
-
-export function getErrorMessage(error: unknown): string {
-  if (!(error instanceof ClientResponseError)) {
-    return error instanceof Error ? error.message : 'An unexpected error occurred.'
-  }
-  const msgs = Object.values(extractFieldErrors(error))
-  return msgs.length > 0 ? msgs.join(' ') : error.message || 'An unexpected error occurred.'
+  return 'Erro inesperado ao excluir. Tente novamente.'
 }

@@ -75,6 +75,8 @@ export interface Family {
   address?: string
   bairro?: string
   notes?: string
+  /** "Cadastro Cesta Básica" — checkbox persistido na ficha da família. */
+  cesta_basica?: boolean
   created?: string
   updated?: string
   guardians?: Guardian[]

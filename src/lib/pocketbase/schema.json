@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-23T12:33:52.942Z",
+  "generatedAt": "2026-11-25T15:57:50.614Z",
   "collections": [
     {
       "name": "users",
@@ -162,6 +162,12 @@
         {
           "name": "bairro",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "cesta_basica",
+          "type": "bool",
           "required": false,
           "system": false
         }

@@ -27,6 +27,9 @@
  *   removida do sistema e do banco (migração 0029). CSVs antigos com a coluna
  *   "Responsável N - E-mail" ainda importam: a coluna extra é simplesmente
  *   ignorada (a importação valida apenas que as colunas esperadas existem).
+ * - "Cadastro Cesta Básica" (checkbox da família, migração 0030) existe na
+ *   exportação; na importação é OPCIONAL — CSVs antigos sem a coluna continuam
+ *   importando e, quando a coluna existe, célula vazia não altera o valor.
  * - A coluna "Sala" NÃO é lida na importação: a sala é calculada pela data de
  *   nascimento (mesmo critério do cadastro individual). Ela existe apenas na
  *   exportação.
@@ -45,6 +48,7 @@ export const CSV_HEADERS = [
   'Endereço',
   'Bairro',
   'Observações da Família',
+  'Cadastro Cesta Básica',
   'Responsável 1 - Nome',
   'Responsável 1 - Parentesco',
   'Responsável 1 - Nascimento',
@@ -62,8 +66,11 @@ export const CSV_HEADERS = [
   'Autorização de Imagem',
 ] as const
 
-/** Cabeçalho aceito na importação: igual ao da exportação, sem a coluna "Sala". */
-export const CSV_IMPORT_HEADERS: string[] = CSV_HEADERS.filter((h) => h !== 'Sala')
+/** Cabeçalho esperado na importação: sem "Sala" (calculada) e sem
+ * "Cadastro Cesta Básica" (opcional — CSVs antigos sem ela continuam válidos). */
+export const CSV_IMPORT_HEADERS: string[] = CSV_HEADERS.filter(
+  (h) => h !== 'Sala' && h !== 'Cadastro Cesta Básica',
+)
 
 const SEP = ';'
 
@@ -172,6 +179,7 @@ function formatRow(
     family.address || '',
     family.bairro || '',
     family.notes || '',
+    boolToSimNao(family.cesta_basica),
     g1?.name || '',
     g1?.relationship || '',
     isoToBrDate(g1?.birth_date),
@@ -241,6 +249,7 @@ export function downloadFamiliesCsvTemplate(): void {
     address: 'Rua das Flores, 123',
     bairro: 'Centro',
     notes: 'Chegam juntos, preferem contato por WhatsApp.',
+    cesta_basica: false,
     guardians: [
       {
         id: 'g1',
@@ -362,6 +371,8 @@ interface ParsedRow {
     address: string
     bairro: string
     notes: string
+    /** Presente apenas quando o CSV traz a coluna "Cadastro Cesta Básica". */
+    cesta_basica?: boolean
   }
   guardians: Array<{
     name: string
@@ -423,6 +434,8 @@ export function parseFamiliesCsv(
     childAllergies: col('Alergias'),
     childMedical: col('Observações Médicas'),
     childImage: col('Autorização de Imagem'),
+    // Opcional: CSVs antigos sem esta coluna continuam importando
+    familyCesta: col('Cadastro Cesta Básica'),
   }
 
   const rows: ParsedRow[] = []
@@ -482,6 +495,7 @@ export function parseFamiliesCsv(
         address: at(idx.familyAddress),
         bairro: at(idx.familyBairro),
         notes: at(idx.familyNotes),
+        ...(idx.familyCesta >= 0 ? { cesta_basica: parseSimNao(at(idx.familyCesta)) } : {}),
       },
       guardians: [g1, g2].filter((g) => g.name !== ''),
       child,
@@ -531,6 +545,9 @@ export async function applyFamiliesCsv(
           address: row.family.address,
           bairro: row.family.bairro,
           notes: row.family.notes,
+          ...(row.family.cesta_basica !== undefined
+            ? { cesta_basica: row.family.cesta_basica }
+            : {}),
         })
         familyByKey.set(key, family)
         familyCreated = true
@@ -541,6 +558,9 @@ export async function applyFamiliesCsv(
           address: row.family.address,
           bairro: row.family.bairro,
           notes: row.family.notes,
+          ...(row.family.cesta_basica !== undefined
+            ? { cesta_basica: row.family.cesta_basica }
+            : {}),
         })
         result.familiesUpdated++
       }

@@ -57,6 +57,10 @@ function sanitizeFamilyPayload(data: Partial<Family>): Record<string, any> {
   if (data.notes !== undefined) {
     payload.notes = (data.notes || '').trim()
   }
+  // Checkbox "Cadastro Cesta Básica" da ficha da família (bool, default false)
+  if (data.cesta_basica !== undefined) {
+    payload.cesta_basica = Boolean(data.cesta_basica)
+  }
 
   return payload
 }
@@ -305,6 +309,16 @@ export const familyService = {
   },
 
   async update(id: string, data: Partial<Family>): Promise<Family> {
+    const sanitized = sanitizeFamilyPayload(data)
+    return pb.collection('families').update<Family>(id, sanitized)
+  },
+
+  /**
+   * Atualização RÁPIDA de campos da família usada pela ficha de detalhes
+   * (checkbox "Cadastro Cesta Básica"): grava imediatamente, no mesmo padrão
+   * do sanitizeFamilyPayload, e devolve o registro atualizado.
+   */
+  async saveFamilyFields(id: string, data: Partial<Family>): Promise<Family> {
     const sanitized = sanitizeFamilyPayload(data)
     return pb.collection('families').update<Family>(id, sanitized)
   },
