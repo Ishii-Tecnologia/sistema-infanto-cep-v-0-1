@@ -75,6 +75,7 @@ export default function CalendarPage() {
     lesson?: Lesson
   } | null>(null)
   const [editTemaInput, setEditTemaInput] = useState('')
+  const [editBlocoInput, setEditBlocoInput] = useState('')
   const [savingTema, setSavingTema] = useState(false)
 
   // Modal de Visualização/Edição de Plano Pedagógico (visualização com planos por sala)
@@ -169,6 +170,7 @@ export default function CalendarPage() {
       lesson: matchedLesson,
     })
     setEditTemaInput(sab.descricao || matchedLesson?.central_theme || '')
+    setEditBlocoInput(matchedLesson?.thematic_block || '')
   }
 
   const handleSaveTema = async () => {
@@ -176,6 +178,7 @@ export default function CalendarPage() {
     try {
       setSavingTema(true)
       const novoTema = editTemaInput.trim()
+      const novoBloco = editBlocoInput.trim()
       const { sabado, index, lesson } = editingSabado
 
       // 1. Atualiza na coleção sabado_letivo usando o campo real 'descricao'
@@ -199,7 +202,10 @@ export default function CalendarPage() {
 
       for (const l of targetLessons) {
         try {
-          await lessonService.update(l.id, { central_theme: novoTema })
+          await lessonService.update(l.id, {
+            central_theme: novoTema,
+            thematic_block: novoBloco,
+          })
         } catch {
           // non-fatal
         }
@@ -208,11 +214,15 @@ export default function CalendarPage() {
       if (targetLessons.length > 0) {
         const targetIds = new Set(targetLessons.map((l) => l.id))
         setLessons((prev) =>
-          prev.map((l) => (targetIds.has(l.id) ? { ...l, central_theme: novoTema } : l)),
+          prev.map((l) =>
+            targetIds.has(l.id) ? { ...l, central_theme: novoTema, thematic_block: novoBloco } : l,
+          ),
         )
 
         if (selectedLesson && targetIds.has(selectedLesson.id)) {
-          setSelectedLesson((curr) => (curr ? { ...curr, central_theme: novoTema } : null))
+          setSelectedLesson((curr) =>
+            curr ? { ...curr, central_theme: novoTema, thematic_block: novoBloco } : null,
+          )
         }
       }
 
@@ -718,6 +728,7 @@ export default function CalendarPage() {
                                       lesson,
                                     })
                                     setEditTemaInput(lesson.central_theme || '')
+                                    setEditBlocoInput(lesson.thematic_block || '')
                                   }}
                                   className="h-6 px-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 font-medium"
                                   title="Editar assunto da aula"
@@ -968,6 +979,24 @@ export default function CalendarPage() {
                 Exemplo: <em>Deus, Pai e Criador de Todas as Coisas</em>
               </p>
             </div>
+
+            {editingSabado?.lesson && (
+              <div className="space-y-1">
+                <Label htmlFor="edit-bloco-tematico" className="font-semibold">
+                  Bloco Temático
+                </Label>
+                <Input
+                  id="edit-bloco-tematico"
+                  placeholder="Ex: Deus e a Criação"
+                  value={editBlocoInput}
+                  onChange={(e) => setEditBlocoInput(e.target.value)}
+                  className="text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Exibido como <em>Bloco: ...</em> no cartão do sábado. Pode ficar vazio.
+                </p>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2">

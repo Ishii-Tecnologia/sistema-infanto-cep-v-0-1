@@ -38,6 +38,8 @@ export function getFriendlyDeleteErrorMessage(error: unknown): string {
   if (error instanceof ClientResponseError) {
     if (error.status === 401) return 'Sua sessão expirou. Entre novamente para excluir.'
     if (error.status === 403) return 'Você não tem permissão para excluir este registro.'
+    if (error.status === 400)
+      return 'Não foi possível excluir: este registro ainda possui dados vinculados (alunos, responsáveis, empréstimos ou entregas). Remova ou atualize esses vínculos antes de excluir.'
   }
   return getErrorMessage(error)
 }
