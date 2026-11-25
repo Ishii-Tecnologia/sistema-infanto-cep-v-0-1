@@ -802,11 +802,21 @@ export default function FamiliesPage() {
                       <span className="font-medium truncate">
                         {g.name} ({g.relationship})
                       </span>
-                      {g.is_emergency_contact && (
-                        <span className="text-[10px] text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.2 rounded font-semibold">
-                          Emergência
-                        </span>
-                      )}
+                      <span className="flex items-center gap-1 shrink-0">
+                        {g.participa_sala_aula === true && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0 bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800"
+                          >
+                            Sala D
+                          </Badge>
+                        )}
+                        {g.is_emergency_contact && (
+                          <span className="text-[10px] text-rose-600 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.2 rounded font-semibold">
+                            Emergência
+                          </span>
+                        )}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -997,6 +1007,14 @@ export default function FamiliesPage() {
                             <p className="font-bold text-slate-900 dark:text-slate-100 truncate">
                               {g.name}
                             </p>
+                            {g.participa_sala_aula === true && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0 shrink-0 bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800"
+                              >
+                                Sala D
+                              </Badge>
+                            )}
                             <label
                               className="flex items-center gap-1.5 cursor-pointer select-none shrink-0"
                               title="Participa da Sala de Aula da Família (Sala D)"
