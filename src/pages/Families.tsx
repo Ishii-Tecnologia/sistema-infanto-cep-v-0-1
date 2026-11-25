@@ -77,6 +77,12 @@ const RELATIONSHIP_SUGGESTIONS = [
   'Outro',
 ]
 import { ImageLightbox } from '@/components/ImageLightbox'
+
+// Estilo comum do checkbox "Cadastro Cesta Básica" (ficha de detalhes, modal
+// "Editar Informações" e wizard "Cadastro da Família"): box VERDE quando
+// marcado e CINZA CLARO quando desmarcado — idêntico em todas as ocorrências.
+const CESTA_BASICA_CHECKBOX_CLASS =
+  'data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 data-[state=checked]:text-white data-[state=unchecked]:bg-slate-200 data-[state=unchecked]:border-slate-300'
 import {
   getErrorMessage,
   getFriendlyDeleteErrorMessage,
@@ -175,12 +181,15 @@ export default function FamiliesPage() {
     address: string
     bairro: string
     notes: string
+    // Checkbox "Cadastro Cesta Básica" (wizard de inclusão e "Editar Informações")
+    cesta_basica: boolean
   }>({
     reference_name: '',
     primary_phone: '',
     address: '',
     bairro: '',
     notes: '',
+    cesta_basica: false,
   })
 
   // Controle da sugestão automática do Nome de Referência da Família: enquanto
@@ -337,6 +346,7 @@ export default function FamiliesPage() {
       address: '',
       bairro: '',
       notes: '',
+      cesta_basica: false,
     })
     setWizardGuardians([{ ...emptyWizardGuardian(), uid: nextGuardianUid() }])
     bumpGuardiansVersion()
@@ -522,6 +532,7 @@ export default function FamiliesPage() {
       address: fam.address || '',
       bairro: fam.bairro || '',
       notes: fam.notes || '',
+      cesta_basica: fam.cesta_basica === true,
     })
     // Propagação do Telefone Principal no modo edição: um responsável existente
     // só é tratado como "editado manualmente" (não acompanha a propagação) se
@@ -953,6 +964,7 @@ export default function FamiliesPage() {
                 {/* Checkbox: Cadastro Cesta Básica (persistido no banco) */}
                 <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none py-1">
                   <Checkbox
+                    className={CESTA_BASICA_CHECKBOX_CLASS}
                     checked={cestaBasica}
                     disabled={cestaBasicaSaving}
                     onCheckedChange={(v) => handleToggleCestaBasica(v === true)}
@@ -1386,6 +1398,21 @@ export default function FamiliesPage() {
                       onChange={(e) => setWizardFamily({ ...wizardFamily, notes: e.target.value })}
                     />
                   </div>
+
+                  {/* Checkbox "Cadastro Cesta Básica": mesmo campo persistido da
+                      ficha de detalhes (families.cesta_basica). No modo edição ele
+                      já vem carregado com o valor gravado; na criação, default
+                      desmarcado. Gravado ao salvar junto com os demais campos. */}
+                  <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none py-1">
+                    <Checkbox
+                      className={CESTA_BASICA_CHECKBOX_CLASS}
+                      checked={wizardFamily.cesta_basica}
+                      onCheckedChange={(v) =>
+                        setWizardFamily((prev) => ({ ...prev, cesta_basica: v === true }))
+                      }
+                    />
+                    Cadastro Cesta Básica
+                  </label>
                 </div>
               </div>
             )}
