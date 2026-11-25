@@ -647,7 +647,7 @@ export default function CalendarPage() {
 
                           {/* Linha do assunto editável (ex: Deus, Pai e Criador de Todas as Coisas ou Bingo da Noite Italiana) */}
                           <p
-                            className="font-semibold text-slate-800 dark:text-slate-200 line-clamp-2 mt-1"
+                            className="font-semibold text-slate-800 dark:text-slate-200 whitespace-pre-line mt-1"
                             title={displayTema}
                           >
                             {displayTema}

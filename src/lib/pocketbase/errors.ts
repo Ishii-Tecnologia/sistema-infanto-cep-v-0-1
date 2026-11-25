@@ -34,11 +34,13 @@ export function isAuthExpiredError(error: unknown): boolean {
 
 export function getFriendlyDeleteErrorMessage(error: unknown): string {
   if (isAuthExpiredError(error)) {
-    return 'Sessão expirada. Faça login novamente para concluir a exclusão.'
+    return 'Sua sessão expirou. Faça login novamente para continuar.'
   }
-  if (error instanceof ClientResponseError && (error.status === 403 || error.status === 404)) {
-    return 'Você não tem permissão para excluir este registro ou ele não existe mais.'
+  if (error instanceof ClientResponseError && error.status === 403) {
+    return 'Você não tem permissão para excluir este registro.'
   }
-  const friendly = getErrorMessage(error)
-  return friendly || 'Não foi possível excluir o registro. Tente novamente.'
+  if (error instanceof ClientResponseError && error.status === 404) {
+    return 'Registro não encontrado — talvez já tenha sido excluído.'
+  }
+  return getErrorMessage(error)
 }
