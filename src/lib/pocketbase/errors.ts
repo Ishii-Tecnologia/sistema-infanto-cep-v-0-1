@@ -28,31 +28,17 @@ export function getErrorMessage(error: unknown): string {
   return msgs.length > 0 ? msgs.join(' ') : error.message || 'An unexpected error occurred.'
 }
 
-/**
- * True quando o erro indica sessão expirada / não autenticado (401).
- * Usada por Families.tsx, Library.tsx, Settings.tsx e outros para redirecionar
- * ao login — NÃO remover (regressão conhecida: já quebrou o build 30+ vezes).
- */
 export function isAuthExpiredError(error: unknown): boolean {
   return error instanceof ClientResponseError && error.status === 401
 }
 
-/**
- * Mensagem amigável para falhas de exclusão (família, livros, etc.),
- * traduzindo casos comuns de violação de vínculo/sessão.
- */
 export function getFriendlyDeleteErrorMessage(error: unknown): string {
-  if (!(error instanceof ClientResponseError)) {
-    return error instanceof Error ? error.message : 'Ocorreu um erro inesperado.'
-  }
-  if (error.status === 400) {
-    return 'Não foi possível excluir este registro: ele ainda possui vínculos com outros dados. Remova os vínculos primeiro.'
-  }
   if (isAuthExpiredError(error)) {
-    return 'Sua sessão expirou. Faça login novamente e tente de novo.'
+    return 'Sua sessão expirou. Faça login novamente para concluir a exclusão.'
   }
-  const msgs = Object.values(extractFieldErrors(error))
-  return msgs.length > 0
-    ? msgs.join(' ')
-    : error.message || 'Não foi possível excluir este registro.'
+  const msg = getErrorMessage(error)
+  if (/relation|cascade|referenced/i.test(msg)) {
+    return 'Não foi possível excluir porque este registro ainda possui vínculos no sistema.'
+  }
+  return msg || 'Não foi possível excluir o registro.'
 }
