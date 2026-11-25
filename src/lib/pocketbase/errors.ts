@@ -27,3 +27,18 @@ export function getErrorMessage(error: unknown): string {
   const msgs = Object.values(extractFieldErrors(error))
   return msgs.length > 0 ? msgs.join(' ') : error.message || 'An unexpected error occurred.'
 }
+
+export function isAuthExpiredError(error: unknown): boolean {
+  return error instanceof ClientResponseError && error.status === 401
+}
+
+export function getFriendlyDeleteErrorMessage(error: unknown): string {
+  if (isAuthExpiredError(error)) {
+    return 'Sessão expirada. Faça login novamente para concluir a exclusão.'
+  }
+  if (error instanceof ClientResponseError && (error.status === 403 || error.status === 404)) {
+    return 'Você não tem permissão para excluir este registro ou ele não existe mais.'
+  }
+  const friendly = getErrorMessage(error)
+  return friendly || 'Não foi possível excluir o registro. Tente novamente.'
+}

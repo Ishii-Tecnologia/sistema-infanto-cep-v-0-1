@@ -653,7 +653,7 @@ export default function CalendarPage() {
                             {displayTema}
                           </p>
                           {matchedLesson?.thematic_block && (
-                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                            <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-pre-line">
                               Bloco: {matchedLesson.thematic_block}
                             </p>
                           )}
@@ -747,7 +747,7 @@ export default function CalendarPage() {
                             {displayTema}
                           </p>
                           {lesson.thematic_block && (
-                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                            <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-pre-line">
                               Bloco: {lesson.thematic_block}
                             </p>
                           )}
@@ -804,12 +804,17 @@ export default function CalendarPage() {
                       </div>
                     </div>
 
-                    <CardTitle className="text-xl font-bold mt-2">
+                    <CardTitle className="text-xl font-bold mt-2 whitespace-pre-line">
                       {selectedLesson.central_theme}
                     </CardTitle>
-                    <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
-                      Bloco Temático: <strong>{selectedLesson.thematic_block}</strong>
-                    </CardDescription>
+                    {selectedLesson.thematic_block && (
+                      <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
+                        Bloco Temático:{' '}
+                        <strong className="whitespace-pre-line">
+                          {selectedLesson.thematic_block}
+                        </strong>
+                      </CardDescription>
+                    )}
 
                     {selectedLesson.status === 'canceled' && (
                       <div className="mt-2 p-2 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 rounded text-xs text-rose-800 dark:text-rose-200 flex items-center gap-1.5">
@@ -874,7 +879,7 @@ export default function CalendarPage() {
                                   <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                                     Título da Aula
                                   </span>
-                                  <p className="font-bold text-sm text-slate-900 dark:text-slate-100 mt-0.5">
+                                  <p className="font-bold text-sm text-slate-900 dark:text-slate-100 mt-0.5 whitespace-pre-line">
                                     {plan.title}
                                   </p>
                                 </div>
@@ -883,7 +888,7 @@ export default function CalendarPage() {
                                   <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                                     Objetivo Pedagógico
                                   </span>
-                                  <p className="text-slate-700 dark:text-slate-300 mt-0.5">
+                                  <p className="text-slate-700 dark:text-slate-300 mt-0.5 whitespace-pre-line">
                                     {plan.objective || 'Não preenchido'}
                                   </p>
                                 </div>
@@ -892,7 +897,7 @@ export default function CalendarPage() {
                                   <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                                     Abordagem Metodológica
                                   </span>
-                                  <p className="text-slate-700 dark:text-slate-300 mt-0.5">
+                                  <p className="text-slate-700 dark:text-slate-300 mt-0.5 whitespace-pre-line">
                                     {plan.approach || 'Não preenchido'}
                                   </p>
                                 </div>
@@ -901,7 +906,7 @@ export default function CalendarPage() {
                                   <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                                     Recursos e Materiais
                                   </span>
-                                  <p className="text-slate-700 dark:text-slate-300 mt-0.5">
+                                  <p className="text-slate-700 dark:text-slate-300 mt-0.5 whitespace-pre-line">
                                     {plan.materials || 'Não preenchido'}
                                   </p>
                                 </div>
@@ -1044,7 +1049,7 @@ export default function CalendarPage() {
               <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                 Título da Aula
               </span>
-              <p className="font-bold text-sm text-slate-900 dark:text-slate-100">
+              <p className="font-bold text-sm text-slate-900 dark:text-slate-100 whitespace-pre-line">
                 {viewingPlan?.title || 'Sem título cadastrado'}
               </p>
             </div>
@@ -1053,7 +1058,7 @@ export default function CalendarPage() {
               <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                 Objetivo Pedagógico
               </span>
-              <p className="text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-900 p-2.5 rounded border">
+              <p className="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line bg-slate-50 dark:bg-slate-900 p-2.5 rounded border">
                 {viewingPlan?.objective || 'Não preenchido'}
               </p>
             </div>
@@ -1062,7 +1067,7 @@ export default function CalendarPage() {
               <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                 Abordagem / Dinâmica da Sala
               </span>
-              <p className="text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-900 p-2.5 rounded border">
+              <p className="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line bg-slate-50 dark:bg-slate-900 p-2.5 rounded border">
                 {viewingPlan?.approach || 'Não preenchido'}
               </p>
             </div>
@@ -1071,7 +1076,7 @@ export default function CalendarPage() {
               <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                 Recursos e Materiais
               </span>
-              <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 p-2.5 rounded border">
+              <p className="text-slate-700 dark:text-slate-300 whitespace-pre-line bg-slate-50 dark:bg-slate-900 p-2.5 rounded border">
                 {viewingPlan?.materials || 'Não preenchido'}
               </p>
             </div>
