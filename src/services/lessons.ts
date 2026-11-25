@@ -1,5 +1,12 @@
 import pb from '@/lib/pocketbase/client'
-import { Lesson, LessonPlan, Attendance, ClassroomId, AttendanceStatus } from '@/types'
+import {
+  Lesson,
+  LessonPlan,
+  Attendance,
+  AttendancePersonKind,
+  ClassroomId,
+  AttendanceStatus,
+} from '@/types'
 
 export const lessonService = {
   async getAll(year?: number): Promise<Lesson[]> {
@@ -96,7 +103,7 @@ export const attendanceService = {
   async getByLessonAndClassroom(lessonId: string, classroom: ClassroomId): Promise<Attendance[]> {
     return pb.collection('attendances').getFullList<Attendance>({
       filter: `lesson_id = "${lessonId}" && classroom = "${classroom}"`,
-      expand: 'child_id',
+      expand: 'child_id,guardian_id',
     })
   },
 
@@ -107,6 +114,12 @@ export const attendanceService = {
     })
   },
 
+  /**
+   * Grava a chamada de uma pessoa da sala. Crianças: personKind 'child' e
+   * childId preenchido (person_kind fica implícito). Responsáveis da Sala D:
+   * personKind 'guardian', childId null e guardianId preenchido — presenças
+   * antigas de crianças continuam intactas (person_kind ausente = 'child').
+   */
   async saveAttendance(
     lessonId: string,
     childId: string,
@@ -114,27 +127,36 @@ export const attendanceService = {
     status: AttendanceStatus,
     justification?: string,
     notes?: string,
+    personKind: AttendancePersonKind = 'child',
+    guardianId?: string,
   ): Promise<Attendance> {
+    // Chave de unicidade: child_id para crianças, guardian_id para responsáveis.
+    const personFilter =
+      personKind === 'guardian' ? `guardian_id = "${guardianId}"` : `child_id = "${childId}"`
+    const record: Record<string, any> = {
+      lesson_id: lessonId,
+      classroom,
+      status,
+      justification: justification || '',
+      notes: notes || '',
+    }
+    if (personKind === 'guardian') {
+      record.person_kind = 'guardian'
+      record.guardian_id = guardianId
+      record.child_id = null
+    } else {
+      record.child_id = childId
+      record.person_kind = 'child'
+    }
+
     // Verificar se já existe
     try {
       const existing = await pb
         .collection('attendances')
-        .getFirstListItem<Attendance>(`lesson_id = "${lessonId}" && child_id = "${childId}"`)
-      return pb.collection('attendances').update<Attendance>(existing.id, {
-        status,
-        justification: justification || '',
-        notes: notes || '',
-        classroom,
-      })
+        .getFirstListItem<Attendance>(`lesson_id = "${lessonId}" && ${personFilter}`)
+      return pb.collection('attendances').update<Attendance>(existing.id, record)
     } catch (_) {
-      return pb.collection('attendances').create<Attendance>({
-        lesson_id: lessonId,
-        child_id: childId,
-        classroom,
-        status,
-        justification: justification || '',
-        notes: notes || '',
-      })
+      return pb.collection('attendances').create<Attendance>(record)
     }
   },
 
@@ -146,6 +168,8 @@ export const attendanceService = {
       status: AttendanceStatus
       justification?: string
       notes?: string
+      personKind?: AttendancePersonKind
+      guardianId?: string
     }>,
   ): Promise<void> {
     for (const item of records) {
@@ -156,6 +180,8 @@ export const attendanceService = {
         item.status,
         item.justification,
         item.notes,
+        item.personKind || 'child',
+        item.guardianId,
       )
     }
   },

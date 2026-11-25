@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { lessonService, attendanceService } from '@/services/lessons'
-import { childService } from '@/services/families'
+import { childService, familyService } from '@/services/families'
 import { photoDisplayUrl } from '@/services/photos'
-import { Lesson, Child, ClassroomId, AttendanceStatus, Attendance } from '@/types'
+import {
+  getClassroomRoster,
+  RosterParticipant,
+  rosterParticipantName,
+} from '@/services/classroomRoster'
+import { Family, Lesson, Child, ClassroomId, AttendanceStatus, Attendance } from '@/types'
 import { formatDate, getClassroomBadge } from '@/lib/academic'
 import { useAcademic } from '@/contexts/AcademicContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,6 +50,8 @@ export default function AttendancePage() {
     classroomScope && classroomScope !== 'all' ? classroomScope : 'A',
   )
   const [children, setChildren] = useState<Child[]>([])
+  // Sala D: responsáveis participantes entram na chamada (roster unificado).
+  const [salaDGuardians, setSalaDGuardians] = useState<RosterParticipant[]>([])
   const [attendances, setAttendances] = useState<
     Record<string, { status: AttendanceStatus; justification: string; notes: string }>
   >({})
@@ -85,24 +92,40 @@ export default function AttendancePage() {
   const loadClassroomAttendance = async () => {
     try {
       setLoading(true)
-      const [classChildren, existingAttendances] = await Promise.all([
+      const [classChildren, existingAttendances, allFamilies] = await Promise.all([
         childService.getAll(selectedClassroom, classroomScope),
         attendanceService.getByLessonAndClassroom(selectedLessonId, selectedClassroom),
+        selectedClassroom === 'D' ? familyService.getAll('all') : Promise.resolve([] as Family[]),
       ])
 
       setChildren(classChildren)
 
-      // Mapeia registros existentes
+      // Sala D: responsáveis marcados entram na chamada (via classroomRoster).
+      const rosterGuardians =
+        selectedClassroom === 'D'
+          ? getClassroomRoster('D', allFamilies).filter((p) => p.kind === 'guardian')
+          : []
+      setSalaDGuardians(rosterGuardians)
+
+      // Mapeia registros existentes (crianças E responsáveis da Sala D)
       const attMap: Record<
         string,
         { status: AttendanceStatus; justification: string; notes: string }
       > = {}
 
       for (const att of existingAttendances) {
-        attMap[att.child_id] = {
-          status: att.status,
-          justification: att.justification || '',
-          notes: att.notes || '',
+        if (att.person_kind === 'guardian' && att.guardian_id) {
+          attMap[`guardian:${att.guardian_id}`] = {
+            status: att.status,
+            justification: att.justification || '',
+            notes: att.notes || '',
+          }
+        } else if (att.child_id) {
+          attMap[att.child_id] = {
+            status: att.status,
+            justification: att.justification || '',
+            notes: att.notes || '',
+          }
         }
       }
 
@@ -110,6 +133,17 @@ export default function AttendancePage() {
       for (const c of classChildren) {
         if (!attMap[c.id]) {
           attMap[c.id] = {
+            status: 'present',
+            justification: '',
+            notes: '',
+          }
+        }
+      }
+
+      // Responsáveis da Sala D sem chamada ainda: mesmo padrão das crianças
+      for (const g of rosterGuardians) {
+        if (!attMap[g.key]) {
+          attMap[g.key] = {
             status: 'present',
             justification: '',
             notes: '',
@@ -160,17 +194,38 @@ export default function AttendancePage() {
 
     try {
       setSaving(true)
-      const payload = children.map((c) => {
-        const att = attendances[c.id] || { status: 'present', justification: '', notes: '' }
-        return {
-          lessonId: selectedLessonId,
-          childId: c.id,
-          classroom: selectedClassroom,
-          status: att.status,
-          justification: att.justification,
-          notes: att.notes,
-        }
-      })
+      const payload = [
+        ...children.map((c) => {
+          const att = attendances[c.id] || { status: 'present', justification: '', notes: '' }
+          return {
+            lessonId: selectedLessonId,
+            childId: c.id,
+            classroom: selectedClassroom,
+            status: att.status,
+            justification: att.justification,
+            notes: att.notes,
+          }
+        }),
+        // Sala D: responsáveis participantes vão para o servidor com
+        // person_kind='guardian' (child_id nulo) — não afetam salas A/B/C.
+        ...salaDGuardians.map((g) => {
+          const att = attendances[g.key] || {
+            status: 'present' as AttendanceStatus,
+            justification: '',
+            notes: '',
+          }
+          return {
+            lessonId: selectedLessonId,
+            childId: '',
+            classroom: selectedClassroom,
+            status: att.status,
+            justification: att.justification,
+            notes: att.notes,
+            personKind: 'guardian' as const,
+            guardianId: g.id,
+          }
+        }),
+      ]
 
       await attendanceService.bulkSaveAttendances(payload)
       toast({
@@ -448,11 +503,136 @@ export default function AttendancePage() {
           )
         })}
 
+        {/* Sala D: responsáveis participantes em seção própria após as crianças */}
+        {salaDGuardians.length > 0 && (
+          <>
+            <p className="pt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Responsáveis (Sala D)
+            </p>
+            {salaDGuardians.map((g) => {
+              const att = attendances[g.key] || {
+                status: 'present' as AttendanceStatus,
+                justification: '',
+                notes: '',
+              }
+
+              return (
+                <Card
+                  key={g.key}
+                  className={`transition-all border-l-4 ${
+                    att.status === 'present'
+                      ? 'border-l-emerald-500 bg-white dark:bg-slate-900'
+                      : att.status === 'absent'
+                        ? 'border-l-rose-500 bg-rose-50/10 dark:bg-slate-900'
+                        : 'border-l-amber-500 bg-amber-50/10 dark:bg-slate-900'
+                  }`}
+                >
+                  <CardContent className="p-3.5 space-y-3">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-300 shrink-0 flex items-center justify-center">
+                        {g.guardian && photoDisplayUrl(g.guardian) ? (
+                          <img
+                            src={photoDisplayUrl(g.guardian, '100x100')!}
+                            alt={rosterParticipantName(g)}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center font-bold text-slate-600 text-xs">
+                            {rosterParticipantName(g).slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100 leading-tight">
+                          {rosterParticipantName(g)}
+                        </p>
+                        <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold mt-0.5">
+                          Responsável • Sala D
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={att.status === 'present' ? 'default' : 'outline'}
+                        onClick={() => handleStatusChange(g.key, 'present')}
+                        className={`h-11 text-xs font-semibold flex items-center justify-center gap-1.5 ${
+                          att.status === 'present'
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                            : 'border-slate-200 hover:bg-emerald-50 hover:text-emerald-700'
+                        }`}
+                      >
+                        <CheckCircle2 className="h-4 w-4" /> Presente
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={att.status === 'absent' ? 'default' : 'outline'}
+                        onClick={() => handleStatusChange(g.key, 'absent')}
+                        className={`h-11 text-xs font-semibold flex items-center justify-center gap-1.5 ${
+                          att.status === 'absent'
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs'
+                            : 'border-slate-200 hover:bg-rose-50 hover:text-rose-700'
+                        }`}
+                      >
+                        <XCircle className="h-4 w-4" /> Ausente
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={att.status === 'justified' ? 'default' : 'outline'}
+                        onClick={() => handleStatusChange(g.key, 'justified')}
+                        className={`h-11 text-xs font-semibold flex items-center justify-center gap-1.5 ${
+                          att.status === 'justified'
+                            ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs'
+                            : 'border-slate-200 hover:bg-amber-50 hover:text-amber-700'
+                        }`}
+                      >
+                        <HelpCircle className="h-4 w-4" /> Justificada
+                      </Button>
+                    </div>
+
+                    {att.status === 'justified' && (
+                      <div className="space-y-1 pt-1">
+                        <Label className="text-[11px] text-amber-800 dark:text-amber-300">
+                          Motivo da Justificativa
+                        </Label>
+                        <Input
+                          placeholder="Ex: Viagem com a família, atestado médico..."
+                          value={att.justification}
+                          onChange={(e) => handleJustificationChange(g.key, e.target.value)}
+                          className="text-xs h-8"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-1 pt-1">
+                      <Label className="text-[11px] text-muted-foreground flex items-center gap-1">
+                        <MessageSquare className="h-3 w-3" /> Observação neste sábado:
+                      </Label>
+                      <Input
+                        placeholder="Ex: Acompanhou a turma, ajudou na atividade..."
+                        value={att.notes}
+                        onChange={(e) => handleNotesChange(g.key, e.target.value)}
+                        className="text-xs h-8"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </>
+        )}
+
         {children.length === 0 && !loading && (
           <div className="p-8 text-center text-muted-foreground bg-white dark:bg-slate-900 rounded-xl border">
             <ClipboardCheck className="h-8 w-8 mx-auto text-slate-400 mb-2" />
             <p className="text-xs font-medium">
-              Nenhuma criança matriculada na Sala {selectedClassroom}.
+              {selectedClassroom === 'D' && salaDGuardians.length > 0
+                ? `Nenhuma criança matriculada na Sala D — apenas ${salaDGuardians.length} responsável(is) participante(s).`
+                : `Nenhuma criança matriculada na Sala ${selectedClassroom}.`}
             </p>
           </div>
         )}

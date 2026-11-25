@@ -155,10 +155,17 @@ export interface LessonPlan {
 
 export type AttendanceStatus = 'present' | 'absent' | 'justified'
 
+export type AttendancePersonKind = 'child' | 'guardian'
+
 export interface Attendance {
   id: string
   lesson_id: string
-  child_id: string
+  /** Criança — null quando a chamada registra um RESPONSÁVEL (Sala D). */
+  child_id: string | null
+  /** Responsável — só preenchido quando person_kind = 'guardian'. */
+  guardian_id?: string | null
+  /** 'child' (padrão) ou 'guardian' (responsável participante da Sala D). */
+  person_kind?: AttendancePersonKind
   classroom: ClassroomId
   status: AttendanceStatus
   justification?: string
@@ -167,6 +174,7 @@ export interface Attendance {
   updated?: string
   expand?: {
     child_id?: Child
+    guardian_id?: Guardian
     lesson_id?: Lesson
   }
 }
