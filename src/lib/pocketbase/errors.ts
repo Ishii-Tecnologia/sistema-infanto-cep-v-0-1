@@ -25,21 +25,5 @@ export function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : 'An unexpected error occurred.'
   }
   const msgs = Object.values(extractFieldErrors(error))
-  return msgs.length > 0 ? msgs.join(' ') : error.message || 'An unexpected error occurred.'
-}
-
-/** true quando o erro indica sessão expirada / não autenticada (HTTP 401). */
-export function isAuthExpiredError(error: unknown): boolean {
-  return error instanceof ClientResponseError && error.status === 401
-}
-
-/** Mensagem amigável para falhas de exclusão (sessão, permissão ou vínculos). */
-export function getFriendlyDeleteErrorMessage(error: unknown): string {
-  if (error instanceof ClientResponseError) {
-    if (error.status === 401) return 'Sua sessão expirou. Entre novamente para excluir.'
-    if (error.status === 403) return 'Você não tem permissão para excluir este registro.'
-    if (error.status === 400)
-      return 'Não foi possível excluir: este registro ainda possui dados vinculados (alunos, responsáveis, empréstimos ou entregas). Remova ou atualize esses vínculos antes de excluir.'
-  }
-  return getErrorMessage(error)
+  return msgs.length > 0 ? msgs.join(' ') : (error.message || 'An unexpected error occurred.')
 }
