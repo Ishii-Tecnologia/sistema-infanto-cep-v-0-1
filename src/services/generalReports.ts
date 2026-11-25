@@ -57,6 +57,21 @@ export const generalReportsService = {
   },
 
   /**
+   * Responsáveis participantes da Sala D (participa_sala_aula = true), com a
+   * família expandida para exibir o nome. Mesma regra de escopo de
+   * attendanceReports.loadReportData: professores fora de D não os enxergam.
+   */
+  async loadSalaDGuardians(): Promise<Guardian[]> {
+    const scope = getClassroomScope(pb.authStore.record as any)
+    if (!(scope === 'all' || scope === 'D')) return []
+    return pb.collection('guardians').getFullList<Guardian>({
+      filter: 'participa_sala_aula = true',
+      sort: 'name',
+      expand: 'family_id',
+    })
+  },
+
+  /**
    * Prepara os dados para o Relatório de Alunos por Sala (com aniversário)
    * Sala D (ou "Todas"): responsáveis marcados (participa_sala_aula) entram
    * junto das crianças da sala D. Salas A/B/C: somente crianças.

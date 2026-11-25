@@ -13,7 +13,7 @@ import {
   StudentSizesReportItem,
   SizeMissingFilter,
 } from '@/services/generalReports'
-import { ClassroomId, Child } from '@/types'
+import { ClassroomId, Child, Guardian } from '@/types'
 import { formatClassroomAgeRange, formatDate, getClassroomBadge } from '@/lib/academic'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -172,6 +172,7 @@ export default function AttendanceReportsPage() {
     attendances: any[]
   }>({ lessons: [], children: [], attendances: [] })
   const [allChildren, setAllChildren] = useState<Child[]>([])
+  const [salaDGuardians, setSalaDGuardians] = useState<Guardian[]>([])
 
   // Modal de detalhes da criança (Relatório de Frequência)
   const [selectedChildForModal, setSelectedChildForModal] = useState<ChildAttendanceSummary | null>(
@@ -184,12 +185,14 @@ export default function AttendanceReportsPage() {
     try {
       if (!schoolYear.year) return
       setLoading(true)
-      const [data, childrenList] = await Promise.all([
+      const [data, childrenList, guardiansList] = await Promise.all([
         attendanceReportService.loadReportData(schoolYear.year),
         generalReportsService.loadActiveChildren(),
+        generalReportsService.loadSalaDGuardians(),
       ])
       setRawData(data)
       setAllChildren(childrenList)
+      setSalaDGuardians(guardiansList)
     } catch (err: any) {
       console.error('Erro ao carregar dados do relatório:', err)
       toast({
@@ -406,8 +409,12 @@ export default function AttendanceReportsPage() {
   // 2. Processamento: Relatório de Alunos por Sala (com Aniversário)
   // ========================================================
   const studentsByClassroomData: StudentsByClassroomReportItem[] = useMemo(() => {
-    return generalReportsService.processStudentsByClassroom(allChildren, selectedClassroom)
-  }, [allChildren, selectedClassroom])
+    return generalReportsService.processStudentsByClassroom(
+      allChildren,
+      selectedClassroom,
+      salaDGuardians,
+    )
+  }, [allChildren, selectedClassroom, salaDGuardians])
 
   // ========================================================
   // 3. Processamento: Relatório de Tamanhos de Roupa e Calçado
