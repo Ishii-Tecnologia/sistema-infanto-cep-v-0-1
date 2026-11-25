@@ -1,6 +1,6 @@
 import pb from '@/lib/pocketbase/client'
 import { getClassroomScope, classroomScopeToChildFilter } from '@/services/classroomScope'
-import { Child, ClassroomId } from '@/types'
+import { Child, ClassroomId, Guardian } from '@/types'
 
 export interface StudentsByClassroomReportItem {
   id: string
@@ -13,6 +13,8 @@ export interface StudentsByClassroomReportItem {
   active?: boolean
   family_id?: string
   familyName?: string
+  /** 'child' (padrão) ou 'guardian' (responsável participante da Sala D). */
+  personKind?: 'child' | 'guardian'
 }
 
 export type SizeMissingFilter =
@@ -56,12 +58,17 @@ export const generalReportsService = {
 
   /**
    * Prepara os dados para o Relatório de Alunos por Sala (com aniversário)
+   * Sala D (ou "Todas"): responsáveis marcados (participa_sala_aula) entram
+   * junto das crianças da sala D. Salas A/B/C: somente crianças.
    */
   processStudentsByClassroom(
     children: Child[],
     selectedClassroom: ClassroomId | 'ALL',
+    salaDGuardians: Guardian[] = [],
   ): StudentsByClassroomReportItem[] {
-    return children
+    const includeGuardians = selectedClassroom === 'ALL' || selectedClassroom === 'D'
+
+    const childItems: StudentsByClassroomReportItem[] = children
       .filter((c) => {
         if (selectedClassroom === 'ALL') return true
         return c.classroom === selectedClassroom
@@ -77,13 +84,31 @@ export const generalReportsService = {
         active: c.active,
         family_id: c.family_id,
         familyName: c.expand?.family_id?.reference_name,
+        personKind: 'child' as const,
       }))
-      .sort((a, b) => {
-        if (selectedClassroom === 'ALL' && a.classroom !== b.classroom) {
-          return a.classroom.localeCompare(b.classroom)
-        }
-        return a.name.localeCompare(b.name, 'pt-BR')
-      })
+
+    const guardianItems: StudentsByClassroomReportItem[] = includeGuardians
+      ? salaDGuardians.map((g) => ({
+          id: g.id,
+          name: g.name,
+          birth_date: g.birth_date || '',
+          classroom: 'D' as ClassroomId,
+          photo_url: g.photo_url,
+          clothing_size: undefined,
+          shoe_size: undefined,
+          active: true,
+          family_id: g.family_id,
+          familyName: g.expand?.family_id?.reference_name,
+          personKind: 'guardian' as const,
+        }))
+      : []
+
+    return [...childItems, ...guardianItems].sort((a, b) => {
+      if (selectedClassroom === 'ALL' && a.classroom !== b.classroom) {
+        return a.classroom.localeCompare(b.classroom)
+      }
+      return a.name.localeCompare(b.name, 'pt-BR')
+    })
   },
 
   /**

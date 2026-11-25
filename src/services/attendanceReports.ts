@@ -1,6 +1,6 @@
 import pb from '@/lib/pocketbase/client'
 import { getClassroomScope, classroomScopeToChildFilter } from '@/services/classroomScope'
-import { Lesson, Child, ClassroomId, Attendance, AttendanceStatus } from '@/types'
+import { Lesson, Child, ClassroomId, Attendance, AttendanceStatus, Family, Guardian } from '@/types'
 import { photoDisplayUrl } from '@/services/photos'
 
 export interface AttendanceReportFilter {
@@ -17,6 +17,8 @@ export interface ChildAttendanceSummary {
   childName: string
   classroom: ClassroomId
   photoUrl?: string
+  /** 'child' (padrão) ou 'guardian' (responsável participante da Sala D). */
+  personKind?: 'child' | 'guardian'
   totalLessons: number
   presents: number
   absents: number
@@ -68,21 +70,43 @@ export interface AttendanceReportData {
   criticalSaturday?: LessonAttendanceSummary
 }
 
+/** Um registro de chamada é de RESPONSÁVEL (Sala D)? */
+function isGuardianAttendance(att: Attendance): boolean {
+  return att.person_kind === 'guardian' || (!att.child_id && !!att.guardian_id)
+}
+
+/** Chave de chamada de um participante: id puro (criança) ou guardian:<id>. */
+function participantKey(kind: 'child' | 'guardian', id: string): string {
+  return kind === 'guardian' ? `guardian:${id}` : id
+}
+
 export const attendanceReportService = {
   /**
    * Carrega os dados brutos necessários para relatórios:
-   * Aulas, Crianças ativas e Chamadas registradas.
+   * Aulas, Crianças ativas, Chamadas registradas e Responsáveis da Sala D.
    */
   async loadReportData(year?: number): Promise<{
     lessons: Lesson[]
     children: Child[]
     attendances: Attendance[]
+    salaDGuardians: Guardian[]
   }> {
     const filter = year ? `year = ${year}` : ''
     const scope = getClassroomScope(pb.authStore.record as any)
     const scopeFilter = classroomScopeToChildFilter(scope)
     const childFilter = ['active = true', scopeFilter].filter(Boolean).join(' && ')
-    const [lessons, children, attendances] = await Promise.all([
+
+    // Responsáveis da Sala D: professores com sala diferente de D (ou sem sala)
+    // não os enxergam — falha segura no mesmo espírito do escopo de crianças.
+    const canSeeSalaDGuardians = scope === 'all' || scope === 'D'
+    const guardiansPromise: Promise<Guardian[]> = canSeeSalaDGuardians
+      ? pb.collection('guardians').getFullList<Guardian>({
+          filter: 'participa_sala_aula = true',
+          sort: 'name',
+        })
+      : Promise.resolve([])
+
+    const [lessons, children, attendances, salaDGuardians] = await Promise.all([
       pb.collection('lessons').getFullList<Lesson>({
         filter,
         sort: 'date',
@@ -94,11 +118,12 @@ export const attendanceReportService = {
       }),
       pb.collection('attendances').getFullList<Attendance>({
         sort: 'created',
-        expand: 'child_id,lesson_id',
+        expand: 'child_id,guardian_id,lesson_id',
       }),
+      guardiansPromise,
     ])
 
-    return { lessons, children, attendances }
+    return { lessons, children, attendances, salaDGuardians }
   },
 
   /**
@@ -108,16 +133,21 @@ export const attendanceReportService = {
    * - Calcula presenças, ausências, faltas justificadas, taxa percentual e faltas consecutivas.
    * - Destaca crianças com frequência abaixo de 70% ou 2+ faltas consecutivas.
    * - Identifica os sábados com maior número/taxa de faltas.
+   * - Sala D (ou "Todas"): responsáveis marcados (participa_sala_aula) entram
+   *   como participantes, com presença resolvida pelos registros
+   *   person_kind='guardian' (chave guardian:<id>).
    */
   processReport(
     rawData: {
       lessons: Lesson[]
       children: Child[]
       attendances: Attendance[]
+      salaDGuardians?: Guardian[]
     },
     filter: AttendanceReportFilter,
   ): AttendanceReportData {
     const { lessons, children, attendances } = rawData
+    const salaDGuardians = rawData.salaDGuardians || []
 
     // 1. Filtrar aulas pelo período escolhido
     const filteredLessons = lessons.filter((lesson) => {
@@ -151,14 +181,34 @@ export const attendanceReportService = {
       return child.classroom === filter.classroomId
     })
 
-    // Mapeamento rápido de chamadas por chave: `lessonId_childId`
+    // Responsáveis da Sala D entram quando o filtro inclui a sala D
+    // (sala D selecionada ou "Todas as salas"). Salas A/B/C: só crianças.
+    const rosterGuardians: Guardian[] =
+      filter.classroomId === 'ALL' || filter.classroomId === 'D' ? salaDGuardians : []
+
+    // Mapeamento rápido de chamadas:
+    // - crianças: `lessonId_childId`
+    // - responsáveis (Sala D): `lessonId_guardian:<guardianId>`
     const attMap = new Map<string, Attendance>()
     for (const att of attendances) {
-      attMap.set(`${att.lesson_id}_${att.child_id}`, att)
+      if (isGuardianAttendance(att)) {
+        if (att.guardian_id) {
+          attMap.set(`${att.lesson_id}_${participantKey('guardian', att.guardian_id)}`, att)
+        }
+      } else if (att.child_id) {
+        attMap.set(`${att.lesson_id}_${participantKey('child', att.child_id)}`, att)
+      }
     }
 
-    // 3. Processar visão por criança
-    const childSummaries: ChildAttendanceSummary[] = filteredChildren.map((child) => {
+    // Resumo de frequência de um participante (criança OU responsável da Sala D)
+    const buildParticipantSummary = (
+      kind: 'child' | 'guardian',
+      participantId: string,
+      participantName: string,
+      classroom: ClassroomId,
+      photoUrl?: string,
+    ): ChildAttendanceSummary => {
+      const pKey = participantKey(kind, participantId)
       let presents = 0
       let absents = 0
       let justified = 0
@@ -171,7 +221,7 @@ export const attendanceReportService = {
       let maxConsecutiveAbsences = 0
 
       for (const lesson of activeLessons) {
-        const key = `${lesson.id}_${child.id}`
+        const key = `${lesson.id}_${pKey}`
         const att = attMap.get(key)
         const dateStr = lesson.date ? lesson.date.slice(0, 10) : ''
 
@@ -200,7 +250,7 @@ export const attendanceReportService = {
             notes: att.notes,
           })
         } else {
-          // Não houve registro de chamada lançado para a criança nesta aula
+          // Não houve registro de chamada lançado para o participante nesta aula
           details.push({
             lessonId: lesson.id,
             lessonDate: dateStr,
@@ -231,10 +281,11 @@ export const attendanceReportService = {
       }
 
       return {
-        childId: child.id,
-        childName: child.name,
-        classroom: child.classroom,
-        photoUrl: photoDisplayUrl(child) || undefined,
+        childId: pKey,
+        childName: participantName,
+        classroom,
+        photoUrl,
+        personKind: kind,
         totalLessons,
         presents,
         absents,
@@ -245,7 +296,30 @@ export const attendanceReportService = {
         warningReason,
         details,
       }
-    })
+    }
+
+    // 3. Processar visão por participante (crianças + responsáveis da Sala D)
+    const childSummaries: ChildAttendanceSummary[] = filteredChildren.map((child) =>
+      buildParticipantSummary(
+        'child',
+        child.id,
+        child.name,
+        child.classroom,
+        photoDisplayUrl(child) || undefined,
+      ),
+    )
+
+    for (const guardian of rosterGuardians) {
+      childSummaries.push(
+        buildParticipantSummary(
+          'guardian',
+          guardian.id,
+          guardian.name,
+          'D',
+          photoDisplayUrl(guardian) || undefined,
+        ),
+      )
+    }
 
     // 4. Processar visão por aula (taxa de presença e faltas por sábado letivo)
     const lessonSummaries: LessonAttendanceSummary[] = filteredLessons.map((lesson) => {
@@ -275,7 +349,7 @@ export const attendanceReportService = {
       let justified = 0
 
       for (const child of filteredChildren) {
-        const key = `${lesson.id}_${child.id}`
+        const key = `${lesson.id}_${participantKey('child', child.id)}`
         const att = attMap.get(key)
         if (att) {
           if (att.status === 'present') presents++
@@ -284,7 +358,17 @@ export const attendanceReportService = {
         }
       }
 
-      const totalExpected = filteredChildren.length
+      for (const guardian of rosterGuardians) {
+        const key = `${lesson.id}_${participantKey('guardian', guardian.id)}`
+        const att = attMap.get(key)
+        if (att) {
+          if (att.status === 'present') presents++
+          else if (att.status === 'absent') absents++
+          else if (att.status === 'justified') justified++
+        }
+      }
+
+      const totalExpected = filteredChildren.length + rosterGuardians.length
       // Taxa de presença do sábado
       const rate = totalExpected > 0 ? Math.round((presents / totalExpected) * 100) : 0
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { familyService, childService } from '@/services/families'
+import { familyService, guardianService, childService } from '@/services/families'
 import { photoDisplayUrl } from '@/services/photos'
 import { auditLogService } from '@/services/auditLogs'
 import { Family, Guardian, Child, ClassroomId } from '@/types'
@@ -168,6 +168,8 @@ export default function FamiliesPage() {
   // aberto (recarregado após salvar) e grava no banco via saveFamilyFields.
   const [cestaBasica, setCestaBasica] = useState(false)
   const [cestaBasicaSaving, setCestaBasicaSaving] = useState(false)
+  // Id do responsável cujo checkbox "Sala D" está gravando (desabilita só ele)
+  const [salaDTogglingId, setSalaDTogglingId] = useState<string | null>(null)
   const classroomFilterActive = classroomFilter !== 'all'
 
   // Estado da Exclusão de Família
@@ -659,6 +661,41 @@ export default function FamiliesPage() {
     }
   }
 
+  // Checkbox "Sala D" do card do responsável na ficha: grava imediatamente via
+  // guardianService.update (participa_sala_aula) e reflete na ficha e na lista.
+  const handleToggleSalaD = async (guardian: Guardian, checked: boolean) => {
+    if (!selectedFamily) return
+    if (!pb.authStore.isValid) {
+      checkAuthAndHandleExpired(new Error('Sessão expirada'))
+      return
+    }
+    setSalaDTogglingId(guardian.id)
+    try {
+      await guardianService.update(guardian.id, { participa_sala_aula: checked })
+      const updatedGuardians = (selectedFamily.guardians || []).map((g) =>
+        g.id === guardian.id ? { ...g, participa_sala_aula: checked } : g,
+      )
+      const updatedFamily: Family = { ...selectedFamily, guardians: updatedGuardians }
+      setSelectedFamily(updatedFamily)
+      setFamilies((prev) => prev.map((f) => (f.id === updatedFamily.id ? updatedFamily : f)))
+      toast({
+        title: checked ? 'Participação na Sala D marcada' : 'Participação na Sala D desmarcada',
+        description: `${guardian.name} ${
+          checked ? 'agora compõe' : 'não compõe mais'
+        } a lista de alunos da Sala D no Sistema Infanto-CEP.`,
+      })
+    } catch (err) {
+      if (checkAuthAndHandleExpired(err)) return
+      toast({
+        title: 'Erro ao salvar participação na Sala D',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      })
+    } finally {
+      setSalaDTogglingId(null)
+    }
+  }
+
   // A ficha (modal) segue a família selecionada: sincroniza o checkbox com o
   // valor gravado no banco ao abrir, ao reabrir e após recarregar a lista.
   useEffect(() => {
@@ -955,11 +992,32 @@ export default function FamiliesPage() {
                             </div>
                           )}
                         </button>
-                        <div className="flex-1 truncate">
-                          <p className="font-bold text-slate-900 dark:text-slate-100 truncate">
-                            {g.name}
-                          </p>
-                          <p className="text-muted-foreground">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                              {g.name}
+                            </p>
+                            <label
+                              className="flex items-center gap-1.5 cursor-pointer select-none shrink-0"
+                              title="Participa da Sala de Aula da Família (Sala D)"
+                            >
+                              <Checkbox
+                                className={CESTA_BASICA_CHECKBOX_CLASS}
+                                checked={g.participa_sala_aula === true}
+                                disabled={salaDTogglingId === g.id}
+                                onCheckedChange={(v) => handleToggleSalaD(g, v === true)}
+                              />
+                              <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                                Sala D
+                              </span>
+                              {salaDTogglingId === g.id && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  salvando...
+                                </span>
+                              )}
+                            </label>
+                          </div>
+                          <p className="text-muted-foreground truncate">
                             {g.relationship} • {formatPhoneBR(g.phone || '') || 'Sem tel'}
                             {g.birth_date ? ` • Nasc: ${formatDate(g.birth_date)}` : ''}
                           </p>
