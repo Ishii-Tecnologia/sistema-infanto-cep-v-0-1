@@ -4,7 +4,7 @@ import { auditLogService } from '@/services/auditLogs'
 import { childService } from '@/services/families'
 import { photoDisplayUrl } from '@/services/photos'
 import { Child, DimDimTransaction, DimDimTransactionType, DimDimCategory } from '@/types'
-import { formatDateTime, getClassroomBadge } from '@/lib/academic'
+import { formatClassroomAgeRange, formatDateTime, getClassroomBadge } from '@/lib/academic'
 import { useAcademic } from '@/contexts/AcademicContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -682,7 +682,7 @@ export default function DimDimPage() {
                   <SelectContent>
                     {classrooms.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.name} ({c.minAge} a {c.maxAge} anos)
+                        {c.name} ({formatClassroomAgeRange(c.minAge, c.maxAge)})
                       </SelectItem>
                     ))}
                   </SelectContent>

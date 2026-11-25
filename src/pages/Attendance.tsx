@@ -8,7 +8,7 @@ import {
   rosterParticipantName,
 } from '@/services/classroomRoster'
 import { Family, Lesson, Child, ClassroomId, AttendanceStatus, Attendance } from '@/types'
-import { formatDate, getClassroomBadge } from '@/lib/academic'
+import { formatClassroomAgeRange, formatDate, getClassroomBadge } from '@/lib/academic'
 import { useAcademic } from '@/contexts/AcademicContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -307,7 +307,7 @@ export default function AttendancePage() {
                 <SelectContent>
                   {classrooms.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name} ({c.minAge} a {c.maxAge} anos)
+                      {c.name} ({formatClassroomAgeRange(c.minAge, c.maxAge)})
                     </SelectItem>
                   ))}
                 </SelectContent>

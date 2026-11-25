@@ -121,6 +121,14 @@ export function formatDateTime(dateStr?: string | Date | null): string {
 }
 
 /**
+ * Texto da faixa etária de uma sala. Idade máxima 99 é o marcador de faixa aberta:
+ * exibe "Acima de <mín> anos"; caso contrário "<mín> a <máx> anos".
+ */
+export function formatClassroomAgeRange(minAge: number, maxAge: number): string {
+  return maxAge === 99 ? `Acima de ${minAge} anos` : `${minAge} a ${maxAge} anos`
+}
+
+/**
  * Nomes e cores das salas (aceita lista de salas customizadas para refletir rótulos dinâmicos)
  */
 export function getClassroomBadge(classroomId: ClassroomId, customClassrooms?: ClassroomInfo[]) {
@@ -134,7 +142,7 @@ export function getClassroomBadge(classroomId: ClassroomId, customClassrooms?: C
   }
 
   if (custom) {
-    const ageDesc = `${custom.minAge}-${custom.maxAge} anos`
+    const ageDesc = formatClassroomAgeRange(custom.minAge, custom.maxAge)
     const displayName = custom.name.includes(ageDesc) ? custom.name : `${custom.name} (${ageDesc})`
     return {
       name: displayName,

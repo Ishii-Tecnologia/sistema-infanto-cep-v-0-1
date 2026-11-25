@@ -5,7 +5,7 @@ import { lessonService, attendanceService } from '@/services/lessons'
 import { familyService } from '@/services/families'
 import { libraryService } from '@/services/library'
 import { Lesson, BookLoan, Family } from '@/types'
-import { formatDate, getClassroomBadge } from '@/lib/academic'
+import { formatClassroomAgeRange, formatDate, getClassroomBadge } from '@/lib/academic'
 import { useAcademic } from '@/contexts/AcademicContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -410,7 +410,7 @@ export default function Index() {
                 <ul className="list-disc list-inside mt-1 space-y-0.5 text-[11px]">
                   {classrooms.map((c) => (
                     <li key={c.id}>
-                      {c.name}: {c.minAge} a {c.maxAge} anos
+                      {c.name}: {formatClassroomAgeRange(c.minAge, c.maxAge)}
                     </li>
                   ))}
                 </ul>

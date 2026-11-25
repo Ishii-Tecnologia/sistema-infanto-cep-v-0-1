@@ -3,7 +3,7 @@ import { lessonService } from '@/services/lessons'
 import { schoolYearService } from '@/services/schoolYear'
 import { auditLogService } from '@/services/auditLogs'
 import { Lesson, LessonPlan, ClassroomId, AnoLetivo, SabadoLetivo } from '@/types'
-import { formatDate, getClassroomBadge } from '@/lib/academic'
+import { formatClassroomAgeRange, formatDate, getClassroomBadge } from '@/lib/academic'
 import { useAcademic } from '@/contexts/AcademicContext'
 import { Link } from 'react-router-dom'
 import {
@@ -1120,7 +1120,7 @@ export default function CalendarPage() {
                       </span>
                     </div>
                     <span className="text-[11px] text-muted-foreground">
-                      Faixa atual: {room.minAge} a {room.maxAge} anos
+                      Faixa atual: {formatClassroomAgeRange(room.minAge, room.maxAge)}
                     </span>
                   </div>
 

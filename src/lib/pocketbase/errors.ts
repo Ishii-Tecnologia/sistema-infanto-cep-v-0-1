@@ -28,15 +28,16 @@ export function getErrorMessage(error: unknown): string {
   return msgs.length > 0 ? msgs.join(' ') : error.message || 'An unexpected error occurred.'
 }
 
-// Erro de sessão expirada/não autenticada (HTTP 401)
+/** true quando o erro indica sessão expirada / não autenticada (HTTP 401). */
 export function isAuthExpiredError(error: unknown): boolean {
   return error instanceof ClientResponseError && error.status === 401
 }
 
-// Mensagem amigável para falhas ao excluir (ex.: registros vinculados)
+/** Mensagem amigável para falhas de exclusão (sessão, permissão ou vínculos). */
 export function getFriendlyDeleteErrorMessage(error: unknown): string {
-  if (error instanceof ClientResponseError && (error.status === 400 || error.status === 409)) {
-    return 'Não foi possível excluir o registro porque ele ainda está vinculado a outros dados.'
+  if (error instanceof ClientResponseError) {
+    if (error.status === 401) return 'Sua sessão expirou. Entre novamente para excluir.'
+    if (error.status === 403) return 'Você não tem permissão para excluir este registro.'
   }
   return getErrorMessage(error)
 }

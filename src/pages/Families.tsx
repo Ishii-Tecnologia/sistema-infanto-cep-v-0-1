@@ -7,6 +7,7 @@ import { Pencil } from 'lucide-react'
 import {
   calculateAgeOnCutoffDate,
   classifyClassroomByBirthDate,
+  formatClassroomAgeRange,
   formatDate,
   getClassroomBadge,
 } from '@/lib/academic'
@@ -753,7 +754,7 @@ export default function FamiliesPage() {
                 <SelectItem value="all">Todas as Salas</SelectItem>
                 {classrooms.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.name} ({c.minAge} a {c.maxAge} anos)
+                    {c.name} ({formatClassroomAgeRange(c.minAge, c.maxAge)})
                   </SelectItem>
                 ))}
               </SelectContent>

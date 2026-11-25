@@ -14,7 +14,7 @@ import {
   SizeMissingFilter,
 } from '@/services/generalReports'
 import { ClassroomId, Child } from '@/types'
-import { formatDate, getClassroomBadge } from '@/lib/academic'
+import { formatClassroomAgeRange, formatDate, getClassroomBadge } from '@/lib/academic'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -722,7 +722,7 @@ export default function AttendanceReportsPage() {
                   </SelectItem>
                   {classrooms.map((c) => (
                     <SelectItem key={c.id} value={c.id} className="text-xs">
-                      {c.name} ({c.minAge} a {c.maxAge} anos)
+                      {c.name} ({formatClassroomAgeRange(c.minAge, c.maxAge)})
                     </SelectItem>
                   ))}
                 </SelectContent>
