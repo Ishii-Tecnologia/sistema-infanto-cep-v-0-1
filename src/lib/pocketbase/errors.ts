@@ -25,20 +25,5 @@ export function getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : 'An unexpected error occurred.'
   }
   const msgs = Object.values(extractFieldErrors(error))
-  return msgs.length > 0 ? msgs.join(' ') : error.message || 'An unexpected error occurred.'
-}
-
-export function isAuthExpiredError(error: unknown): boolean {
-  return error instanceof ClientResponseError && error.status === 401
-}
-
-export function getFriendlyDeleteErrorMessage(error: unknown): string {
-  if (isAuthExpiredError(error)) {
-    return 'Sua sessão expirou. Faça login novamente para concluir a exclusão.'
-  }
-  const msg = getErrorMessage(error)
-  if (/relation|cascade|referenced/i.test(msg)) {
-    return 'Não foi possível excluir porque este registro ainda possui vínculos no sistema.'
-  }
-  return msg || 'Não foi possível excluir o registro.'
+  return msgs.length > 0 ? msgs.join(' ') : (error.message || 'An unexpected error occurred.')
 }
