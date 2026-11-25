@@ -138,6 +138,11 @@ function sanitizeGuardianPayload(data: Partial<Guardian>): Record<string, any> {
   if (data.is_emergency_contact !== undefined) {
     payload.is_emergency_contact = Boolean(data.is_emergency_contact)
   }
+  // Checkbox "Participa da Sala de Aula da Família (Sala D)" do wizard
+  // (bool, default false — ausente/gravação falsa é tratada como false)
+  if (data.participa_sala_aula !== undefined) {
+    payload.participa_sala_aula = Boolean(data.participa_sala_aula)
+  }
   // photo_url Base64 NÃO é gravado (novo padrão: campo arquivo photo).
   // Uma URL http(s) legada em photo_url continua sendo aceita.
   if (data.photo_url !== undefined && !isBase64DataUrl(data.photo_url)) {
@@ -350,6 +355,7 @@ export const familyService = {
         birth_date: g.birth_date,
         phone: g.phone,
         is_emergency_contact: g.is_emergency_contact,
+        participa_sala_aula: g.participa_sala_aula,
         photo_url: g.photo_url,
       })
       const photoForm = buildPhotoFormData('guardians', g)

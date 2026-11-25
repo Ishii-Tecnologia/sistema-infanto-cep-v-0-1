@@ -83,6 +83,12 @@ import { ImageLightbox } from '@/components/ImageLightbox'
 // marcado e CINZA CLARO quando desmarcado — idêntico em todas as ocorrências.
 const CESTA_BASICA_CHECKBOX_CLASS =
   'data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 data-[state=checked]:text-white data-[state=unchecked]:bg-slate-200 data-[state=unchecked]:border-slate-300'
+
+// Estilo do checkbox "Participa da Sala de Aula da Família (Sala D)" na ficha
+// do responsável do wizard: box VERDE CLARO quando marcado e CINZA (padrão)
+// quando desmarcado.
+const SALA_AULA_CHECKBOX_CLASS =
+  'data-[state=checked]:bg-emerald-400 data-[state=checked]:border-emerald-400 data-[state=checked]:text-white data-[state=unchecked]:bg-slate-200 data-[state=unchecked]:border-slate-300'
 import {
   getErrorMessage,
   getFriendlyDeleteErrorMessage,
@@ -101,6 +107,7 @@ function emptyWizardGuardian(relationship = 'Mãe') {
     birth_date: '',
     phone: '',
     is_emergency_contact: relationship !== 'Pai',
+    participa_sala_aula: false,
     photo_url: '',
     photo: undefined as File | undefined,
   }
@@ -206,6 +213,9 @@ export default function FamiliesPage() {
       birth_date?: string
       phone: string
       is_emergency_contact: boolean
+      // Checkbox "Participa da Sala de Aula da Família (Sala D)" — persistido
+      // por responsável no campo guardians.participa_sala_aula
+      participa_sala_aula: boolean
       photo_url: string
       // Foto nova como ARQUIVO (campo `photo`, padrão natal_entregas): undefined
       // quando o responsável não recebeu foto nova nesta sessão do wizard
@@ -442,7 +452,7 @@ export default function FamiliesPage() {
         await familyService.updateComplete(
           editingFamily.id,
           wizardFamily,
-          wizardGuardians,
+          wizardGuardians.map(({ uid, phoneManuallyEdited, ...g }) => g),
           wizardChildren,
         )
         toast({
@@ -451,7 +461,11 @@ export default function FamiliesPage() {
             'As informações da família, responsáveis e crianças foram salvas no Sistema Infanto-CEP.',
         })
       } else {
-        await familyService.create(wizardFamily, wizardGuardians, wizardChildren)
+        await familyService.create(
+          wizardFamily,
+          wizardGuardians.map(({ uid, phoneManuallyEdited, ...g }) => g),
+          wizardChildren,
+        )
         toast({
           title: 'Família cadastrada com sucesso!',
           description:
@@ -556,6 +570,8 @@ export default function FamiliesPage() {
             birth_date: (g.birth_date || '').slice(0, 10),
             phone: formatPhoneBR(g.phone || ''),
             is_emergency_contact: !!g.is_emergency_contact,
+            // Checkbox "Participa da Sala de Aula" volta carregado do registro
+            participa_sala_aula: g.participa_sala_aula === true,
             photo_url: g.photo_url || '',
             phoneManuallyEdited:
               !!onlyDigits(g.phone || '') && onlyDigits(g.phone || '') !== famPhoneDigits,
@@ -1272,6 +1288,28 @@ export default function FamiliesPage() {
                           }
                           onChange={(e) => handleGuardianPhoneChange(index, e.target.value)}
                         />
+                      </div>
+
+                      {/* Checkbox "Participa da Sala de Aula da Família (Sala D)" —
+                          abaixo de Data de Nascimento e Telefone; verde claro
+                          marcado, cinza (padrão) desmarcado. */}
+                      <div className="flex items-center space-x-2 sm:col-span-2 pt-1">
+                        <Checkbox
+                          id={`guardian_sala_aula_${index}`}
+                          checked={guardian.participa_sala_aula}
+                          onCheckedChange={(checked) => {
+                            const updated = [...wizardGuardians]
+                            updated[index].participa_sala_aula = checked === true
+                            setWizardGuardians(updated)
+                          }}
+                          className={SALA_AULA_CHECKBOX_CLASS}
+                        />
+                        <Label
+                          htmlFor={`guardian_sala_aula_${index}`}
+                          className="text-xs cursor-pointer font-medium"
+                        >
+                          Participa da Sala de Aula da Família (Sala D)
+                        </Label>
                       </div>
 
                       <div className="space-y-1 sm:col-span-2">

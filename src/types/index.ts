@@ -91,6 +91,8 @@ export interface Guardian {
   birth_date?: string
   phone?: string
   is_emergency_contact?: boolean
+  /** Participa da Sala de Aula da Família (Sala D) — checkbox do wizard. */
+  participa_sala_aula?: boolean
   photo_url?: string
   /** Nome do arquivo de foto armazenado no backend (novo padrão, como em natal_entregas). */
   photo?: string | File

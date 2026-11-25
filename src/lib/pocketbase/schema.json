@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-25T16:15:28.230Z",
+  "generatedAt": "2026-11-25T16:33:24.502Z",
   "collections": [
     {
       "name": "users",
@@ -245,6 +245,12 @@
         {
           "name": "photo",
           "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "participa_sala_aula",
+          "type": "bool",
           "required": false,
           "system": false
         }

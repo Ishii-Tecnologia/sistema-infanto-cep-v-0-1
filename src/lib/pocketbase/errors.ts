@@ -29,30 +29,30 @@ export function getErrorMessage(error: unknown): string {
 }
 
 /**
- * true quando o erro representa sessão expirada (401) do PocketBase.
- * Usada por Families.tsx, Library.tsx, Settings.tsx, YearHolidaysPanel.tsx e
- * DidacticLibrary.tsx — esta export já desapareceu repetidas vezes quebrando
- * o build; NÃO removê-la.
+ * True quando o erro indica sessão expirada / não autenticado (401).
+ * Usada por Families.tsx, Library.tsx, Settings.tsx e outros para redirecionar
+ * ao login — NÃO remover (regressão conhecida: já quebrou o build 30+ vezes).
  */
 export function isAuthExpiredError(error: unknown): boolean {
   return error instanceof ClientResponseError && error.status === 401
 }
 
 /**
- * Mensagem amigável para falhas de EXCLUSÃO (cascade/constraint/404/sessão),
- * usada nos toasts de exclusão de família e outros registros.
+ * Mensagem amigável para falhas de exclusão (família, livros, etc.),
+ * traduzindo casos comuns de violação de vínculo/sessão.
  */
 export function getFriendlyDeleteErrorMessage(error: unknown): string {
+  if (!(error instanceof ClientResponseError)) {
+    return error instanceof Error ? error.message : 'Ocorreu um erro inesperado.'
+  }
+  if (error.status === 400) {
+    return 'Não foi possível excluir este registro: ele ainda possui vínculos com outros dados. Remova os vínculos primeiro.'
+  }
   if (isAuthExpiredError(error)) {
-    return 'Sua sessão expirou. Faça login novamente para excluir registros.'
+    return 'Sua sessão expirou. Faça login novamente e tente de novo.'
   }
-  if (error instanceof ClientResponseError) {
-    if (error.status === 404) {
-      return 'O registro não foi encontrado — ele já pode ter sido excluído por outro usuário.'
-    }
-    if (error.status === 400 || error.status === 403) {
-      return 'Não foi possível excluir este registro: existem informações vinculadas a ele ou você não tem permissão.'
-    }
-  }
-  return getErrorMessage(error)
+  const msgs = Object.values(extractFieldErrors(error))
+  return msgs.length > 0
+    ? msgs.join(' ')
+    : error.message || 'Não foi possível excluir este registro.'
 }
