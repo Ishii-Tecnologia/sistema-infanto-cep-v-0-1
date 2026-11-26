@@ -63,11 +63,30 @@ import { StudentsByClassroomReport } from '@/components/reports/StudentsByClassr
 import { StudentSizesReport } from '@/components/reports/StudentSizesReport'
 import { DeletionLogsReport } from '@/components/reports/DeletionLogsReport'
 import { NatalSacolinhaReport } from '@/components/reports/NatalSacolinhaReport'
+import { BirthdaysListReport } from '@/components/reports/BirthdaysListReport'
 import { SortableTableHead, SortDirection } from '@/components/reports/SortableTableHead'
 import { natalEntregasService, NatalEntrega } from '@/services/natalEntregas'
+import { Checkbox } from '@/components/ui/checkbox'
+import { getClassroomScope, childInScope, familyInScope } from '@/services/classroomScope'
+import pb from '@/lib/pocketbase/client'
 import { familyService } from '@/services/families'
 import { Family } from '@/types'
 import { useToast } from '@/hooks/use-toast'
+
+const MONTH_NAMES_FULL = [
+  { value: 1, label: 'Janeiro' },
+  { value: 2, label: 'Fevereiro' },
+  { value: 3, label: 'Março' },
+  { value: 4, label: 'Abril' },
+  { value: 5, label: 'Maio' },
+  { value: 6, label: 'Junho' },
+  { value: 7, label: 'Julho' },
+  { value: 8, label: 'Agosto' },
+  { value: 9, label: 'Setembro' },
+  { value: 10, label: 'Outubro' },
+  { value: 11, label: 'Novembro' },
+  { value: 12, label: 'Dezembro' },
+]
 
 const MONTH_NAMES = [
   { value: 3, label: 'Março' },
@@ -85,6 +104,7 @@ const MONTH_NAMES = [
 export type ReportCategory =
   | 'attendance'
   | 'students_birthday'
+  | 'birthdays_list'
   | 'student_sizes'
   | 'deletion_logs'
   | 'natal_sacolinha'
@@ -127,6 +147,12 @@ export default function AttendanceReportsPage() {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [onlyLowAttendance, setOnlyLowAttendance] = useState<boolean>(false)
   const [sizeMissingFilter, setSizeMissingFilter] = useState<SizeMissingFilter>('all')
+
+  // Filtros da Lista de Aniversariantes
+  const [birthdayMonth, setBirthdayMonth] = useState<number | 'ALL'>(new Date().getMonth() + 1)
+  const [includeGuardians, setIncludeGuardians] = useState<boolean>(false) // default: só crianças
+  const [allGuardians, setAllGuardians] = useState<Guardian[]>([])
+  const [birthdaysLoading, setBirthdaysLoading] = useState(false)
 
   // Dados do relatório de Entregas da Sacolinha de Natal
   const [natalEntregas, setNatalEntregas] = useState<NatalEntrega[]>([])
@@ -173,6 +199,29 @@ export default function AttendanceReportsPage() {
   }>({ lessons: [], children: [], attendances: [] })
   const [allChildren, setAllChildren] = useState<Child[]>([])
   const [salaDGuardians, setSalaDGuardians] = useState<Guardian[]>([])
+
+  // Carrega TODOS os responsáveis (para a Lista de Aniversariantes)
+  const fetchGuardians = async () => {
+    try {
+      setBirthdaysLoading(true)
+      setAllGuardians(await generalReportsService.loadAllGuardians())
+    } catch (err: any) {
+      console.error('Erro ao carregar responsáveis:', err)
+      toast({
+        title: 'Sistema Infanto-CEP',
+        description: 'Não foi possível carregar os responsáveis.',
+        variant: 'destructive',
+      })
+    } finally {
+      setBirthdaysLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!academicLoading) {
+      fetchGuardians()
+    }
+  }, [academicLoading])
 
   // Modal de detalhes da criança (Relatório de Frequência)
   const [selectedChildForModal, setSelectedChildForModal] = useState<ChildAttendanceSummary | null>(
@@ -427,6 +476,56 @@ export default function AttendanceReportsPage() {
     )
   }, [allChildren, selectedClassroom, sizeMissingFilter])
 
+  // ========================================================
+  // 4. Processamento: Lista de Aniversariantes
+  // ========================================================
+  const birthdaysData: StudentsByClassroomReportItem[] = useMemo(() => {
+    const scope = getClassroomScope(pb.authStore.record as any)
+    const childItems: StudentsByClassroomReportItem[] = allChildren
+      .filter(
+        (c) =>
+          childInScope(scope, c.classroom) &&
+          (selectedClassroom === 'ALL' || c.classroom === selectedClassroom),
+      )
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        birth_date: c.birth_date,
+        classroom: c.classroom,
+        photo_url: c.photo_url,
+        active: c.active,
+        family_id: c.family_id,
+        familyName: c.expand?.family_id?.reference_name,
+        personKind: 'child' as const,
+      }))
+
+    const guardianItems: StudentsByClassroomReportItem[] = includeGuardians
+      ? allGuardians
+          .filter((g) => {
+            if (!g.birth_date) return false // sem data de nascimento: não entra
+            const famChildren = g.expand?.family_id?.children
+            return (
+              familyInScope(scope, famChildren) &&
+              (selectedClassroom === 'ALL' ||
+                (famChildren || []).some((c) => c.classroom === selectedClassroom))
+            )
+          })
+          .map((g) => ({
+            id: g.id,
+            name: g.name,
+            birth_date: g.birth_date || '',
+            classroom: 'D' as ClassroomId,
+            photo_url: g.photo_url,
+            active: true,
+            family_id: g.family_id,
+            familyName: g.expand?.family_id?.reference_name,
+            personKind: 'guardian' as const,
+          }))
+      : []
+
+    return [...childItems, ...guardianItems]
+  }, [allChildren, allGuardians, includeGuardians, selectedClassroom])
+
   // Dispara a impressão do navegador
   const handlePrint = () => {
     window.print()
@@ -457,6 +556,8 @@ export default function AttendanceReportsPage() {
     switch (reportCategory) {
       case 'students_birthday':
         return 'Relatório de Alunos por Sala com Data de Aniversário'
+      case 'birthdays_list':
+        return 'Lista de Aniversariantes'
       case 'student_sizes':
         return 'Relatório de Tamanhos para Calçado e Roupa dos Alunos'
       case 'deletion_logs':
@@ -504,6 +605,22 @@ export default function AttendanceReportsPage() {
             <span className="font-semibold text-slate-700">Turma / Sala: </span>
             <span className="text-slate-900 font-bold">{classroomLabel}</span>
           </div>
+          {reportCategory === 'birthdays_list' && (
+            <>
+              <div>
+                <span className="font-semibold text-slate-700">Mês: </span>
+                <span className="text-slate-900 font-bold">
+                  {birthdayMonth === 'ALL'
+                    ? 'Todos os Meses (Ano Completo)'
+                    : MONTH_NAMES.find((m) => m.value === birthdayMonth)?.label || birthdayMonth}
+                </span>
+              </div>
+              <div>
+                <span className="font-semibold text-slate-700">Inclui Responsáveis: </span>
+                <span className="text-slate-900 font-bold">{includeGuardians ? 'Sim' : 'Não'}</span>
+              </div>
+            </>
+          )}
           {reportCategory === 'attendance' && (
             <>
               <div>
@@ -613,6 +730,22 @@ export default function AttendanceReportsPage() {
           <span>Alunos por Sala (com Aniversário)</span>
         </Button>
 
+        {/* Relatório Lista de Aniversariantes */}
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => setReportCategory('birthdays_list')}
+          className={`text-xs h-9 font-semibold flex items-center gap-2 border transition-colors ${
+            reportCategory === 'birthdays_list'
+              ? 'bg-fuchsia-100/90 hover:bg-fuchsia-200/90 text-fuchsia-950 border-fuchsia-300 dark:bg-fuchsia-900/50 dark:hover:bg-fuchsia-900/70 dark:text-fuchsia-100 dark:border-fuchsia-700 shadow-xs ring-1 ring-fuchsia-400/40'
+              : 'bg-fuchsia-50/70 hover:bg-fuchsia-100/90 text-fuchsia-900 hover:text-fuchsia-950 border-fuchsia-200 hover:border-fuchsia-300 dark:bg-fuchsia-950/30 dark:hover:bg-fuchsia-950/50 dark:text-fuchsia-200 dark:border-fuchsia-800'
+          }`}
+        >
+          <CalendarDays className="h-4 w-4 text-fuchsia-600 dark:text-fuchsia-400" />
+          <span>Lista de Aniversariantes</span>
+        </Button>
+
         <Button
           type="button"
           size="sm"
@@ -679,7 +812,9 @@ export default function AttendanceReportsPage() {
                   ? 'Filtre pela turma/sala desejada ou veja todas as salas agrupadas com as datas de nascimento e aniversário.'
                   : reportCategory === 'natal_sacolinha'
                     ? 'Selecione o ano letivo para ver as entregas da sacolinha daquele ano.'
-                    : 'Selecione a turma/sala e filtre alunos com dados completos ou com informações faltantes de roupa e calçado.'}
+                    : reportCategory === 'birthdays_list'
+                      ? 'Escolha o mês do aniversário. Marque "Incluir responsáveis" para listar também os responsáveis (apenas os que têm data de nascimento).'
+                      : 'Selecione a turma/sala e filtre alunos com dados completos ou com informações faltantes de roupa e calçado.'}
             </CardDescription>
           </CardHeader>
 
@@ -893,6 +1028,54 @@ export default function AttendanceReportsPage() {
                   </SelectContent>
                 </Select>
               </div>
+            )}
+
+            {/* Filtros específicos da Lista de Aniversariantes */}
+            {reportCategory === 'birthdays_list' && (
+              <>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Mês do Aniversário
+                  </Label>
+                  <Select
+                    value={String(birthdayMonth)}
+                    onValueChange={(val) => setBirthdayMonth(val === 'ALL' ? 'ALL' : Number(val))}
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Selecione o mês" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL" className="text-xs font-bold text-fuchsia-700">
+                        Todos os Meses (Ano Completo)
+                      </SelectItem>
+                      {MONTH_NAMES_FULL.map((m) => (
+                        <SelectItem key={m.value} value={String(m.value)} className="text-xs">
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Incluir na Lista
+                  </Label>
+                  <div className="h-9 px-3 rounded-md border bg-slate-50 dark:bg-slate-900 flex items-center gap-2">
+                    <Checkbox
+                      id="birthdays-include-guardians-filter"
+                      checked={includeGuardians}
+                      onCheckedChange={(checked) => setIncludeGuardians(checked === true)}
+                    />
+                    <Label
+                      htmlFor="birthdays-include-guardians-filter"
+                      className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer"
+                    >
+                      Incluir responsáveis
+                    </Label>
+                  </div>
+                </div>
+              </>
             )}
 
             {/* Indicativo rápido para Aniversariantes */}
@@ -1491,6 +1674,22 @@ export default function AttendanceReportsPage() {
           searchQuery={searchQuery}
           missingFilter={sizeMissingFilter}
           onMissingFilterChange={setSizeMissingFilter}
+        />
+      )}
+
+      {/* --------------------------------------------------------
+          TIPO 3.5: LISTA DE ANIVERSARIANTES
+          -------------------------------------------------------- */}
+      {reportCategory === 'birthdays_list' && (
+        <BirthdaysListReport
+          students={birthdaysData}
+          selectedMonth={birthdayMonth}
+          onMonthChange={setBirthdayMonth}
+          includeGuardians={includeGuardians}
+          onIncludeGuardiansChange={setIncludeGuardians}
+          selectedClassroom={selectedClassroom}
+          classrooms={classrooms}
+          searchQuery={searchQuery}
         />
       )}
 

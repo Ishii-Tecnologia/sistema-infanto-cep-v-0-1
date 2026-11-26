@@ -2,40 +2,6 @@ import { ClientResponseError } from 'pocketbase'
 
 export type FieldErrors = Record<string, string>
 
-/**
- * Erro de sessão expirada (401): as telas usam para redirecionar ao login
- * ou mostrar aviso de sessão expirada em vez do erro bruto. Regressão
- * conhecida: esta exportação já desapareceu várias vezes quebrando o build
- * (usada por Families.tsx, Library.tsx, Settings.tsx, YearHolidaysPanel.tsx e
- * DidacticLibrary.tsx) — restaurá-la SEMPRE antes de commitar.
- */
-export function isAuthExpiredError(error: unknown): boolean {
-  return error instanceof ClientResponseError && error.status === 401
-}
-
-/**
- * Mensagem amigável para falhas de exclusão (família, lançamentos etc.):
- * traduz erros de restrição/relação do PocketBase para algo compreensível.
- */
-export function getFriendlyDeleteErrorMessage(error: unknown): string {
-  if (isAuthExpiredError(error)) {
-    return 'Sessão expirada. Faça login novamente para continuar.'
-  }
-  if (error instanceof ClientResponseError) {
-    if (error.status === 400) {
-      return 'Não foi possível concluir a exclusão: existem registros vinculados a este item.'
-    }
-    if (error.status === 403) {
-      return 'Você não tem permissão para excluir este registro.'
-    }
-    if (error.status === 404) {
-      return 'Este registro já não existe — ele pode ter sido removido por outro operador.'
-    }
-    return getErrorMessage(error)
-  }
-  return getErrorMessage(error)
-}
-
 export function extractFieldErrors(error: unknown): FieldErrors {
   if (!(error instanceof ClientResponseError)) return {}
   const data = error.response?.data
@@ -52,6 +18,37 @@ export function extractFieldErrors(error: unknown): FieldErrors {
     }
   }
   return errors
+}
+
+/**
+ * true quando o erro representa sessão expirada / não autenticado (HTTP 401).
+ * Regressão recorrente: esta exportação já foi removida várias vezes quebrando
+ * o build — NÃO removê-la (usada por Families.tsx, Library.tsx, Settings.tsx,
+ * YearHolidaysPanel.tsx, DidacticLibrary.tsx).
+ */
+export function isAuthExpiredError(error: unknown): boolean {
+  if (!(error instanceof ClientResponseError)) return false
+  return error.status === 401
+}
+
+/**
+ * Mensagem amigável para falha de exclusão em cascata, considerando o motivo
+ * devolvido pelo hook cascade_delete_family (403 = sem permissão de papel,
+ * 404 = família inexistente, 400/outras = mensagem genérica).
+ */
+export function getFriendlyDeleteErrorMessage(error: unknown): string {
+  if (isAuthExpiredError(error)) {
+    return 'Sua sessão expirou. Faça login novamente para concluir a exclusão.'
+  }
+  if (error instanceof ClientResponseError) {
+    if (error.status === 403) {
+      return 'Você não tem permissão para excluir registros. Solicite acesso a um administrador.'
+    }
+    if (error.status === 404) {
+      return 'O registro não foi encontrado — ele pode já ter sido excluído por outro usuário.'
+    }
+  }
+  return 'Não foi possível concluir a exclusão. Verifique sua conexão e tente novamente.'
 }
 
 export function getErrorMessage(error: unknown): string {

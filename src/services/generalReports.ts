@@ -72,6 +72,19 @@ export const generalReportsService = {
   },
 
   /**
+   * Lista TODOS os responsáveis (com família expandida) para a Lista de
+   * Aniversariantes — depois recortada pelo escopo de sala do operador.
+   */
+  async loadAllGuardians(): Promise<Guardian[]> {
+    const scope = getClassroomScope(pb.authStore.record as any)
+    if (scope === null) return []
+    return pb.collection('guardians').getFullList<Guardian>({
+      sort: 'name',
+      expand: 'family_id',
+    })
+  },
+
+  /**
    * Prepara os dados para o Relatório de Alunos por Sala (com aniversário)
    * Sala D (ou "Todas"): responsáveis marcados (participa_sala_aula) entram
    * junto das crianças da sala D. Salas A/B/C: somente crianças.
