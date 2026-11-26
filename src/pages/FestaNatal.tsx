@@ -34,8 +34,12 @@ export default function FestaNatalPage() {
   const loadFamilies = async () => {
     setLoading(true)
     try {
+      // Escopo forçado 'all': a Festa de Natal não aplica NENHUM filtro de
+      // sala/papel na lista — TODAS as famílias cadastradas aparecem para
+      // qualquer usuário autenticado (a regra de papéis controla apenas o
+      // lançamento da sacolinha, ver useFestaNatalAccess).
       const [familyList, entregas] = await Promise.all([
-        familyService.getAll(),
+        familyService.getAll('all'),
         natalEntregasService.listAll(),
       ])
       setFamilies(familyList)

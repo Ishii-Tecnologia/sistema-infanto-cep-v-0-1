@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-26T02:21:49.826Z",
+  "generatedAt": "2026-11-26T02:38:42.698Z",
   "collections": [
     {
       "name": "users",
@@ -114,8 +114,8 @@
       "name": "families",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role != 'professor' || children_via_family_id.classroom = @request.auth.assigned_classroom)",
-        "view": "@request.auth.id != '' && (@request.auth.role != 'professor' || children_via_family_id.classroom = @request.auth.assigned_classroom)",
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
         "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'professor' || @request.auth.role = 'auxiliar')",
         "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'professor' || @request.auth.role = 'auxiliar')",
         "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'professor' || @request.auth.role = 'auxiliar')"
@@ -178,8 +178,8 @@
       "name": "guardians",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role != 'professor' || family_id.children_via_family_id.classroom = @request.auth.assigned_classroom)",
-        "view": "@request.auth.id != '' && (@request.auth.role != 'professor' || family_id.children_via_family_id.classroom = @request.auth.assigned_classroom)",
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
         "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'professor' || @request.auth.role = 'auxiliar')",
         "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'professor' || @request.auth.role = 'auxiliar')",
         "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'professor' || @request.auth.role = 'auxiliar')"
@@ -261,8 +261,8 @@
       "name": "children",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role != 'professor' || classroom = @request.auth.assigned_classroom)",
-        "view": "@request.auth.id != '' && (@request.auth.role != 'professor' || classroom = @request.auth.assigned_classroom)",
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
         "create": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'professor' || @request.auth.role = 'auxiliar')",
         "update": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'professor' || @request.auth.role = 'auxiliar')",
         "delete": "@request.auth.id != '' && (@request.auth.role = 'admin' || @request.auth.role = 'dirigente' || @request.auth.role = 'professor' || @request.auth.role = 'auxiliar')"

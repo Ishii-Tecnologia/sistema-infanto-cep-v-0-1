@@ -49,12 +49,14 @@ const App = () => (
                 <Route path="/familias" element={<FamiliesPage />} />
               </Route>
 
-              {/* Festa de Natal (sacolinhas): mesmos papéis da busca de famílias */}
+              {/* Festa de Natal: todos os papéis autenticados (somente
+                  visualização); o lançamento da sacolinha é que fica restrito
+                  aos papéis autorizados nas Configurações. */}
               <Route
                 element={
                   <RoleRoute
-                    allowedRoles={['admin', 'dirigente', 'professor', 'auxiliar']}
-                    rolesDescription="Admin, Dirigente, Professor, Auxiliar"
+                    allowedRoles={['admin', 'dirigente', 'professor', 'auxiliar', 'bibliotecario']}
+                    rolesDescription="Admin, Dirigente, Professor, Auxiliar e Bibliotecário"
                   />
                 }
               >

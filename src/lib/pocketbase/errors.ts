@@ -1,40 +1,40 @@
 import { ClientResponseError } from 'pocketbase'
 
+export type FieldErrors = Record<string, string>
+
 /**
- * Indica erro de sessão expirada / não autenticado (401).
- * Usado por Families.tsx, Library.tsx, Settings.tsx e outros — NÃO remover.
+ * Erro de sessão expirada (401): as telas usam para redirecionar ao login
+ * ou mostrar aviso de sessão expirada em vez do erro bruto. Regressão
+ * conhecida: esta exportação já desapareceu várias vezes quebrando o build
+ * (usada por Families.tsx, Library.tsx, Settings.tsx, YearHolidaysPanel.tsx e
+ * DidacticLibrary.tsx) — restaurá-la SEMPRE antes de commitar.
  */
 export function isAuthExpiredError(error: unknown): boolean {
   return error instanceof ClientResponseError && error.status === 401
 }
 
 /**
- * Mensagem amigável para falhas de exclusão (ex.: registro ainda referenciado
- * por outro cadastro, 400 do PocketBase). Usada nos toasts de exclusão.
+ * Mensagem amigável para falhas de exclusão (família, lançamentos etc.):
+ * traduz erros de restrição/relação do PocketBase para algo compreensível.
  */
 export function getFriendlyDeleteErrorMessage(error: unknown): string {
-  if (!(error instanceof ClientResponseError)) {
-    return error instanceof Error
-      ? `Não foi possível excluir: ${error.message}`
-      : 'Não foi possível excluir o registro. Tente novamente.'
+  if (isAuthExpiredError(error)) {
+    return 'Sessão expirada. Faça login novamente para continuar.'
   }
-  if (error.status === 401) {
-    return 'Sua sessão expirou. Faça login novamente e tente excluir outra vez.'
+  if (error instanceof ClientResponseError) {
+    if (error.status === 400) {
+      return 'Não foi possível concluir a exclusão: existem registros vinculados a este item.'
+    }
+    if (error.status === 403) {
+      return 'Você não tem permissão para excluir este registro.'
+    }
+    if (error.status === 404) {
+      return 'Este registro já não existe — ele pode ter sido removido por outro operador.'
+    }
+    return getErrorMessage(error)
   }
-  if (error.status === 403) {
-    return 'Você não tem permissão para excluir este registro.'
-  }
-  const fieldMsgs = Object.values(extractFieldErrors(error)).join(' ')
-  if (fieldMsgs) {
-    return `Não foi possível excluir: ${fieldMsgs}`
-  }
-  if (error.status === 400) {
-    return 'Não foi possível excluir: este registro ainda está vinculado a outros cadastros (família, empréstimos ou lançamentos). Remova os vínculos primeiro.'
-  }
-  return error.message || 'Não foi possível excluir o registro. Tente novamente.'
+  return getErrorMessage(error)
 }
-
-export type FieldErrors = Record<string, string>
 
 export function extractFieldErrors(error: unknown): FieldErrors {
   if (!(error instanceof ClientResponseError)) return {}
