@@ -2,20 +2,6 @@ import { ClientResponseError } from 'pocketbase'
 
 export type FieldErrors = Record<string, string>
 
-/** true quando o erro é de sessão expirada/não autenticada (HTTP 401). */
-export function isAuthExpiredError(error: unknown): boolean {
-  return error instanceof ClientResponseError && error.status === 401
-}
-
-/** Mensagem amigável para falhas de exclusão (vínculos e sessão tratados à parte). */
-export function getFriendlyDeleteErrorMessage(error: unknown): string {
-  if (isAuthExpiredError(error)) return 'Sua sessão expirou. Entre novamente para excluir.'
-  if (error instanceof ClientResponseError && error.status === 403) {
-    return 'Você não tem permissão para excluir este registro.'
-  }
-  return getErrorMessage(error)
-}
-
 export function extractFieldErrors(error: unknown): FieldErrors {
   if (!(error instanceof ClientResponseError)) return {}
   const data = error.response?.data
@@ -40,4 +26,30 @@ export function getErrorMessage(error: unknown): string {
   }
   const msgs = Object.values(extractFieldErrors(error))
   return msgs.length > 0 ? msgs.join(' ') : error.message || 'An unexpected error occurred.'
+}
+
+/** true quando o erro é 401 / sessão expirada (ClientResponseError.status === 401). */
+export function isAuthExpiredError(error: unknown): boolean {
+  return error instanceof ClientResponseError && error.status === 401
+}
+
+/**
+ * Mensagem amigável para falhas de exclusão: distingue violação de
+ * restrição/relação (403/400 com "related") de outros erros.
+ */
+export function getFriendlyDeleteErrorMessage(error: unknown, entityLabel = 'registro'): string {
+  if (error instanceof ClientResponseError) {
+    const raw = `${error.message} ${JSON.stringify(error.response?.data ?? {})}`.toLowerCase()
+    if (error.status === 403 || raw.includes('related') || raw.includes('cascade')) {
+      return `Este ${entityLabel} possui registros vinculados e não pode ser excluído. Exclua primeiro os registros dependentes.`
+    }
+    if (error.status === 404) {
+      return `Este ${entityLabel} não foi encontrado — ele pode já ter sido excluído. Atualize a lista.`
+    }
+    if (isAuthExpiredError(error)) {
+      return 'Sua sessão expirou. Faça login novamente para continuar.'
+    }
+    return getErrorMessage(error)
+  }
+  return error instanceof Error ? error.message : `Não foi possível excluir o ${entityLabel}.`
 }

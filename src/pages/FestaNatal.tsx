@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Gift, Search, Users } from 'lucide-react'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { familyService } from '@/services/families'
@@ -10,6 +9,7 @@ import { familyMatchesSearch } from '@/lib/familySearch'
 import { formatPhoneBR } from '@/lib/phoneBR'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { VoiceTextInput } from '@/components/VoiceTextInput'
 import { NatalFamilyDialog } from '@/components/natal/NatalFamilyDialog'
 import natalTreeImg from '@/assets/image-80489.png'
 
@@ -71,13 +71,18 @@ export default function FestaNatalPage() {
             Busque a família e lance a entrega das sacolinhas de Natal.
           </p>
         </div>
+        {/* Mesmo padrão de voz dos campos de Famílias: VoiceTextInput
+            (useVoiceInput + VoiceMicButton, dedup v0.0.113). O modo 'replace'
+            troca o texto da busca pelo enunciado ditado. */}
         <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
+          <Search className="absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <VoiceTextInput
             placeholder="Buscar por nome da família, responsável ou aluno..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            voiceMode="replace"
             className="pl-9"
+            aria-label="Buscar por nome da família, responsável ou aluno"
             autoFocus
           />
         </div>
