@@ -137,6 +137,19 @@ export const MANUAL_MODULES: ManualModule[] = [
           'Ao clicar na foto ou avatar de qualquer criança ou responsável na listagem ou na ficha, a imagem se abre ampliada em tela cheia (lightbox) para conferência detalhada. O fechamento é feito exclusivamente pelo botão "X" no canto superior ou pressionando a tecla ESC, sem botão de download público, resguardando a privacidade da imagem dos menores.',
       },
       {
+        title: 'Checkbox "Cadastro Cesta Básica" na ficha, edição e wizard',
+        description:
+          'O checkbox "Cadastro Cesta Básica" identifica famílias atendidas pela campanha. Ele aparece em três lugares: na ficha de detalhes da família, no modal "Editar Informações" e no wizard de criação (Etapa 1). Fica VERDE quando marcado e cinza claro quando desmarcado, e a alteração é gravada imediatamente.',
+      },
+      {
+        title: 'Responsáveis da Sala D: checkbox "Participa da Sala de Aula da Família (Sala D)"',
+        description:
+          'No cadastro/edição do responsável (Etapa 2 do wizard) e no card do responsável na ficha de detalhes existe o checkbox "Participa da Sala de Aula da Família (Sala D)", verde quando marcado. Responsáveis marcados participam como alunos da Sala D: entram na lista de alunos da Sala D, na chamada de presença da Sala D (com presença registrável em seção própria "Responsáveis (Sala D)"), nos relatórios da Sala D e exibem o badge "Sala D" ao lado do nome na ficha de família.',
+        tips: [
+          'Esse recurso permite que a Sala D seja composta por responsáveis (adultos) além das crianças.',
+        ],
+      },
+      {
         title: 'Exclusão de Família com Exclusão em Cascata (Admin e Dirigente)',
         description:
           'Na ficha detalhada de cada família, operadores com papel Administrador ou Dirigente contam com o botão "Excluir Família". A ação exige confirmação em modal de segurança e executa a exclusão completa em cascata de todos os responsáveis, crianças matriculadas, históricos e vínculos associados àquela família.',
@@ -152,9 +165,19 @@ export const MANUAL_MODULES: ManualModule[] = [
           'O sistema calcula a idade que a criança completa até 01/03 do ano letivo configurado: Sala A (3 a 5 anos), Sala B (6 a 8 anos), Sala C (9 a 11 anos) e Sala D (12 a 14 anos). O evangelizador pode ajustar a sala manualmente caso haja recomendação pedagógica.',
       },
       {
+        question: 'Quem são os responsáveis da Sala D?',
+        answer:
+          'São os responsáveis cujo checkbox "Participa da Sala de Aula da Família (Sala D)" está marcado no cadastro. Eles entram na chamada de presença da Sala D junto com as crianças, recebem presença normalmente, aparecem nos relatórios da Sala D e ganham o badge "Sala D" ao lado do nome na ficha de família.',
+      },
+      {
         question: 'Por que o cadastro de família possui 4 etapas?',
         answer:
           'O fluxo em 4 etapas (Dados da Família, Responsáveis, Crianças e Revisão) garante conferência gradual e evita que cadastros incompletos sejam salvos, iniciando sempre com campos em branco e validações em tempo real.',
+      },
+      {
+        question: 'Por que algumas salas exibem "Acima de 18 anos" em vez de uma faixa de idades?',
+        answer:
+          'Quando a idade máxima configurada de uma sala é 99 (faixa aberta), os rótulos de faixa etária em todo o sistema exibem "Acima de <idade mínima> anos" (ex.: "Acima de 18 anos") em vez do formato mínimo a máximo.',
       },
     ],
   },
@@ -170,19 +193,22 @@ export const MANUAL_MODULES: ManualModule[] = [
       border: 'border-rose-200 dark:border-rose-800',
       accent: 'bg-rose-600',
     },
-    roles: ['admin', 'dirigente', 'professor', 'auxiliar'],
+    roles: ['admin', 'dirigente', 'professor', 'auxiliar', 'bibliotecario'],
     summary:
-      'Registro das entregas das sacolinhas de Natal no dia da festa: busca rápida da família, ficha com fotos, lançamento com dita por voz, foto do momento e histórico por família.',
+      'Registro das entregas das sacolinhas de Natal no dia da festa: busca rápida da família, ficha com fotos, lançamento com dita por voz, foto do momento e histórico por família. A página é aberta a TODOS os perfis logados (visão completa de todas as famílias); quem pode lançar a sacolinha depende da configuração em Configurações → aba "Regras e Parâmetros" → seção "Festa de Natal".',
     steps: [
       {
         title: 'Abrindo a tela de busca de famílias',
         description:
           'No menu principal, clique em "Festa de Natal". A tela "Festa de Natal — Buscar Família" abre diretamente, com o campo de busca já com o cursor piscando (foco automático) e as famílias exibidas em cartões, mostrando nome de referência, telefone, quantidade de crianças e os nomes dos responsáveis.',
+        tips: [
+          'A página vale para todos os papéis (incluindo Bibliotecário) e não aplica filtro de sala nem de papel: TODAS as famílias aparecem para qualquer operador logado.',
+        ],
       },
       {
-        title: 'Busca inteligente de família',
+        title: 'Busca inteligente de família (com ditado por voz)',
         description:
-          'Digite no campo de busca e a lista é filtrada na hora. A busca encontra a família pelo Nome de Referência, pelos nomes dos responsáveis ou pelos nomes das crianças. Ela ignora acentos e maiúsculas/minúsculas (ex.: "maria silva" encontra "Maria da Silva") e aceita nome completo ou parte do nome.',
+          'Digite no campo de busca e a lista é filtrada na hora. A busca encontra a família pelo Nome de Referência, pelos nomes dos responsáveis ou pelos nomes das crianças. Ela ignora acentos e maiúsculas/minúsculas (ex.: "maria silva" encontra "Maria da Silva") e aceita nome completo ou parte do nome. Ao lado do campo há um botão de microfone para DITAR o termo da busca em vez de digitar.',
         tips: [
           'Cada cartão mostra também o telefone da família para contato rápido no dia da festa.',
         ],
@@ -193,6 +219,11 @@ export const MANUAL_MODULES: ManualModule[] = [
           'Ao escolher uma família, abre a ficha com dois quadros lado a lado: "Responsáveis" (foto redonda, nome e parentesco, como Mãe, Pai, Avó — sem idade) e "Crianças" (foto redonda antes do nome e idade ao lado do nome, ex.: "João — 7 anos").',
       },
       {
+        title: 'Selo "Ok" de sacolinha entregue no cartão da família',
+        description:
+          'Na lista de famílias, o cartão da família que já possui lançamento de sacolinha gravado exibe o selo "Ok" com a árvore de Natal ao lado do nome da família, logo abaixo da contagem de crianças — assim é possível ver de longe quem já foi atendido na festa, sem precisar abrir a ficha.',
+      },
+      {
         title: 'Ampliação de fotos na ficha',
         description:
           'Clicar em qualquer foto — dos responsáveis, das crianças e também das fotos dos lançamentos — abre a imagem ampliada em um painel de visualização, com o nome da pessoa e uma descrição (parentesco, sala e idade ou data/hora do lançamento). O painel fecha pelo "x" no canto, clicando fora da imagem ou apertando a tecla ESC.',
@@ -200,8 +231,24 @@ export const MANUAL_MODULES: ManualModule[] = [
       {
         title: 'Lançando a sacolinha: "Lançar Sacolinha"',
         description:
-          'O botão rosa "Lançar Sacolinha" abre o formulário de registro. O campo "Quem está recebendo a sacolinha" já vem sugerido com o nome do primeiro responsável cadastrado da família — basta trocar se outra pessoa (por exemplo, uma criança ou outro responsável) estiver recebendo. Ao lado do campo há o ícone de microfone para DITAR o nome em vez de digitar, com o mesmo mecanismo de voz do cadastro de famílias (só um microfone ativo por vez no sistema).',
-        tips: ['A sugestão do responsável permanece até você alterar o campo manualmente.'],
+          'Para quem está autorizado, o botão rosa "Lançar Sacolinha" abre o formulário de registro. O campo "Quem está recebendo a sacolinha" já vem sugerido com o nome do primeiro responsável cadastrado da família — basta trocar se outra pessoa (por exemplo, uma criança ou outro responsável) estiver recebendo. Ao lado do campo há o ícone de microfone para DITAR o nome em vez de digitar, com o mesmo mecanismo de voz do cadastro de famílias (só um microfone ativo por vez no sistema).',
+        tips: [
+          'A sugestão do responsável permanece até você alterar o campo manualmente.',
+          'Se o seu papel não estiver autorizado, o botão "Lançar Sacolinha" NÃO aparece — veja o passo "Somente visualização" abaixo.',
+        ],
+      },
+      {
+        title: 'Onde se libera o lançamento: Configurações → Parâmetros → Festa de Natal',
+        description:
+          'O direito de lançar sacolinhas é definido pelo Administrador em Configurações → aba "Regras e Parâmetros" → seção "Festa de Natal". Lá, cada papel tem um checkbox: Administrador, Dirigente, Professor, Auxiliar e Bibliotecário. Checkbox marcado = o papel PODE lançar a sacolinha; desmarcado = o papel fica em somente visualização. O checkbox do Administrador é sempre liberado e travado marcado (não pode ser desmarcado). Cada alteração é gravada na hora, sem precisar salvar nada além disso.',
+      },
+      {
+        title: 'Papel não autorizado: somente visualização',
+        description:
+          'Quem não está autorizado continua acessando a Festa de Natal normalmente — vê todas as famílias, a busca, a ficha com fotos e o histórico de lançamentos —, mas com o aviso "Somente visualização — seu papel não tem permissão para lançar as sacolinhas da Festa de Natal". Nesse modo não existem o botão "Lançar Sacolinha" nem a opção de excluir lançamento.',
+        tips: [
+          'A visualização é sempre liberada: a restrição da configuração afeta apenas o LANÇAMENTO, nunca a consulta.',
+        ],
       },
       {
         title: 'Data, hora e foto do momento',
@@ -215,14 +262,6 @@ export const MANUAL_MODULES: ManualModule[] = [
         title: 'Histórico "Lançamentos desta família"',
         description:
           'Cada lançamento gravado aparece na ficha, na seção "Lançamentos desta família", mostrando a foto de quem recebeu, o nome, a data e a hora e o NOME DO OPERADOR que fez o registro — assim fica claro quem atendeu cada família na festa.',
-      },
-      {
-        title: 'Exclusão de lançamento (somente Administrador)',
-        description:
-          'Abaixo da data de cada lançamento existe o ícone de lixeira para corrigir um registro feito por engano. Ele aparece e funciona SOMENTE para o operador com perfil Administrador, pede confirmação antes de apagar (o lançamento é removido em definitivo) e os demais perfis nem visualizam o ícone. O próprio banco de dados também só aceita a exclusão de um administrador.',
-        tips: [
-          'Dirigentes, professores e auxiliares conseguem lançar e consultar, mas não excluir.',
-        ],
       },
       {
         title: 'Ao fechar a ficha, a busca atualiza',
@@ -245,6 +284,21 @@ export const MANUAL_MODULES: ManualModule[] = [
         question: 'Onde consulto todas as entregas do dia/ano?',
         answer:
           'No menu "Relatórios", na aba "Entregas da Sacolinha de Natal", com o resumo completo por família, responsável, quem pegou, data e hora.',
+      },
+      {
+        question: 'Como sei se a minha família já pegou a sacolinha, sem abrir a ficha?',
+        answer:
+          'O cartão da família na lista de busca mostra o selo "Ok" com a árvore de Natal ao lado do nome (abaixo da contagem de crianças) quando já existe lançamento gravado para ela.',
+      },
+      {
+        question: 'Onde o Administrador define quem pode lançar as sacolinhas?',
+        answer:
+          'Em Configurações → aba "Regras e Parâmetros" → seção "Festa de Natal". Cada papel (Administrador, Dirigente, Professor, Auxiliar e Bibliotecário) tem um checkbox: marcado, o papel pode lançar sacolinha; desmarcado, fica em somente visualização. O Administrador é sempre liberado (checkbox travado marcado) e a alteração é gravada na hora.',
+      },
+      {
+        question: 'Aparece "Somente visualização" para mim — o que isso significa?',
+        answer:
+          'Significa que o seu papel não está marcado na configuração da Festa de Natal. Você continua vendo todas as famílias, a busca e a ficha com fotos normalmente, mas não tem o botão "Lançar Sacolinha" nem a opção de excluir lançamento. Solicite ao Administrador que marque o seu papel na seção "Festa de Natal" das Configurações.',
       },
     ],
   },
@@ -287,6 +341,14 @@ export const MANUAL_MODULES: ManualModule[] = [
         title: 'Edição de Assunto na Lista de Sábados (#1 07/03/2026)',
         description:
           'Na Lista de Sábados Letivos, cada linha exibe o número sequencial e a data no formato brasileiro, por exemplo: "#1 07/03/2026", acompanhado do tema/assunto da aula. O botão "Editar Assunto" fica visível para Professores e Administradores para atualizar rapidamente o assunto do encontro.',
+      },
+      {
+        title: 'Modal "Definir Assunto da Aula" com Bloco Temático',
+        description:
+          'O modal "Definir Assunto da Aula" agora edita também o "Bloco Temático" do encontro (o campo do bloco aparece quando o sábado tem aula vinculada). Os textos de tema e de bloco temático são exibidos com as quebras de linha exatamente como digitados — nos mini-cards do calendário, no modal de detalhe do encontro e na tela "Visualizar Detalhes" —, permitindo organizar o conteúdo em várias linhas.',
+        tips: [
+          'Use as quebras de linha para separar tópicos do tema ou do bloco temático; o que você digita é o que aparece na tela.',
+        ],
       },
       {
         title: 'Itens de Evento Institucional (ex.: Bingo) sem Chamada',
@@ -371,6 +433,15 @@ export const MANUAL_MODULES: ManualModule[] = [
           'Lista nominal com agrupamento por sala (Salas A–D), data de nascimento completa no padrão brasileiro (dd/mm/aaaa), dia e mês de aniversário, cálculo de idade exata e destaque visual imediato para os aniversariantes do mês corrente.',
       },
       {
+        title: 'Lista de Aniversariantes (por mês)',
+        description:
+          'Acessada pelo botão fúcsia com ícone de calendário na barra de relatórios. O filtro "Mês do Aniversário" oferece os 12 meses e a opção "Todos os Meses (Ano Completo)". A lista mostra o nome completo, o DIA do aniversário em destaque, a data de nascimento, a sala e a família, ordenada pelo dia do mês.',
+        tips: [
+          'O checkbox "Incluir responsáveis" vem DESMARCADO por padrão: responsáveis só entram na lista se estiverem marcados E tiverem data de nascimento cadastrada.',
+          'A impressão/exportação usa o mecanismo padrão de relatórios, com cabeçalho e rodapé institucional, e todas as colunas são ordenáveis pelo cabeçalho clicável.',
+        ],
+      },
+      {
         title: 'Relatório de Tamanhos de Roupa e Calçado',
         description:
           'Exibe o tamanho de roupa e calçado de cada aluno por sala, com filtros rápidos por sala específica e destaque de alunos sem informação (filtro para exibir quem está sem roupa, sem calçado ou sem ambos), agilizando a arrecadação de uniformes e campanhas de final de ano.',
@@ -411,7 +482,7 @@ export const MANUAL_MODULES: ManualModule[] = [
       {
         title: 'Cores e Identidade Visual da Barra de Relatórios',
         description:
-          'A barra de seleção de categorias e botões de relatórios adota tons de cerceta/esmeralda institucionais harmonizados com o tema do sistema, com badges de contagem de registros e indicação clara de filtros ativos.',
+          'A barra de seleção de categorias e botões de relatórios adota tons de cerceta/esmeralda institucionais harmonizados com o tema do sistema, com badges de contagem de registros e indicação clara de filtros ativos. O botão "Lista de Aniversariantes" tem destaque próprio em fúcsia com ícone de calendário.',
       },
       {
         title: 'Relatório de Frequência das Chamadas e Assiduidade',
@@ -592,6 +663,11 @@ export const MANUAL_MODULES: ManualModule[] = [
         question: 'Onde encontro os Logs de Exclusão e a rotina de expurgo?',
         answer:
           'O relatório de Logs de Exclusão e a rotina de expurgo seguro ficam localizados no módulo de Relatórios (/relatorios), visíveis apenas quando o usuário logado possui perfil de Administrador.',
+      },
+      {
+        question: 'Onde configuro quem pode lançar as sacolinhas da Festa de Natal?',
+        answer:
+          'Em Configurações → aba "Parâmetros" → seção "Festa de Natal". Cada papel (Administrador, Dirigente, Professor, Auxiliar e Bibliotecário) tem um checkbox: marcado, o papel pode lançar sacolinha; desmarcado, fica em somente visualização. O Administrador é sempre liberado e a alteração é gravada na hora.',
       },
     ],
   },

@@ -20,35 +20,18 @@ export function extractFieldErrors(error: unknown): FieldErrors {
   return errors
 }
 
-/**
- * true quando o erro representa sessão expirada / não autenticado (HTTP 401).
- * Regressão recorrente: esta exportação já foi removida várias vezes quebrando
- * o build — NÃO removê-la (usada por Families.tsx, Library.tsx, Settings.tsx,
- * YearHolidaysPanel.tsx, DidacticLibrary.tsx).
- */
+/** true quando o erro é de sessão expirada / não autenticado (401). */
 export function isAuthExpiredError(error: unknown): boolean {
-  if (!(error instanceof ClientResponseError)) return false
-  return error.status === 401
+  return error instanceof ClientResponseError && error.status === 401
 }
 
-/**
- * Mensagem amigável para falha de exclusão em cascata, considerando o motivo
- * devolvido pelo hook cascade_delete_family (403 = sem permissão de papel,
- * 404 = família inexistente, 400/outras = mensagem genérica).
- */
+/** Mensagem amigável para falhas de exclusão (com tratamento de 401/sessão expirada). */
 export function getFriendlyDeleteErrorMessage(error: unknown): string {
   if (isAuthExpiredError(error)) {
     return 'Sua sessão expirou. Faça login novamente para concluir a exclusão.'
   }
-  if (error instanceof ClientResponseError) {
-    if (error.status === 403) {
-      return 'Você não tem permissão para excluir registros. Solicite acesso a um administrador.'
-    }
-    if (error.status === 404) {
-      return 'O registro não foi encontrado — ele pode já ter sido excluído por outro usuário.'
-    }
-  }
-  return 'Não foi possível concluir a exclusão. Verifique sua conexão e tente novamente.'
+  const msg = getErrorMessage(error)
+  return msg || 'Não foi possível concluir a exclusão. Tente novamente.'
 }
 
 export function getErrorMessage(error: unknown): string {
