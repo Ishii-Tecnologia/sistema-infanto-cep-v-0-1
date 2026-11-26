@@ -4,12 +4,14 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { familyService } from '@/services/families'
+import { natalEntregasService } from '@/services/natalEntregas'
 import { Family } from '@/types'
 import { familyMatchesSearch } from '@/lib/familySearch'
 import { formatPhoneBR } from '@/lib/phoneBR'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { NatalFamilyDialog } from '@/components/natal/NatalFamilyDialog'
+import natalTreeImg from '@/assets/image-80489.png'
 
 /**
  * Festa de Natal: a busca de famílias fica direto na página — sem etapa
@@ -22,11 +24,18 @@ export default function FestaNatalPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Family | null>(null)
+  /** IDs das famílias que já têm pelo menos um lançamento realizado (selo "Ok"). */
+  const [entregaFamilyIds, setEntregaFamilyIds] = useState<Set<string>>(new Set())
 
   const loadFamilies = async () => {
     setLoading(true)
     try {
-      setFamilies(await familyService.getAll())
+      const [familyList, entregas] = await Promise.all([
+        familyService.getAll(),
+        natalEntregasService.listAll(),
+      ])
+      setFamilies(familyList)
+      setEntregaFamilyIds(new Set(entregas.map((e) => e.family_id)))
     } catch (err) {
       toast({
         title: 'Sistema Infanto-CEP',
@@ -106,9 +115,25 @@ export default function FestaNatalPage() {
                       {formatPhoneBR(fam.primary_phone || '') || 'Sem telefone registrado'}
                     </CardDescription>
                   </div>
-                  <Badge variant="outline" className="text-xs shrink-0">
-                    {fam.children?.length || 0} criança(s)
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <Badge variant="outline" className="text-xs">
+                      {fam.children?.length || 0} criança(s)
+                    </Badge>
+                    {entregaFamilyIds.has(fam.id) && (
+                      <div className="flex items-center gap-1.5">
+                        <img
+                          src={natalTreeImg}
+                          alt=""
+                          width={40}
+                          height={40}
+                          className="h-10 w-10 object-contain shrink-0"
+                        />
+                        <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                          Ok
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">

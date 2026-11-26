@@ -2,6 +2,20 @@ import { ClientResponseError } from 'pocketbase'
 
 export type FieldErrors = Record<string, string>
 
+/** true quando o erro é de sessão expirada/não autenticada (HTTP 401). */
+export function isAuthExpiredError(error: unknown): boolean {
+  return error instanceof ClientResponseError && error.status === 401
+}
+
+/** Mensagem amigável para falhas de exclusão (vínculos e sessão tratados à parte). */
+export function getFriendlyDeleteErrorMessage(error: unknown): string {
+  if (isAuthExpiredError(error)) return 'Sua sessão expirou. Entre novamente para excluir.'
+  if (error instanceof ClientResponseError && error.status === 403) {
+    return 'Você não tem permissão para excluir este registro.'
+  }
+  return getErrorMessage(error)
+}
+
 export function extractFieldErrors(error: unknown): FieldErrors {
   if (!(error instanceof ClientResponseError)) return {}
   const data = error.response?.data
@@ -26,17 +40,4 @@ export function getErrorMessage(error: unknown): string {
   }
   const msgs = Object.values(extractFieldErrors(error))
   return msgs.length > 0 ? msgs.join(' ') : error.message || 'An unexpected error occurred.'
-}
-
-/** true quando a sessão expirou ou não está autorizada (HTTP 401). */
-export function isAuthExpiredError(error: unknown): boolean {
-  return error instanceof ClientResponseError && error.status === 401
-}
-
-/** Mensagem amigável para falhas ao excluir (ex.: sem permissão ou registro vinculado). */
-export function getFriendlyDeleteErrorMessage(error: unknown): string {
-  if (error instanceof ClientResponseError && error.status === 403) {
-    return 'Você não tem permissão para excluir este registro.'
-  }
-  return getErrorMessage(error)
 }
