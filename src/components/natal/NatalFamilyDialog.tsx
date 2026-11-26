@@ -19,6 +19,7 @@ import { natalEntregasService, formatNatalDateTime, NatalEntrega } from '@/servi
 import { photoDisplayUrl } from '@/services/photos'
 import { ImageLightbox } from '@/components/ImageLightbox'
 import { NatalLaunchDialog } from '@/components/natal/NatalLaunchDialog'
+import natalTreeImg from '@/assets/image-80489.png'
 
 interface NatalFamilyDialogProps {
   family: Family | null
@@ -222,6 +223,20 @@ export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
                     </div>
                   )
                 })}
+                {entregas.length > 0 && (
+                  <div className="flex items-center gap-2 pt-2">
+                    <img
+                      src={natalTreeImg}
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 object-contain shrink-0"
+                    />
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                      Ok
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
