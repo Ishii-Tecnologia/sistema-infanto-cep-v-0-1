@@ -113,8 +113,8 @@ export function NatalLaunchDialog({ family, onClose, onSaved }: NatalLaunchDialo
           <div role="alert" className="flex items-start gap-2 text-sm text-muted-foreground">
             <Lock className="h-4 w-4 mt-0.5 text-rose-600 shrink-0" />
             <p>
-              Seu papel não tem permissão para lançar as sacolinhas da Festa de Natal. Peça a um
-              Administrador ou Dirigente para liberar o acesso em Configurações.
+              Somente visualização — seu papel não tem permissão para lançar as sacolinhas da Festa
+              de Natal. Peça a um Administrador para liberar em Configurações.
             </p>
           </div>
         ) : (

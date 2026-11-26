@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Gift, Lock, Search, Users } from 'lucide-react'
+import { Gift, Eye, Search, Users } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { familyService } from '@/services/families'
@@ -17,7 +17,9 @@ import { useFestaNatalAccess } from '@/hooks/useFestaNatalAccess'
 /**
  * Festa de Natal: a busca de famílias fica direto na página — sem etapa
  * intermediária. Selecionar uma família abre a ficha de sacolinha; fechar
- * volta para a busca.
+ * volta para a busca. TODOS os usuários veem a lista (somente leitura); o
+ * LANÇAMENTO da sacolinha fica restrito aos papéis autorizados nas
+ * Configurações (admin sempre liberado) — ver useFestaNatalAccess.
  */
 export default function FestaNatalPage() {
   const { toast } = useToast()
@@ -27,7 +29,7 @@ export default function FestaNatalPage() {
   const [selected, setSelected] = useState<Family | null>(null)
   /** IDs das famílias que já têm pelo menos um lançamento realizado (selo "Ok"). */
   const [entregaFamilyIds, setEntregaFamilyIds] = useState<Set<string>>(new Set())
-  const { allowed: hasAccess, loading: accessLoading } = useFestaNatalAccess()
+  const { allowed: canLaunch, loading: accessLoading } = useFestaNatalAccess()
 
   const loadFamilies = async () => {
     setLoading(true)
@@ -61,27 +63,6 @@ export default function FestaNatalPage() {
     loadFamilies()
   }
 
-  if (accessLoading) {
-    return <p className="text-sm text-muted-foreground">Carregando...</p>
-  }
-
-  if (!hasAccess) {
-    return (
-      <Card className="max-w-lg mx-auto mt-6" role="alert">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Lock className="h-5 w-5 text-rose-600" />
-            Acesso negado
-          </CardTitle>
-          <CardDescription>
-            Seu papel não tem permissão para lançar as sacolinhas da Festa de Natal. Peça a um
-            Administrador ou Dirigente para liberar o acesso em Configurações.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    )
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
@@ -91,8 +72,14 @@ export default function FestaNatalPage() {
             Festa de Natal — Buscar Família
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Busque a família e lance a entrega das sacolinhas de Natal.
+            Busque a família e consulte as entregas das sacolinhas de Natal.
           </p>
+          {!accessLoading && !canLaunch && (
+            <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900">
+              <Eye className="h-3 w-3" aria-hidden="true" />
+              Somente visualização — lançamento restrito a papéis autorizados.
+            </p>
+          )}
         </div>
         {/* Mesmo padrão de voz dos campos de Famílias: VoiceTextInput
             (useVoiceInput + VoiceMicButton, dedup v0.0.113). O modo 'replace'
@@ -180,7 +167,11 @@ export default function FestaNatalPage() {
         </div>
       )}
 
-      <NatalFamilyDialog family={selected} onClose={handleCloseFamily} />
+      <NatalFamilyDialog
+        family={selected}
+        onClose={handleCloseFamily}
+        canLaunch={!accessLoading && canLaunch}
+      />
     </div>
   )
 }

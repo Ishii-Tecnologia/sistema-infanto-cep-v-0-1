@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Gift, Phone, Trash2 } from 'lucide-react'
+import { Eye, Gift, Phone, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,6 +23,8 @@ import { NatalLaunchDialog } from '@/components/natal/NatalLaunchDialog'
 interface NatalFamilyDialogProps {
   family: Family | null
   onClose: () => void
+  /** false => ficha em modo somente visualização (sem lançar/excluir). */
+  canLaunch?: boolean
 }
 
 /** Idade em texto completo a partir da data de nascimento (ISO ou yyyy-mm-dd); '' se não houver data. */
@@ -54,8 +56,14 @@ function ageLabelFromBirthDate(birthDate?: string): string {
  * botão de lançar. Cliques nas fotos de responsáveis abrem o mesmo lightbox
  * ampliado usado no cadastro de famílias (ImageLightbox), que funciona sobre
  * modal Radix (pointer-events-auto no root).
+ *
+ * Quando canLaunch é false, a ficha abre em modo somente visualização: o botão
+ * de lançar é substituído por um aviso discreto ("Somente visualização") e o
+ * botão de excluir lançamento também fica oculto. O NatalLaunchDialog mantém a
+ * própria guarda como defesa adicional — abrir o diálogo sem canLaunch nunca
+ * acontece por aqui.
  */
-export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
+export function NatalFamilyDialog({ family, onClose, canLaunch = true }: NatalFamilyDialogProps) {
   const { toast } = useToast()
   const [entregas, setEntregas] = useState<NatalEntrega[]>([])
   const [launchOpen, setLaunchOpen] = useState(false)
@@ -67,7 +75,8 @@ export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
   const [entregaToDelete, setEntregaToDelete] = useState<NatalEntrega | null>(null)
   const [deleting, setDeleting] = useState(false)
   const { hasRole } = useAuth()
-  const canDeleteEntrega = hasRole(['admin'])
+  // Excluir lançamento: só admin autorizado (some no modo somente visualização).
+  const canDeleteEntrega = canLaunch && hasRole(['admin'])
   const familyId = family?.id
 
   /** Exclui o lançamento confirmado e remove a linha da lista local. */
@@ -226,19 +235,32 @@ export function NatalFamilyDialog({ family, onClose }: NatalFamilyDialogProps) {
             </div>
 
             <div className="pt-2">
-              <Button
-                onClick={() => setLaunchOpen(true)}
-                className="bg-rose-600 hover:bg-rose-700 text-white"
-              >
-                <Gift className="h-4 w-4 mr-2" />
-                Lançar Sacolinha
-              </Button>
+              {canLaunch ? (
+                <Button
+                  onClick={() => setLaunchOpen(true)}
+                  className="bg-rose-600 hover:bg-rose-700 text-white"
+                >
+                  <Gift className="h-4 w-4 mr-2" />
+                  Lançar Sacolinha
+                </Button>
+              ) : (
+                <p className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900">
+                  <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                  Somente visualização
+                </p>
+              )}
             </div>
 
             <div className="space-y-2 pt-2">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase">
                 Lançamentos desta família
               </p>
+              {!canLaunch && (
+                <p className="mb-2 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                  <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  Somente visualização — seu papel não tem permissão para lançar sacolinhas.
+                </p>
+              )}
               {entregas.length === 0 && (
                 <p className="text-xs text-muted-foreground">Nenhuma sacolinha lançada ainda.</p>
               )}
