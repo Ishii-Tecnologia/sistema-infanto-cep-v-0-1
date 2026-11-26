@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Camera, Image as ImageIcon, Gift } from 'lucide-react'
+import { Camera, Image as ImageIcon, Gift, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,6 +16,7 @@ import { Family } from '@/types'
 import { natalEntregasService, formatNatalDateTime } from '@/services/natalEntregas'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { useFestaNatalAccess } from '@/hooks/useFestaNatalAccess'
 
 interface NatalLaunchDialogProps {
   family: Family
@@ -39,6 +40,9 @@ export function NatalLaunchDialog({ family, onClose, onSaved }: NatalLaunchDialo
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState('')
   const [saving, setSaving] = useState(false)
+  // Mesma regra da página: só papéis liberados (ou Administrador) lançam
+  const { allowed, loading: accessLoading } = useFestaNatalAccess()
+  const blocked = !accessLoading && !allowed
 
   // Sugestão do primeiro responsável enquanto o usuário não editar o campo
   useEffect(() => {
@@ -63,6 +67,7 @@ export function NatalLaunchDialog({ family, onClose, onSaved }: NatalLaunchDialo
   }
 
   const handleSave = async () => {
+    if (!allowed) return
     const name = personName.trim()
     if (!name) {
       toast({
@@ -104,73 +109,83 @@ export function NatalLaunchDialog({ family, onClose, onSaved }: NatalLaunchDialo
           <DialogDescription>Família: {family.reference_name}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="natal-person">Quem está recebendo a sacolinha</Label>
-            <VoiceTextInput
-              id="natal-person"
-              value={personName}
-              onChange={(e) => {
-                setNameTouched(true)
-                setPersonName(e.target.value)
-              }}
-              placeholder="Nome de quem recebe"
-            />
+        {blocked ? (
+          <div role="alert" className="flex items-start gap-2 text-sm text-muted-foreground">
+            <Lock className="h-4 w-4 mt-0.5 text-rose-600 shrink-0" />
+            <p>
+              Seu papel não tem permissão para lançar as sacolinhas da Festa de Natal. Peça a um
+              Administrador ou Dirigente para liberar o acesso em Configurações.
+            </p>
           </div>
-
-          <div className="space-y-1.5">
-            <Label>Data e hora</Label>
-            <Input value={formatNatalDateTime(openedAt)} readOnly />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Foto</Label>
-            {photoPreview ? (
-              <img
-                src={photoPreview}
-                alt="Pré-visualização da foto"
-                className="w-full max-h-64 object-contain rounded-md border bg-slate-50"
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="natal-person">Quem está recebendo a sacolinha</Label>
+              <VoiceTextInput
+                id="natal-person"
+                value={personName}
+                onChange={(e) => {
+                  setNameTouched(true)
+                  setPersonName(e.target.value)
+                }}
+                placeholder="Nome de quem recebe"
               />
-            ) : (
-              <p className="text-xs text-muted-foreground">Nenhuma foto selecionada.</p>
-            )}
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => cameraRef.current?.click()}
-                aria-label="Tirar foto com a câmera"
-              >
-                <Camera className="h-4 w-4 mr-2" />
-                Tirar foto
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => galleryRef.current?.click()}
-                aria-label="Escolher foto da galeria"
-              >
-                <ImageIcon className="h-4 w-4 mr-2" />
-                Galeria
-              </Button>
             </div>
-            <input
-              ref={cameraRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handlePhoto}
-            />
-            <input
-              ref={galleryRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhoto}
-            />
+
+            <div className="space-y-1.5">
+              <Label>Data e hora</Label>
+              <Input value={formatNatalDateTime(openedAt)} readOnly />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Foto</Label>
+              {photoPreview ? (
+                <img
+                  src={photoPreview}
+                  alt="Pré-visualização da foto"
+                  className="w-full max-h-64 object-contain rounded-md border bg-slate-50"
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground">Nenhuma foto selecionada.</p>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => cameraRef.current?.click()}
+                  aria-label="Tirar foto com a câmera"
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  Tirar foto
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => galleryRef.current?.click()}
+                  aria-label="Escolher foto da galeria"
+                >
+                  <ImageIcon className="h-4 w-4 mr-2" />
+                  Galeria
+                </Button>
+              </div>
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handlePhoto}
+              />
+              <input
+                ref={galleryRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhoto}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>
@@ -178,7 +193,7 @@ export function NatalLaunchDialog({ family, onClose, onSaved }: NatalLaunchDialo
           </Button>
           <Button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || accessLoading || !allowed}
             className="bg-rose-600 hover:bg-rose-700 text-white"
           >
             {saving ? 'Salvando...' : 'Salvar lançamento'}

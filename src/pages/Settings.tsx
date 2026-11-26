@@ -27,6 +27,7 @@ import {
 import { KeyRound, UserPlus, BookOpen, Coins, Trash2, AlertTriangle, Sliders } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ChangePasswordDialog } from '@/components/ChangePasswordDialog'
+import { FestaNatalAccessSettings } from '@/components/natal/FestaNatalAccessSettings'
 
 import { useAcademic } from '@/contexts/AcademicContext'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
@@ -615,6 +616,11 @@ export default function SettingsPage() {
         {/* ABA 2: REGRAS E PARÂMETROS */}
         <TabsContent value="parametros" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Acesso à Festa de Natal (lançamento das sacolinhas) */}
+            <div className="md:col-span-2">
+              <FestaNatalAccessSettings />
+            </div>
+
             {/* Parâmetros da Biblioteca */}
             <Card>
               <CardHeader>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Gift, Search, Users } from 'lucide-react'
+import { Gift, Lock, Search, Users } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { familyService } from '@/services/families'
@@ -12,6 +12,7 @@ import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { VoiceTextInput } from '@/components/VoiceTextInput'
 import { NatalFamilyDialog } from '@/components/natal/NatalFamilyDialog'
 import natalTreeImg from '@/assets/image-80489.png'
+import { useFestaNatalAccess } from '@/hooks/useFestaNatalAccess'
 
 /**
  * Festa de Natal: a busca de famílias fica direto na página — sem etapa
@@ -26,6 +27,7 @@ export default function FestaNatalPage() {
   const [selected, setSelected] = useState<Family | null>(null)
   /** IDs das famílias que já têm pelo menos um lançamento realizado (selo "Ok"). */
   const [entregaFamilyIds, setEntregaFamilyIds] = useState<Set<string>>(new Set())
+  const { allowed: hasAccess, loading: accessLoading } = useFestaNatalAccess()
 
   const loadFamilies = async () => {
     setLoading(true)
@@ -57,6 +59,27 @@ export default function FestaNatalPage() {
   const handleCloseFamily = () => {
     setSelected(null)
     loadFamilies()
+  }
+
+  if (accessLoading) {
+    return <p className="text-sm text-muted-foreground">Carregando...</p>
+  }
+
+  if (!hasAccess) {
+    return (
+      <Card className="max-w-lg mx-auto mt-6" role="alert">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Lock className="h-5 w-5 text-rose-600" />
+            Acesso negado
+          </CardTitle>
+          <CardDescription>
+            Seu papel não tem permissão para lançar as sacolinhas da Festa de Natal. Peça a um
+            Administrador ou Dirigente para liberar o acesso em Configurações.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    )
   }
 
   return (
